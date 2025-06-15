@@ -1,11 +1,25 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { DatabaseModule } from './database/database.module';
 
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-
+/**
+ * Módulo principal da aplicação RPE
+ * Integra todos os módulos e configurações globais
+ */
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    // Configuração global para carregar variáveis de ambiente
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    
+    // Módulo do banco de dados (com configuração TypeORM)
+    DatabaseModule,
+    
+    // Módulo de autenticação
+    AuthModule,
+  ],
 })
 export class AppModule {}
