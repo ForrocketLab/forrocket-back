@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
+import { EvaluationsModule } from './evaluations/evaluations.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -20,6 +21,9 @@ import { DatabaseModule } from './database/database.module';
     
     // Módulo de autenticação
     AuthModule,
+    
+    // Módulo de avaliações
+    EvaluationsModule,
   ],
 })
 export class AppModule {}

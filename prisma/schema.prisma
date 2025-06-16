@@ -43,5 +43,124 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // ==========================================
+  // RELACIONAMENTOS COM AVALIAÇÕES
+  // ==========================================
+  // Autoavaliações criadas pelo usuário
+  selfAssessments SelfAssessment[]
+
+  // Avaliações 360 criadas pelo usuário (como avaliador)
+  assessments360Created Assessment360[] @relation("Assessment360Author")
+  
+  // Avaliações 360 recebidas pelo usuário (como avaliado)
+  assessments360Received Assessment360[] @relation("Assessment360Evaluated")
+
+  // Avaliações de mentoring criadas pelo usuário (como mentorado)
+  mentoringAssessmentsCreated MentoringAssessment[] @relation("MentoringAssessmentAuthor")
+  
+  // Avaliações de mentoring recebidas pelo usuário (como mentor)
+  mentoringAssessmentsReceived MentoringAssessment[] @relation("MentoringAssessmentMentor")
+
+  // Feedbacks de referência criados pelo usuário (como autor)
+  referenceFeedbacksCreated ReferenceFeedback[] @relation("ReferenceFeedbackAuthor")
+  
+  // Feedbacks de referência recebidos pelo usuário (como referenciado)
+  referenceFeedbacksReceived ReferenceFeedback[] @relation("ReferenceFeedbackReferenced")
+
   @@map("users")
+}
+
+// ==========================================
+// TABELAS DE AVALIAÇÕES
+// ==========================================
+
+model SelfAssessment {
+  id          String   @id @default(cuid())
+  cycle       String   // Ciclo de avaliação (ex: "2025.1")
+  authorId    String   // ID do usuário que criou a autoavaliação
+  status      String   @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  submittedAt DateTime?
+
+  // Relacionamentos
+  author  User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  answers SelfAssessmentAnswer[]
+
+  @@unique([authorId, cycle]) // Um usuário só pode ter uma autoavaliação por ciclo
+  @@map("self_assessments")
+}
+
+model SelfAssessmentAnswer {
+  id               String @id @default(cuid())
+  selfAssessmentId String
+  criterionId      String // ID do critério (ex: "sentimento-de-dono")
+  score            Int    // Nota de 1 a 5
+  justification    String // Justificativa textual
+
+  // Relacionamentos
+  selfAssessment SelfAssessment @relation(fields: [selfAssessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([selfAssessmentId, criterionId]) // Uma resposta por critério por autoavaliação
+  @@map("self_assessment_answers")
+}
+
+model Assessment360 {
+  id               String   @id @default(cuid())
+  cycle            String   // Ciclo de avaliação
+  authorId         String   // ID do usuário que criou a avaliação
+  evaluatedUserId  String   // ID do usuário sendo avaliado
+  overallScore     Int      // Nota geral de 1 a 5
+  strengths        String   // Pontos fortes
+  improvements     String   // Pontos de melhoria
+  status           String   @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  submittedAt      DateTime?
+
+  // Relacionamentos
+  author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
+  evaluatedUser User @relation("Assessment360Evaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, evaluatedUserId, cycle]) // Um usuário só pode avaliar outro uma vez por ciclo
+  @@map("assessments_360")
+}
+
+model MentoringAssessment {
+  id            String   @id @default(cuid())
+  cycle         String   // Ciclo de avaliação
+  authorId      String   // ID do mentorado que criou a avaliação
+  mentorId      String   // ID do mentor sendo avaliado
+  score         Int      // Nota de 1 a 5
+  justification String   // Justificativa da avaliação
+  status        String   @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  submittedAt   DateTime?
+
+  // Relacionamentos
+  author User @relation("MentoringAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  mentor User @relation("MentoringAssessmentMentor", fields: [mentorId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, mentorId, cycle]) // Um mentorado só pode avaliar um mentor uma vez por ciclo
+  @@map("mentoring_assessments")
+}
+
+model ReferenceFeedback {
+  id                String   @id @default(cuid())
+  cycle             String   // Ciclo de avaliação
+  authorId          String   // ID do usuário que criou o feedback
+  referencedUserId  String   // ID do usuário sendo referenciado
+  justification     String   // Feedback textual
+  status            String   @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  submittedAt       DateTime?
+
+  // Relacionamentos
+  author         User @relation("ReferenceFeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  referencedUser User @relation("ReferenceFeedbackReferenced", fields: [referencedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, referencedUserId, cycle]) // Um usuário só pode referenciar outro uma vez por ciclo
+  @@map("reference_feedbacks")
 }
