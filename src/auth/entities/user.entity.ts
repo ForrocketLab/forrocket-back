@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * Entidade User para representar usuários no sistema
+ * Entidade User para representar usuários no sistema RPE
+ * Baseada na interface IUser com todos os campos necessários
  */
 export class User {
   @ApiProperty({
@@ -29,6 +30,69 @@ export class User {
     example: ['colaborador', 'gestor']
   })
   roles: string[];
+
+  // ==========================================
+  // DADOS DE ESTRUTURA ORGANIZACIONAL
+  // ==========================================
+
+  @ApiProperty({
+    description: 'Cargo/Posição do colaborador',
+    example: 'Desenvolvedora Frontend'
+  })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Nível de senioridade',
+    example: 'Pleno'
+  })
+  seniority: string;
+
+  @ApiProperty({
+    description: 'Trilha de carreira',
+    example: 'Tech'
+  })
+  careerTrack: string;
+
+  @ApiProperty({
+    description: 'Unidade de negócio',
+    example: 'Digital Products'
+  })
+  businessUnit: string;
+
+  // ==========================================
+  // DADOS DE ALOCAÇÃO E RELACIONAMENTO
+  // ==========================================
+
+  @ApiProperty({
+    description: 'Projetos em que o usuário está alocado',
+    example: ['projeto-app-mobile', 'projeto-dashboard']
+  })
+  projects: string[];
+
+  @ApiProperty({
+    description: 'ID do gestor direto',
+    example: 'gestor-id-123',
+    required: false
+  })
+  managerId?: string;
+
+  @ApiProperty({
+    description: 'IDs dos liderados diretos (apenas para gestores)',
+    example: ['liderado-1', 'liderado-2'],
+    required: false
+  })
+  directReports?: string[];
+
+  @ApiProperty({
+    description: 'ID do mentor designado',
+    example: 'mentor-id-123',
+    required: false
+  })
+  mentorId?: string;
+
+  // ==========================================
+  // METADADOS DE CONTROLE
+  // ==========================================
 
   @ApiProperty({
     description: 'Indica se o usuário está ativo',

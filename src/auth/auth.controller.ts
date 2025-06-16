@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Post,
@@ -19,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, LoginResponseDto, ErrorResponseDto } from './dto/login.dto';
-import { UserInfoDto } from './dto/user.dto';
+import { UserInfoDto, UserProfileDto } from './dto/user.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { Public } from './public.decorator';
@@ -30,7 +29,7 @@ import { User } from './entities/user.entity';
  * Gerencia as rotas relacionadas ao login, autenticação e perfil de usuários
  */
 @ApiTags('Autenticação')
-@ApiExtraModels(LoginDto, LoginResponseDto, UserInfoDto, ErrorResponseDto)
+@ApiExtraModels(LoginDto, LoginResponseDto, UserInfoDto, UserProfileDto, ErrorResponseDto)
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -49,10 +48,30 @@ export class AuthController {
       Autentica um usuário e retorna um token JWT válido por 8 horas.
       O token contém informações do usuário incluindo seus papéis (roles) no sistema.
       
-      **Usuários disponíveis para teste:**
-      - **Colaborador:** ana.oliveira@rocketcorp.com (password123)
-      - **Gestor:** bruno.mendes@rocketcorp.com (password123)
-      - **Comitê:** carla.dias@rocketcorp.com (password123)
+      **👥 Usuários disponíveis para teste:**
+      
+      **📧 ana.oliveira@rocketcorp.com** - Senha: password123
+      • 👤 Ana Oliveira | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | 🏢 Tech/Digital Products
+      
+      **📧 bruno.mendes@rocketcorp.com** - Senha: password123  
+      • 👤 Bruno Mendes | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | 🏢 Tech/Digital Products
+      
+      **📧 carla.dias@rocketcorp.com** - Senha: password123
+      • 👤 Carla Dias | 🎯 Comitê + Colaboradora | 💼 Head of Engineering Principal | 🏢 Tech/Digital Products
+      
+      **📧 diana.costa@rocketcorp.com** - Senha: password123
+      • 👤 Diana Costa | 🎯 RH + Colaboradora | 💼 People & Culture Manager Sênior | 🏢 Business/Operations
+      
+      **📧 felipe.silva@rocketcorp.com** - Senha: password123
+      • 👤 Felipe Silva | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | 🏢 Tech/Digital Products
+      
+      **📧 eduardo.tech@rocketcorp.com** - Senha: password123
+      • 👤 Eduardo Tech | 🎯 Admin | 💼 DevOps Engineer Sênior | 🏢 Tech/Operations
+      
+      **🏢 Estrutura Organizacional:**
+      👑 Carla Dias (Head) → Bruno Mendes (Tech Lead) → Ana Oliveira & Felipe Silva
+      👑 Carla Dias (Head) → Diana Costa (RH)
+      🔧 Eduardo Tech (Admin - Independente)
     `,
   })
   @ApiBody({
@@ -61,7 +80,7 @@ export class AuthController {
     examples: {
       colaborador: {
         summary: 'Login como Colaborador',
-        description: 'Ana Oliveira - Colaborador comum',
+        description: 'Ana Oliveira - Desenvolvedora Frontend Pleno',
         value: {
           email: 'ana.oliveira@rocketcorp.com',
           password: 'password123'
@@ -69,7 +88,7 @@ export class AuthController {
       },
       gestor: {
         summary: 'Login como Gestor',
-        description: 'Bruno Mendes - Gestor (também é colaborador)',
+        description: 'Bruno Mendes - Tech Lead Sênior (Gestor + Colaborador)',
         value: {
           email: 'bruno.mendes@rocketcorp.com',
           password: 'password123'
@@ -77,9 +96,33 @@ export class AuthController {
       },
       comite: {
         summary: 'Login como Comitê',
-        description: 'Carla Dias - Membro do comitê (também é colaborador)',
+        description: 'Carla Dias - Head of Engineering Principal (Comitê + Colaborador)',
         value: {
           email: 'carla.dias@rocketcorp.com',
+          password: 'password123'
+        }
+      },
+      rh: {
+        summary: 'Login como RH',
+        description: 'Diana Costa - People & Culture Manager Sênior (RH + Colaborador)',
+        value: {
+          email: 'diana.costa@rocketcorp.com',
+          password: 'password123'
+        }
+      },
+      colaborador_junior: {
+        summary: 'Login como Colaborador Júnior',
+        description: 'Felipe Silva - Desenvolvedor Backend Júnior',
+        value: {
+          email: 'felipe.silva@rocketcorp.com',
+          password: 'password123'
+        }
+      },
+      admin: {
+        summary: 'Login como Admin',
+        description: 'Eduardo Tech - DevOps Engineer Sênior (Admin)',
+        value: {
+          email: 'eduardo.tech@rocketcorp.com',
           password: 'password123'
         }
       }
@@ -89,13 +132,42 @@ export class AuthController {
     status: 200,
     description: 'Login realizado com sucesso',
     type: LoginResponseDto,
-    example: {
-      token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTY3OC05MGFiLWNkZWYtMTIzNC01Njc4OTBhYmNkZWYiLCJuYW1lIjoiQW5hIE9saXZlaXJhIiwiZW1haWwiOiJhbmEub2xpdmVpcmFAcm9ja2V0Y29ycC5jb20iLCJyb2xlcyI6WyJjb2xhYm9yYWRvciJdLCJpYXQiOjE2MzQ1Njc4OTAsImV4cCI6MTYzNDU5NjY5MH0...',
-      user: {
-        id: '12345678-90ab-cdef-1234-567890abcdef',
-        name: 'Ana Oliveira',
-        email: 'ana.oliveira@rocketcorp.com',
-        roles: ['colaborador']
+    examples: {
+      colaborador: {
+        summary: 'Resposta - Colaborador',
+        value: {
+          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmQwMDAwdHpzZ281NTgxMnFvIiwibmFtZSI6IkFuYSBPbGl2ZWlyYSIsImVtYWlsIjoiYW5hLm9saXZlaXJhQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiXX0...',
+          user: {
+            id: 'cmbyavwvd0000tzsgo55812qo',
+            name: 'Ana Oliveira',
+            email: 'ana.oliveira@rocketcorp.com',
+            roles: ['colaborador']
+          }
+        }
+      },
+      gestor: {
+        summary: 'Resposta - Gestor',
+        value: {
+          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmgwMDAxdHpzZzVvd2Z4d2JxIiwibmFtZSI6IkJydW5vIE1lbmRlcyIsImVtYWlsIjoiYnJ1bm8ubWVuZGVzQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiLCJnZXN0b3IiXX0...',
+          user: {
+            id: 'cmbyavwvh0001tzsg5owfxwbq',
+            name: 'Bruno Mendes',
+            email: 'bruno.mendes@rocketcorp.com',
+            roles: ['colaborador', 'gestor']
+          }
+        }
+      },
+      admin: {
+        summary: 'Resposta - Admin',
+        value: {
+          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dm4wMDA1dHpzZ3h5ejEyM2FiYyIsIm5hbWUiOiJFZHVhcmRvIFRlY2giLCJlbWFpbCI6ImVkdWFyZG8udGVjaEByb2NrZXRjb3JwLmNvbSIsInJvbGVzIjpbImFkbWluIl19...',
+          user: {
+            id: 'cmbyavwvn0005tzsgxyz123abc',
+            name: 'Eduardo Tech',
+            email: 'eduardo.tech@rocketcorp.com',
+            roles: ['admin']
+          }
+        }
       }
     }
   })
@@ -145,18 +217,76 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('bearer')
   @ApiOperation({
-    summary: 'Obter perfil do usuário autenticado',
-    description: 'Retorna as informações do perfil do usuário atualmente autenticado baseado no token JWT.',
+    summary: 'Obter perfil completo do usuário autenticado',
+    description: `
+      Retorna as informações completas do perfil do usuário atualmente autenticado baseado no token JWT.
+      Inclui dados organizacionais, relacionamentos hierárquicos e informações de projetos.
+    `,
   })
   @ApiResponse({
     status: 200,
     description: 'Perfil do usuário retornado com sucesso',
-    type: UserInfoDto,
-    example: {
-      id: '12345678-90ab-cdef-1234-567890abcdef',
-      name: 'Ana Oliveira',
-      email: 'ana.oliveira@rocketcorp.com',
-      roles: ['colaborador']
+    type: UserProfileDto,
+    examples: {
+      colaborador: {
+        summary: 'Perfil - Colaborador',
+        value: {
+          id: 'cmbyavwvd0000tzsgo55812qo',
+          name: 'Ana Oliveira',
+          email: 'ana.oliveira@rocketcorp.com',
+          roles: ['colaborador'],
+          jobTitle: 'Desenvolvedora Frontend',
+          seniority: 'Pleno',
+          careerTrack: 'Tech',
+          businessUnit: 'Digital Products',
+          projects: ['app-mobile', 'dashboard'],
+          managerId: 'cmbyavwvh0001tzsg5owfxwbq',
+          managerName: 'Bruno Mendes',
+          mentorId: 'cmbyavwvk0002tzsgi5r3edy5',
+          mentorName: 'Carla Dias',
+          isActive: true,
+          createdAt: '2024-01-15T10:00:00.000Z',
+          updatedAt: '2024-01-15T10:00:00.000Z'
+        }
+      },
+      gestor: {
+        summary: 'Perfil - Gestor',
+        value: {
+          id: 'cmbyavwvh0001tzsg5owfxwbq',
+          name: 'Bruno Mendes',
+          email: 'bruno.mendes@rocketcorp.com',
+          roles: ['colaborador', 'gestor'],
+          jobTitle: 'Tech Lead',
+          seniority: 'Sênior',
+          careerTrack: 'Tech',
+          businessUnit: 'Digital Products',
+          projects: ['api-core', 'arquitetura'],
+          managerId: 'cmbyavwvk0002tzsgi5r3edy5',
+          managerName: 'Carla Dias',
+          directReports: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
+          directReportsNames: ['Ana Oliveira', 'Felipe Silva'],
+          isActive: true,
+          createdAt: '2024-01-15T10:00:00.000Z',
+          updatedAt: '2024-01-15T10:00:00.000Z'
+        }
+      },
+      admin: {
+        summary: 'Perfil - Admin',
+        value: {
+          id: 'cmbyavwvn0005tzsgxyz123abc',
+          name: 'Eduardo Tech',
+          email: 'eduardo.tech@rocketcorp.com',
+          roles: ['admin'],
+          jobTitle: 'DevOps Engineer',
+          seniority: 'Sênior',
+          careerTrack: 'Tech',
+          businessUnit: 'Operations',
+          projects: ['infraestrutura', 'ci-cd'],
+          isActive: true,
+          createdAt: '2024-01-15T10:00:00.000Z',
+          updatedAt: '2024-01-15T10:00:00.000Z'
+        }
+      }
     }
   })
   @ApiResponse({
@@ -169,12 +299,24 @@ export class AuthController {
       error: 'Unauthorized'
     }
   })
-  async getProfile(@CurrentUser() user: User): Promise<UserInfoDto> {
+  async getProfile(@CurrentUser() user: User): Promise<UserProfileDto> {
+    // Retorna o perfil completo do usuário
     return {
       id: user.id,
       name: user.name,
       email: user.email,
-      roles: user.roles
+      roles: user.roles,
+      jobTitle: user.jobTitle,
+      seniority: user.seniority,
+      careerTrack: user.careerTrack,
+      businessUnit: user.businessUnit,
+      projects: user.projects,
+      managerId: user.managerId,
+      directReports: user.directReports,
+      mentorId: user.mentorId,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
     };
   }
 

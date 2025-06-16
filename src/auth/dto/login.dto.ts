@@ -37,14 +37,20 @@ export class LoginDto {
 export class LoginResponseDto {
   @ApiProperty({
     description: 'Token JWT para autenticação nas próximas requisições',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTY3OC05MGFiLWNkZWYtMTIzNC01Njc4OTBhYmNkZWYiLCJuYW1lIjoiQW5hIE9saXZlaXJhIiwiZW1haWwiOiJhbmEub2xpdmVpcmFAcm9ja2V0Y29ycC5jb20iLCJyb2xlcyI6WyJjb2xhYm9yYWRvciJdLCJpYXQiOjE2MzQ1Njc4OTAsImV4cCI6MTYzNDU5NjY5MH0.signature',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmQwMDAwdHpzZ281NTgxMnFvIiwibmFtZSI6IkFuYSBPbGl2ZWlyYSIsImVtYWlsIjoiYW5hLm9saXZlaXJhQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiXSwiaWF0IjoxNzUwMDMxNTYxLCJleHAiOjE3NTAwNjAzNjEsImF1ZCI6IlJQRS1Vc2VycyIsImlzcyI6IlJQRS1TeXN0ZW0ifQ.signature',
     type: String
   })
   token: string;
 
   @ApiProperty({
-    description: 'Informações do usuário autenticado',
-    type: UserInfoDto
+    description: 'Informações básicas do usuário autenticado',
+    type: UserInfoDto,
+    example: {
+      id: 'cmbyavwvd0000tzsgo55812qo',
+      name: 'Ana Oliveira',
+      email: 'ana.oliveira@rocketcorp.com',
+      roles: ['colaborador']
+    }
   })
   user: UserInfoDto;
 }

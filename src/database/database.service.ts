@@ -43,24 +43,66 @@ export class DatabaseService implements OnModuleInit {
 
     const users = [
       {
+        // Ana - Colaboradora Simples (Desenvolvedora Frontend)
         name: 'Ana Oliveira',
         email: 'ana.oliveira@rocketcorp.com',
         passwordHash: hashedPassword,
         roles: JSON.stringify(['colaborador']),
+        
+        // Dados organizacionais
+        jobTitle: 'Desenvolvedora Frontend',
+        seniority: 'Pleno',
+        careerTrack: 'Tech',
+        businessUnit: 'Digital Products',
+        
+        // Relacionamentos
+        projects: JSON.stringify(['projeto-app-mobile', 'projeto-dashboard']),
+        managerId: null, // Será definido após criação dos usuários
+        directReports: null,
+        mentorId: null,
+        
         isActive: true,
       },
       {
+        // Bruno - Colaborador Gestor (Tech Lead)
         name: 'Bruno Mendes',
         email: 'bruno.mendes@rocketcorp.com',
         passwordHash: hashedPassword,
         roles: JSON.stringify(['colaborador', 'gestor']),
+        
+        // Dados organizacionais
+        jobTitle: 'Tech Lead',
+        seniority: 'Sênior',
+        careerTrack: 'Tech',
+        businessUnit: 'Digital Products',
+        
+        // Relacionamentos
+        projects: JSON.stringify(['projeto-app-mobile', 'projeto-api-core']),
+        managerId: null, // Será definido após criação
+        directReports: JSON.stringify([]), // Será atualizado após criação
+        mentorId: null,
+        
         isActive: true,
       },
       {
+        // Carla - Sócia/Comitê (Head of Engineering)
         name: 'Carla Dias',
         email: 'carla.dias@rocketcorp.com',
         passwordHash: hashedPassword,
         roles: JSON.stringify(['colaborador', 'comite']),
+        
+        // Dados organizacionais
+        jobTitle: 'Head of Engineering',
+        seniority: 'Principal',
+        careerTrack: 'Tech',
+        businessUnit: 'Digital Products',
+        
+        // Relacionamentos
+        projects: JSON.stringify(['projeto-estrategia-tech', 'projeto-arquitetura']),
+        managerId: null, // Sócia, não tem gestor
+        directReports: JSON.stringify([]), // Será atualizado após criação
+        mentorId: null,
+        
         isActive: true,
       },
     ];
@@ -69,7 +111,7 @@ export class DatabaseService implements OnModuleInit {
       const user = await this.prisma.user.create({
         data: userData
       });
-      console.log(`✅ Usuário criado: ${user.name} (${user.email})`);
+      console.log(`✅ Usuário criado: ${user.name} (${user.email}) - ${JSON.parse(user.roles).join(', ')}`);
     }
   }
 
@@ -129,10 +171,25 @@ export class DatabaseService implements OnModuleInit {
    */
   async saveUser(user: User): Promise<User> {
     const userData = {
+      // Dados de identificação e acesso
       name: user.name,
       email: user.email,
       passwordHash: user.passwordHash,
       roles: JSON.stringify(user.roles),
+      
+      // Dados organizacionais
+      jobTitle: user.jobTitle,
+      seniority: user.seniority,
+      careerTrack: user.careerTrack,
+      businessUnit: user.businessUnit,
+      
+      // Relacionamentos
+      projects: JSON.stringify(user.projects || []),
+      managerId: user.managerId,
+      directReports: JSON.stringify(user.directReports || []),
+      mentorId: user.mentorId,
+      
+      // Metadados
       isActive: user.isActive,
     };
 
@@ -159,14 +216,31 @@ export class DatabaseService implements OnModuleInit {
    */
   private prismaToUser(prismaUser: any): User {
     const user = new User();
+    
+    // Dados de identificação e acesso
     user.id = prismaUser.id;
     user.name = prismaUser.name;
     user.email = prismaUser.email;
     user.passwordHash = prismaUser.passwordHash;
     user.roles = JSON.parse(prismaUser.roles);
+    
+    // Dados organizacionais
+    user.jobTitle = prismaUser.jobTitle;
+    user.seniority = prismaUser.seniority;
+    user.careerTrack = prismaUser.careerTrack;
+    user.businessUnit = prismaUser.businessUnit;
+    
+    // Relacionamentos
+    user.projects = prismaUser.projects ? JSON.parse(prismaUser.projects) : [];
+    user.managerId = prismaUser.managerId;
+    user.directReports = prismaUser.directReports ? JSON.parse(prismaUser.directReports) : [];
+    user.mentorId = prismaUser.mentorId;
+    
+    // Metadados
     user.isActive = prismaUser.isActive;
     user.createdAt = prismaUser.createdAt;
     user.updatedAt = prismaUser.updatedAt;
+    
     return user;
   }
 } 

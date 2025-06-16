@@ -37,13 +37,40 @@ pnpm run start:dev
 
 ## 👥 **Usuários para Teste**
 
-O sistema vem com 3 usuários pré-cadastrados:
+O sistema vem com 6 usuários pré-cadastrados representando diferentes perfis organizacionais:
 
-| Nome | Email | Senha | Roles |
-|------|-------|-------|-------|
-| **Ana Oliveira** | ana.oliveira@rocketcorp.com | password123 | colaborador |
-| **Bruno Mendes** | bruno.mendes@rocketcorp.com | password123 | colaborador, gestor |
-| **Carla Dias** | carla.dias@rocketcorp.com | password123 | colaborador, comitê |
+### **📊 Visão Geral**
+| Nome | Email | Senha | Roles | Cargo | Senioridade |
+|------|-------|-------|-------|-------|-------------|
+| **Ana Oliveira** | ana.oliveira@rocketcorp.com | password123 | colaborador | Desenvolvedora Frontend | Pleno |
+| **Bruno Mendes** | bruno.mendes@rocketcorp.com | password123 | colaborador, gestor | Tech Lead | Sênior |
+| **Carla Dias** | carla.dias@rocketcorp.com | password123 | colaborador, comitê | Head of Engineering | Principal |
+| **Diana Costa** | diana.costa@rocketcorp.com | password123 | colaborador, rh | People & Culture Manager | Sênior |
+| **Felipe Silva** | felipe.silva@rocketcorp.com | password123 | colaborador | Desenvolvedor Backend | Júnior |
+| **Eduardo Tech** | eduardo.tech@rocketcorp.com | password123 | admin | DevOps Engineer | Sênior |
+
+### **🏢 Estrutura Organizacional**
+```
+👑 Carla Dias (Head of Engineering)
+├── 👨‍💼 Bruno Mendes (Tech Lead)
+│   ├── 👩‍💻 Ana Oliveira (Dev Frontend)
+│   └── 👨‍💻 Felipe Silva (Dev Backend)
+└── 👩‍💼 Diana Costa (People & Culture)
+
+🔧 Eduardo Tech (Admin - Independente)
+```
+
+### **🎯 Tipos de Usuário**
+- **👤 Colaborador**: Participa como avaliado no processo
+- **👨‍💼 Gestor**: Avalia liderados diretos + é avaliado
+- **👑 Comitê**: Participa da equalização final + é avaliado
+- **👩‍💼 RH**: Configuração e acompanhamento geral
+- **🔧 Admin**: Gerenciamento total do sistema
+
+### **📋 Dados Organizacionais**
+- **Trilhas**: Tech, Business
+- **Unidades**: Digital Products, Operations
+- **Projetos**: app-mobile, dashboard, api-core, cultura, infraestrutura, etc.
 
 ## 🧪 **Executar Testes**
 
@@ -116,5 +143,3 @@ taskkill /PID <PID_NUMBER> /F
 lsof -ti:3000 | xargs kill -9
 ```
 ---
-
-**✅ Sistema pronto para uso! Acesse http://localhost:3000/api-docs para começar.**

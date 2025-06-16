@@ -93,12 +93,12 @@ describe('DatabaseService', () => {
   });
 
   describe('getAllUsers', () => {
-    it('deve ter exatamente 3 usuários cadastrados', async () => {
+    it('deve ter exatamente 6 usuários cadastrados', async () => {
       // Act
       const users = await service.getAllUsers();
 
       // Assert
-      expect(users).toHaveLength(3);
+      expect(users).toHaveLength(6);
     });
 
     it('deve ter todos os usuários ativos', async () => {

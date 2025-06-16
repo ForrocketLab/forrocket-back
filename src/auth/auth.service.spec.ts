@@ -17,6 +17,20 @@ describe('AuthService', () => {
     email: 'ana.oliveira@rocketcorp.com',
     passwordHash: '$2a$10$mockHashedPassword',
     roles: ['colaborador'],
+    
+    // Dados organizacionais
+    jobTitle: 'Desenvolvedora Frontend',
+    seniority: 'Pleno',
+    careerTrack: 'Tech',
+    businessUnit: 'Digital Products',
+    
+    // Relacionamentos
+    projects: ['projeto-app-mobile', 'projeto-dashboard'],
+    managerId: 'gestor-id-123',
+    directReports: [],
+    mentorId: 'mentor-id-123',
+    
+    // Metadados
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),

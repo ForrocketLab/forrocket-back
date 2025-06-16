@@ -11,11 +11,34 @@ datasource db {
 }
 
 model User {
+  // ==========================================
+  // DADOS DE IDENTIFICAÇÃO E ACESSO
+  // ==========================================
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
   passwordHash String
-  roles        String   // Armazenado como JSON string
+  roles        String   // Armazenado como JSON string (array de UserRole)
+
+  // ==========================================
+  // DADOS DE ESTRUTURA ORGANIZACIONAL
+  // ==========================================
+  jobTitle     String   // Cargo/Posição do colaborador
+  seniority    String   // Nível de senioridade
+  careerTrack  String   // Trilha de carreira
+  businessUnit String   // Unidade de negócio
+
+  // ==========================================
+  // DADOS DE ALOCAÇÃO E RELACIONAMENTO
+  // ==========================================
+  projects       String?  // Array de projetos (JSON string)
+  managerId      String?  // ID do gestor direto
+  directReports  String?  // Array de IDs dos liderados (JSON string)
+  mentorId       String?  // ID do mentor designado
+
+  // ==========================================
+  // METADADOS DE CONTROLE
+  // ==========================================
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
