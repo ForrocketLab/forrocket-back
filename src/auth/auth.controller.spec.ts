@@ -15,27 +15,27 @@ describe('AuthController', () => {
     email: 'ana.oliveira@rocketcorp.com',
     passwordHash: '$2a$10$mockHashedPassword',
     roles: ['colaborador'],
-    
+
     // Dados organizacionais
     jobTitle: 'Desenvolvedora Frontend',
     seniority: 'Pleno',
     careerTrack: 'Tech',
     businessUnit: 'Digital Products',
-    
+
     // Relacionamentos
     projects: ['projeto-app-mobile', 'projeto-dashboard'],
     managerId: 'gestor-id-123',
     directReports: [],
     mentorId: 'mentor-id-123',
-    
+
     // Metadados
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-    toPublic: function() {
+    toPublic: function () {
       const { passwordHash, ...publicUser } = this;
       return publicUser;
-    }
+    },
   };
 
   const mockAuthService = {
@@ -90,9 +90,7 @@ describe('AuthController', () => {
 
     it('deve lançar NotFoundException quando usuário não existir', async () => {
       // Arrange
-      mockAuthService.login.mockRejectedValue(
-        new NotFoundException('Usuário não encontrado')
-      );
+      mockAuthService.login.mockRejectedValue(new NotFoundException('Usuário não encontrado'));
 
       // Act & Assert
       await expect(controller.login(loginDto)).rejects.toThrow(NotFoundException);
@@ -101,9 +99,7 @@ describe('AuthController', () => {
 
     it('deve lançar UnauthorizedException quando senha estiver incorreta', async () => {
       // Arrange
-      mockAuthService.login.mockRejectedValue(
-        new UnauthorizedException('Senha incorreta')
-      );
+      mockAuthService.login.mockRejectedValue(new UnauthorizedException('Senha incorreta'));
 
       // Act & Assert
       await expect(controller.login(loginDto)).rejects.toThrow(UnauthorizedException);
@@ -119,6 +115,17 @@ describe('AuthController', () => {
         name: mockUser.name,
         email: mockUser.email,
         roles: mockUser.roles,
+        jobTitle: mockUser.jobTitle,
+        seniority: mockUser.seniority,
+        careerTrack: mockUser.careerTrack,
+        businessUnit: mockUser.businessUnit,
+        projects: mockUser.projects,
+        managerId: mockUser.managerId,
+        directReports: mockUser.directReports,
+        mentorId: mockUser.mentorId,
+        isActive: mockUser.isActive,
+        createdAt: mockUser.createdAt,
+        updatedAt: mockUser.updatedAt,
       };
 
       // Act
@@ -151,4 +158,4 @@ describe('AuthController', () => {
       expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
   });
-}); 
+});

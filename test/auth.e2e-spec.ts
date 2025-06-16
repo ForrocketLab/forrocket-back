@@ -13,7 +13,7 @@ describe('Sistema de Autenticação (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    
+
     // Configurar ValidationPipe como na aplicação real
     app.useGlobalPipes(
       new ValidationPipe({
@@ -32,9 +32,7 @@ describe('Sistema de Autenticação (e2e)', () => {
 
   describe('/api/auth/status (GET)', () => {
     it('deve retornar status da API sem autenticação', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/auth/status')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/auth/status').expect(200);
 
       expect(response.body).toEqual({
         status: 'ok',
@@ -184,13 +182,22 @@ describe('Sistema de Autenticação (e2e)', () => {
         name: 'Ana Oliveira',
         email: 'ana.oliveira@rocketcorp.com',
         roles: ['colaborador'],
+        jobTitle: 'Desenvolvedora Frontend',
+        seniority: 'Pleno',
+        careerTrack: 'Tech',
+        businessUnit: 'Digital Products',
+        projects: ['projeto-app-mobile', 'projeto-dashboard'],
+        managerId: expect.any(String),
+        mentorId: expect.any(String),
+        directReports: [],
+        isActive: true,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
       });
     });
 
     it('deve rejeitar acesso sem token', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/auth/profile')
-        .expect(401);
+      const response = await request(app.getHttpServer()).get('/api/auth/profile').expect(401);
 
       expect(response.body).toEqual({
         message: 'Token inválido ou expirado',
@@ -236,11 +243,9 @@ describe('Sistema de Autenticação (e2e)', () => {
       expect(profileResponse.body.roles).toContain('gestor');
 
       // 3. Verificar status
-      const statusResponse = await request(app.getHttpServer())
-        .get('/api/auth/status')
-        .expect(200);
+      const statusResponse = await request(app.getHttpServer()).get('/api/auth/status').expect(200);
 
       expect(statusResponse.body.status).toBe('ok');
     });
   });
-}); 
+});

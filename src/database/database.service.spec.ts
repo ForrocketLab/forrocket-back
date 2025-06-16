@@ -73,7 +73,7 @@ describe('DatabaseService', () => {
     it('deve encontrar usuário por ID válido', async () => {
       // Arrange - Primeiro pega um usuário para ter um ID válido
       const userByEmail = await service.findUserByEmail('ana.oliveira@rocketcorp.com');
-      
+
       // Act
       const userById = await service.findUserById(userByEmail!.id);
 
@@ -106,7 +106,7 @@ describe('DatabaseService', () => {
       const users = await service.getAllUsers();
 
       // Assert
-      users.forEach(user => {
+      users.forEach((user) => {
         expect(user.isActive).toBe(true);
       });
     });
@@ -116,7 +116,7 @@ describe('DatabaseService', () => {
       const users = await service.getAllUsers();
 
       // Assert
-      users.forEach(user => {
+      users.forEach((user) => {
         expect(user.passwordHash).toBeDefined();
         expect(user.passwordHash).toContain('$2a$10$'); // bcrypt hash prefix
         expect(user.passwordHash.length).toBeGreaterThan(50);
@@ -128,7 +128,7 @@ describe('DatabaseService', () => {
       const users = await service.getAllUsers();
 
       // Assert
-      const emails = users.map(user => user.email);
+      const emails = users.map((user) => user.email);
       const uniqueEmails = [...new Set(emails)];
       expect(emails).toHaveLength(uniqueEmails.length);
     });
@@ -138,7 +138,7 @@ describe('DatabaseService', () => {
       const users = await service.getAllUsers();
 
       // Assert
-      const ids = users.map(user => user.id);
+      const ids = users.map((user) => user.id);
       const uniqueIds = [...new Set(ids)];
       expect(ids).toHaveLength(uniqueIds.length);
     });
@@ -159,4 +159,4 @@ describe('DatabaseService', () => {
       expect(publicUser).toHaveProperty('roles');
     });
   });
-}); 
+});
