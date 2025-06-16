@@ -14,154 +14,229 @@ async function main() {
   const password = 'password123';
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Dados dos usuários seguindo a nova estrutura IUser
-  const users = [
-    {
-      // Ana - Colaboradora Simples (Desenvolvedora Frontend)
+  console.log('👥 Criando usuários...');
+
+  // PASSO 1: Criar usuários sem relacionamentos primeiro
+  const ana = await prisma.user.create({
+    data: {
       name: 'Ana Oliveira',
       email: 'ana.oliveira@rocketcorp.com',
       passwordHash: hashedPassword,
       roles: JSON.stringify(['colaborador']),
-      
+
       // Dados organizacionais
       jobTitle: 'Desenvolvedora Frontend',
       seniority: 'Pleno',
       careerTrack: 'Tech',
       businessUnit: 'Digital Products',
-      
-      // Relacionamentos
+
+      // Relacionamentos temporários (serão atualizados depois)
       projects: JSON.stringify(['projeto-app-mobile', 'projeto-dashboard']),
-      managerId: 'bruno-mendes-id', // Será o Bruno (gestor)
-      directReports: null, // Não é gestora
-      mentorId: 'carla-dias-id', // Carla como mentora
-      
+      managerId: null,
+      directReports: null,
+      mentorId: null,
+
       isActive: true,
     },
-    {
-      // Bruno - Colaborador Gestor (Tech Lead)
+  });
+  console.log(`✅ Usuário criado: ${ana.name} (${ana.email})`);
+
+  const bruno = await prisma.user.create({
+    data: {
       name: 'Bruno Mendes',
       email: 'bruno.mendes@rocketcorp.com',
       passwordHash: hashedPassword,
       roles: JSON.stringify(['colaborador', 'gestor']),
-      
+
       // Dados organizacionais
       jobTitle: 'Tech Lead',
       seniority: 'Sênior',
       careerTrack: 'Tech',
       businessUnit: 'Digital Products',
-      
-      // Relacionamentos
+
+      // Relacionamentos temporários
       projects: JSON.stringify(['projeto-app-mobile', 'projeto-api-core', 'projeto-arquitetura']),
-      managerId: 'carla-dias-id', // Carla é sua gestora
-      directReports: JSON.stringify(['ana-oliveira-id', 'felipe-novo-id']), // Gerencia Ana e Felipe
-      mentorId: 'carla-dias-id', // Carla também é mentora
-      
+      managerId: null,
+      directReports: JSON.stringify([]),
+      mentorId: null,
+
       isActive: true,
     },
-    {
-      // Carla - Sócia/Comitê (Head of Engineering)
+  });
+  console.log(`✅ Usuário criado: ${bruno.name} (${bruno.email})`);
+
+  const carla = await prisma.user.create({
+    data: {
       name: 'Carla Dias',
       email: 'carla.dias@rocketcorp.com',
       passwordHash: hashedPassword,
       roles: JSON.stringify(['colaborador', 'comite']),
-      
+
       // Dados organizacionais
       jobTitle: 'Head of Engineering',
       seniority: 'Principal',
       careerTrack: 'Tech',
       businessUnit: 'Digital Products',
-      
-      // Relacionamentos
-      projects: JSON.stringify(['projeto-estrategia-tech', 'projeto-arquitetura', 'projeto-inovacao']),
-      managerId: null, // Sócia, não tem gestor direto
-      directReports: JSON.stringify(['bruno-mendes-id', 'diana-costa-id']), // Gerencia Bruno e Diana
-      mentorId: null, // Sócios podem não ter mentor
-      
+
+      // Relacionamentos temporários
+      projects: JSON.stringify([
+        'projeto-estrategia-tech',
+        'projeto-arquitetura',
+        'projeto-inovacao',
+      ]),
+      managerId: null,
+      directReports: JSON.stringify([]),
+      mentorId: null,
+
       isActive: true,
     },
-    {
-      // Diana - RH (People & Culture Manager)
+  });
+  console.log(`✅ Usuário criado: ${carla.name} (${carla.email})`);
+
+  const diana = await prisma.user.create({
+    data: {
       name: 'Diana Costa',
       email: 'diana.costa@rocketcorp.com',
       passwordHash: hashedPassword,
       roles: JSON.stringify(['colaborador', 'rh']),
-      
+
       // Dados organizacionais
       jobTitle: 'People & Culture Manager',
       seniority: 'Sênior',
       careerTrack: 'Business',
       businessUnit: 'Operations',
-      
-      // Relacionamentos
+
+      // Relacionamentos temporários
       projects: JSON.stringify(['projeto-cultura', 'projeto-onboarding', 'projeto-avaliacao']),
-      managerId: 'carla-dias-id', // Reporta para Carla
-      directReports: JSON.stringify(['felipe-rh-id']), // Tem um analista de RH
-      mentorId: 'carla-dias-id',
-      
+      managerId: null,
+      directReports: JSON.stringify([]),
+      mentorId: null,
+
       isActive: true,
     },
-    {
-      // Felipe - Desenvolvedor Júnior
+  });
+  console.log(`✅ Usuário criado: ${diana.name} (${diana.email})`);
+
+  const felipe = await prisma.user.create({
+    data: {
       name: 'Felipe Silva',
       email: 'felipe.silva@rocketcorp.com',
       passwordHash: hashedPassword,
       roles: JSON.stringify(['colaborador']),
-      
+
       // Dados organizacionais
       jobTitle: 'Desenvolvedor Backend',
       seniority: 'Júnior',
       careerTrack: 'Tech',
       businessUnit: 'Digital Products',
-      
-      // Relacionamentos
+
+      // Relacionamentos temporários
       projects: JSON.stringify(['projeto-onboarding', 'projeto-api-core']),
-      managerId: 'bruno-mendes-id', // Bruno é seu gestor
-      directReports: null, // Não é gestor
-      mentorId: 'ana-oliveira-id', // Ana como mentora
-      
+      managerId: null,
+      directReports: null,
+      mentorId: null,
+
       isActive: true,
     },
-    {
-      // Eduardo - Admin do Sistema
+  });
+  console.log(`✅ Usuário criado: ${felipe.name} (${felipe.email})`);
+
+  const eduardo = await prisma.user.create({
+    data: {
       name: 'Eduardo Tech',
       email: 'eduardo.tech@rocketcorp.com',
       passwordHash: hashedPassword,
       roles: JSON.stringify(['admin']),
-      
+
       // Dados organizacionais
       jobTitle: 'DevOps Engineer',
       seniority: 'Sênior',
       careerTrack: 'Tech',
       businessUnit: 'Operations',
-      
+
       // Relacionamentos
-      projects: JSON.stringify(['projeto-infraestrutura', 'projeto-seguranca', 'projeto-monitoramento']),
-      managerId: null, // Admin pode não ter gestor
-      directReports: null, // Foco em infraestrutura
+      projects: JSON.stringify([
+        'projeto-infraestrutura',
+        'projeto-seguranca',
+        'projeto-monitoramento',
+      ]),
+      managerId: null,
+      directReports: null,
       mentorId: null,
-      
+
       isActive: true,
     },
-  ];
+  });
+  console.log(`✅ Usuário criado: ${eduardo.name} (${eduardo.email})`);
 
-  console.log('👥 Criando usuários...');
+  console.log('🔗 Configurando relacionamentos...');
 
-  // Cria usuários
-  for (const userData of users) {
-    const user = await prisma.user.create({
-      data: userData,
-    });
-    console.log(`✅ Usuário criado: ${user.name} (${user.email}) - ${JSON.parse(user.roles).join(', ')}`);
-  }
+  // PASSO 2: Atualizar relacionamentos com os IDs reais
+
+  // Ana: gestor = Bruno, mentor = Carla
+  await prisma.user.update({
+    where: { id: ana.id },
+    data: {
+      managerId: bruno.id,
+      mentorId: carla.id,
+    },
+  });
+  console.log(`✅ Ana → Gestor: ${bruno.name}, Mentor: ${carla.name}`);
+
+  // Bruno: gestor = Carla, mentor = Carla, liderados = [Ana, Felipe]
+  await prisma.user.update({
+    where: { id: bruno.id },
+    data: {
+      managerId: carla.id,
+      mentorId: carla.id,
+      directReports: JSON.stringify([ana.id, felipe.id]),
+    },
+  });
+  console.log(`✅ Bruno → Gestor: ${carla.name}, Mentor: ${carla.name}, Liderados: Ana e Felipe`);
+
+  // Carla: liderados = [Bruno, Diana]
+  await prisma.user.update({
+    where: { id: carla.id },
+    data: {
+      directReports: JSON.stringify([bruno.id, diana.id]),
+    },
+  });
+  console.log(`✅ Carla → Liderados: Bruno e Diana`);
+
+  // Diana: gestor = Carla, mentor = Carla
+  await prisma.user.update({
+    where: { id: diana.id },
+    data: {
+      managerId: carla.id,
+      mentorId: carla.id,
+    },
+  });
+  console.log(`✅ Diana → Gestor: ${carla.name}, Mentor: ${carla.name}`);
+
+  // Felipe: gestor = Bruno, mentor = Ana
+  await prisma.user.update({
+    where: { id: felipe.id },
+    data: {
+      managerId: bruno.id,
+      mentorId: ana.id,
+    },
+  });
+  console.log(`✅ Felipe → Gestor: ${bruno.name}, Mentor: ${ana.name}`);
 
   console.log('🎉 Seed concluído com sucesso!');
   console.log('');
   console.log('👥 Usuários disponíveis para login:');
-  console.log('  📧 ana.oliveira@rocketcorp.com - Senha: password123 (Colaboradora - Dev Frontend Pleno)');
+  console.log(
+    '  📧 ana.oliveira@rocketcorp.com - Senha: password123 (Colaboradora - Dev Frontend Pleno)',
+  );
   console.log('  📧 bruno.mendes@rocketcorp.com - Senha: password123 (Gestor - Tech Lead Sênior)');
   console.log('  📧 carla.dias@rocketcorp.com - Senha: password123 (Comitê - Head of Engineering)');
-  console.log('  📧 diana.costa@rocketcorp.com - Senha: password123 (RH - People & Culture Manager)');
-  console.log('  📧 felipe.silva@rocketcorp.com - Senha: password123 (Colaborador - Dev Backend Júnior)');
+  console.log(
+    '  📧 diana.costa@rocketcorp.com - Senha: password123 (RH - People & Culture Manager)',
+  );
+  console.log(
+    '  📧 felipe.silva@rocketcorp.com - Senha: password123 (Colaborador - Dev Backend Júnior)',
+  );
   console.log('  📧 eduardo.tech@rocketcorp.com - Senha: password123 (Admin - DevOps Engineer)');
   console.log('');
   console.log('🏢 Estrutura Organizacional:');
@@ -177,4 +252,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-  }); 
+  });
