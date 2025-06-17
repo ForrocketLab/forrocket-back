@@ -102,7 +102,7 @@ describe('Sistema de Autenticação (e2e)', () => {
         id: expect.any(String),
         name: 'Carla Regina Dias Fernandes',
         email: 'carla.dias@rocketcorp.com',
-        roles: ['colaborador', 'comite'],
+        roles: ['comite'],
       });
     });
 
@@ -184,7 +184,7 @@ describe('Sistema de Autenticação (e2e)', () => {
         roles: ['colaborador'],
         jobTitle: 'Desenvolvedora Frontend',
         seniority: 'Pleno',
-        careerTrack: 'Tecnologia',
+        careerTrack: 'Tech',
         businessUnit: 'Digital Products',
         projectRoles: expect.arrayContaining([
           expect.objectContaining({
@@ -194,7 +194,7 @@ describe('Sistema de Autenticação (e2e)', () => {
           })
         ]),
         managerId: expect.any(String),
-        mentorId: expect.any(String),
+        mentorId: null,
         directReports: [],
         isActive: true,
         createdAt: expect.any(String),

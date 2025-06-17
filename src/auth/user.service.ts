@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { CreateUserDto, UserProfileDto } from './dto';
+import { CreateUserDto, UserProfileDto, UserType } from './dto';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -26,8 +26,13 @@ export class UserService {
       data: userData,
     });
 
-    // 4. CRIAÇÃO DOS RELACIONAMENTOS
-    await this.createUserRelationships(createdUser.id, createUserDto);
+    // 4. CRIAÇÃO DOS RELACIONAMENTOS (apenas para project_member)
+    if (createUserDto.userType === UserType.PROJECT_MEMBER) {
+      await this.createUserRelationships(createdUser.id, createUserDto);
+    } else {
+      // Para papéis globais, criar apenas o role assignment global
+      await this.createGlobalRoleAssignment(createdUser.id, createUserDto.userType);
+    }
 
     // 5. BUSCAR USUÁRIO COMPLETO PARA RETORNO
     const completeUser = await this.getUserProfile(createdUser.id);
@@ -50,33 +55,62 @@ export class UserService {
       throw new ConflictException('Usuário com este email já existe');
     }
 
-    // Verificar se projetos existem
-    for (const assignment of createUserDto.projectAssignments) {
-      const project = await this.prisma.project.findUnique({
-        where: { id: assignment.projectId }
-      });
-
-      if (!project) {
-        throw new BadRequestException(`Projeto com ID ${assignment.projectId} não encontrado`);
+    // Validações específicas por tipo de usuário
+    if (createUserDto.userType === UserType.PROJECT_MEMBER) {
+      // Para membros de projeto, projectAssignments é obrigatório
+      if (!createUserDto.projectAssignments || createUserDto.projectAssignments.length === 0) {
+        throw new BadRequestException('Membros de projeto devem ter pelo menos uma atribuição de projeto');
       }
 
-      if (!project.isActive) {
-        throw new BadRequestException(`Projeto ${project.name} não está ativo`);
+      // Verificar se projetos existem e validar regras de gestão
+      for (const assignment of createUserDto.projectAssignments) {
+        const project = await this.prisma.project.findUnique({
+          where: { id: assignment.projectId }
+        });
+
+        if (!project) {
+          throw new BadRequestException(`Projeto com ID ${assignment.projectId} não encontrado`);
+        }
+
+        if (!project.isActive) {
+          throw new BadRequestException(`Projeto ${project.name} não está ativo`);
+        }
+
+        // 🎯 NOVA VALIDAÇÃO: Verificar se projeto já tem gestor (apenas para role 'gestor')
+        if (assignment.roleInProject === 'gestor') {
+          const existingManager = await this.findProjectManager(assignment.projectId);
+          
+          if (existingManager) {
+            throw new BadRequestException(
+              `O projeto "${project.name}" já possui um gestor: ${existingManager.name}. ` +
+              `Um projeto só pode ter um gestor ativo por vez.`
+            );
+          }
+        }
       }
-    }
 
-    // Verificar se mentor existe (se informado)
-    if (createUserDto.mentorId) {
-      const mentor = await this.prisma.user.findUnique({
-        where: { id: createUserDto.mentorId }
-      });
+      // Verificar se mentor existe (se informado)
+      if (createUserDto.mentorId) {
+        const mentor = await this.prisma.user.findUnique({
+          where: { id: createUserDto.mentorId }
+        });
 
-      if (!mentor) {
-        throw new BadRequestException('Mentor não encontrado');
+        if (!mentor) {
+          throw new BadRequestException('Mentor não encontrado');
+        }
+
+        if (!mentor.isActive) {
+          throw new BadRequestException('Mentor não está ativo');
+        }
+      }
+    } else {
+      // Para papéis globais (admin, RH, comitê), projectAssignments e mentorId devem ser ignorados
+      if (createUserDto.projectAssignments && createUserDto.projectAssignments.length > 0) {
+        console.log(`⚠️ Ignorando projectAssignments para usuário ${createUserDto.userType}: ${createUserDto.email}`);
       }
 
-      if (!mentor.isActive) {
-        throw new BadRequestException('Mentor não está ativo');
+      if (createUserDto.mentorId) {
+        console.log(`⚠️ Ignorando mentorId para usuário ${createUserDto.userType}: ${createUserDto.email}`);
       }
     }
   }
@@ -90,40 +124,53 @@ export class UserService {
     // Gerar hash da senha
     const passwordHash = await bcrypt.hash(createUserDto.password, 12);
 
-    // Determinar roles baseado nos projectAssignments
-    const roles = ['colaborador'];
-    const hasManagerRole = createUserDto.projectAssignments.some(
-      assignment => assignment.roleInProject === 'gestor'
-    );
-    
-    if (hasManagerRole) {
-      roles.push('gestor');
-    }
-
-    // Encontrar manager (gestor do primeiro projeto como colaborador)
+    // Determinar roles baseado no tipo de usuário
+    let roles: string[] = [];
     let managerId: string | null = null;
-    let managerName: string | null = null;
+    let mentorId: string | null = null;
 
-    const collaboratorAssignment = createUserDto.projectAssignments.find(
-      assignment => assignment.roleInProject === 'colaborador'
-    );
-
-    if (collaboratorAssignment) {
-      const manager = await this.findProjectManager(collaboratorAssignment.projectId);
-      if (manager) {
-        managerId = manager.id;
-        managerName = manager.name;
+    if (createUserDto.userType === UserType.PROJECT_MEMBER) {
+      // Para membros de projeto, derivar roles das atribuições
+      roles = ['colaborador'];
+      const hasManagerRole = createUserDto.projectAssignments?.some(
+        assignment => assignment.roleInProject === 'gestor'
+      );
+      
+      if (hasManagerRole) {
+        roles.push('gestor');
       }
-    }
 
-    // Buscar nome do mentor
-    let mentorName: string | null = null;
-    if (createUserDto.mentorId) {
-      const mentor = await this.prisma.user.findUnique({
-        where: { id: createUserDto.mentorId },
-        select: { name: true }
-      });
-      mentorName = mentor?.name || null;
+      // Encontrar manager (gestor do primeiro projeto como colaborador)
+      const collaboratorAssignment = createUserDto.projectAssignments?.find(
+        assignment => assignment.roleInProject === 'colaborador'
+      );
+
+      if (collaboratorAssignment) {
+        const manager = await this.findProjectManager(collaboratorAssignment.projectId);
+        if (manager) {
+          managerId = manager.id;
+        }
+      }
+
+      // Mentor (apenas para project_member)
+      mentorId = createUserDto.mentorId || null;
+    } else {
+      // Para papéis globais, atribuir apenas o papel específico
+      switch (createUserDto.userType) {
+        case UserType.ADMIN:
+          roles = ['admin'];
+          break;
+        case UserType.RH:
+          roles = ['rh'];
+          break;
+        case UserType.COMITE:
+          roles = ['comite'];
+          break;
+      }
+      
+      // Papéis globais não têm manager nem mentor
+      managerId = null;
+      mentorId = null;
     }
 
     return {
@@ -136,12 +183,46 @@ export class UserService {
       careerTrack: createUserDto.careerTrack,
       businessUnit: createUserDto.businessUnit,
       managerId,
-      mentorId: createUserDto.mentorId || null,
+      mentorId,
       isActive: true,
       // Campos temporários (legacy) - serão migrados
-      projects: JSON.stringify(createUserDto.projectAssignments.map(p => p.projectId)),
+      projects: createUserDto.userType === UserType.PROJECT_MEMBER 
+        ? JSON.stringify(createUserDto.projectAssignments?.map(p => p.projectId) || [])
+        : null,
       directReports: null,
     };
+  }
+
+  /**
+   * Cria role assignment global para papéis globais
+   * @param userId - ID do usuário criado
+   * @param userType - Tipo do usuário
+   */
+  private async createGlobalRoleAssignment(userId: string, userType: UserType): Promise<void> {
+    let role: string;
+
+    switch (userType) {
+      case UserType.ADMIN:
+        role = 'ADMIN';
+        break;
+      case UserType.RH:
+        role = 'RH';
+        break;
+      case UserType.COMITE:
+        role = 'COMMITTEE';
+        break;
+      default:
+        throw new BadRequestException(`Tipo de usuário inválido para role global: ${userType}`);
+    }
+
+    await this.prisma.userRoleAssignment.create({
+      data: {
+        userId,
+        role: role as any
+      }
+    });
+
+    console.log(`✅ Role global ${role} atribuído ao usuário ${userId}`);
   }
 
   /**
@@ -201,11 +282,15 @@ export class UserService {
   }
 
   /**
-   * Cria os relacionamentos do usuário
+   * Cria os relacionamentos do usuário (apenas para project_member)
    * @param userId - ID do usuário criado
    * @param createUserDto - Dados originais
    */
   private async createUserRelationships(userId: string, createUserDto: CreateUserDto): Promise<void> {
+    if (!createUserDto.projectAssignments) {
+      return;
+    }
+
     // Criar UserProjectAssignments
     for (const assignment of createUserDto.projectAssignments) {
       await this.prisma.userProjectAssignment.create({
@@ -224,6 +309,38 @@ export class UserService {
           role
         }
       });
+
+      // Criar UserRoleAssignment para colaborador (todos membros de projeto são colaboradores)
+      await this.prisma.userRoleAssignment.upsert({
+        where: {
+          userId_role: {
+            userId,
+            role: 'COLLABORATOR'
+          }
+        },
+        update: {},
+        create: {
+          userId,
+          role: 'COLLABORATOR'
+        }
+      });
+
+      // Criar UserRoleAssignment para gestor (se aplicável)
+      if (assignment.roleInProject === 'gestor') {
+        await this.prisma.userRoleAssignment.upsert({
+          where: {
+            userId_role: {
+              userId,
+              role: 'MANAGER'
+            }
+          },
+          update: {},
+          create: {
+            userId,
+            role: 'MANAGER'
+          }
+        });
+      }
     }
 
     // Atualizar directReports dos projetos onde é gestor
@@ -236,12 +353,16 @@ export class UserService {
    * @param createUserDto - Dados do usuário
    */
   private async updateDirectReports(userId: string, createUserDto: CreateUserDto): Promise<void> {
+    if (!createUserDto.projectAssignments) {
+      return;
+    }
+
     const managerAssignments = createUserDto.projectAssignments.filter(
       assignment => assignment.roleInProject === 'gestor'
     );
 
     for (const managerAssignment of managerAssignments) {
-      // Buscar todos os colaboradores do projeto
+      // Buscar todos os colaboradores do projeto que não têm manager ou têm manager inativo
       const collaborators = await this.prisma.userProjectRole.findMany({
         where: {
           projectId: managerAssignment.projectId,
@@ -253,24 +374,87 @@ export class UserService {
             select: {
               id: true,
               name: true,
-              isActive: true
+              isActive: true,
+              managerId: true
             }
           }
         }
       });
 
-      const activeCollaborators = collaborators.filter(c => c.user.isActive);
+      // Filtrar colaboradores ativos que não têm manager ou têm manager inativo
+      const collaboratorsNeedingManager: typeof collaborators = [];
       
-      if (activeCollaborators.length > 0) {
-        const directReportsIds = activeCollaborators.map(c => c.user.id);
-        const directReportsNames = activeCollaborators.map(c => c.user.name);
+      for (const collaborator of collaborators) {
+        if (!collaborator.user.isActive) continue;
+        
+        // Se não tem manager, precisa de um
+        if (!collaborator.user.managerId) {
+          collaboratorsNeedingManager.push(collaborator);
+          continue;
+        }
+        
+        // Se tem manager, verificar se o manager ainda está ativo e ainda é gestor do projeto
+        const currentManager = await this.prisma.user.findUnique({
+          where: { id: collaborator.user.managerId }
+        });
+        
+        if (!currentManager || !currentManager.isActive) {
+          collaboratorsNeedingManager.push(collaborator);
+          continue;
+        }
+        
+        // Verificar se o manager atual ainda é gestor deste projeto
+        const managerRole = await this.prisma.userProjectRole.findFirst({
+          where: {
+            userId: collaborator.user.managerId,
+            projectId: managerAssignment.projectId,
+            role: 'MANAGER'
+          }
+        });
+        
+        if (!managerRole) {
+          collaboratorsNeedingManager.push(collaborator);
+        }
+      }
+      
+      if (collaboratorsNeedingManager.length > 0) {
+        const directReportsIds = collaboratorsNeedingManager.map(c => c.user.id);
 
+        // 1. Atualizar o directReports do novo gestor
+        const currentUser = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { directReports: true }
+        });
+        
+        let existingDirectReports: string[] = [];
+        if (currentUser?.directReports) {
+          existingDirectReports = JSON.parse(currentUser.directReports);
+        }
+        
+        // Combinar com os novos direct reports (evitar duplicatas)
+        const allDirectReports = [...new Set([...existingDirectReports, ...directReportsIds])];
+        
         await this.prisma.user.update({
           where: { id: userId },
           data: {
-            directReports: JSON.stringify(directReportsIds)
+            directReports: JSON.stringify(allDirectReports)
           }
         });
+
+        // 2. Atualizar o managerId de todos os colaboradores para apontar para o novo gestor
+        await this.prisma.user.updateMany({
+          where: {
+            id: { in: directReportsIds },
+            isActive: true
+          },
+          data: {
+            managerId: userId
+          }
+        });
+
+        console.log(`🔄 Atualizado managerId de ${directReportsIds.length} colaboradores do projeto ${managerAssignment.projectId} para apontar para o gestor ${userId}`);
+      } else {
+        console.log(`ℹ️ Todos os colaboradores do projeto ${managerAssignment.projectId} já têm um gestor ativo`);
       }
     }
   }

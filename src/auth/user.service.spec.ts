@@ -21,12 +21,13 @@ describe('UserService', () => {
   };
 
   const mockMentor = {
-    id: 'cmc06gfpa0002tz1cymfs5rww',
+    id: 'cmc0ztkj90002tzvwdwqll4tt',
     name: 'Carla Regina Dias Fernandes',
     isActive: true,
   };
 
   const mockCreateUserDto: CreateUserDto = {
+    userType: 'project_member' as any,
     name: 'João Silva Santos',
     email: 'joao.santos@rocketcorp.com',
     password: 'MinhaSenh@123',
@@ -40,7 +41,7 @@ describe('UserService', () => {
         roleInProject: 'colaborador'
       }
     ],
-    mentorId: 'cmc06gfpa0002tz1cymfs5rww'
+    mentorId: 'cmc0ztkj90002tzvwdwqll4tt'
   };
 
   // Mock do PrismaService
@@ -50,6 +51,7 @@ describe('UserService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     project: {
       findUnique: jest.fn(),
@@ -61,6 +63,11 @@ describe('UserService', () => {
     userProjectRole: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    userRoleAssignment: {
+      upsert: jest.fn(),
+      create: jest.fn(),
       findMany: jest.fn(),
     },
   };
@@ -148,21 +155,173 @@ describe('UserService', () => {
     });
   });
 
-  describe('createUser - Sucesso', () => {
-    let createdUser: any;
-
-    beforeEach(() => {
-      // Limpar todos os mocks antes de cada teste
+  describe('createUser - Validação de Gestor Único', () => {
+    it('deve rejeitar criação de segundo gestor no mesmo projeto', async () => {
+      // Limpar todos os mocks
       jest.clearAllMocks();
       mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
 
-      // Mock do usuário criado
-      createdUser = {
+      // Dados para criar segundo gestor
+      const secondManagerData = {
+        ...mockCreateUserDto,
+        email: 'segundo.gestor@rocketcorp.com',
+        projectAssignments: [
+          {
+            projectId: 'projeto-alpha',
+            roleInProject: 'gestor' as 'gestor'
+          }
+        ]
+      };
+
+      // Mock: email não existe (primeira validação)
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
+
+      // Mock: projeto existe
+      mockPrismaService.project.findUnique.mockResolvedValueOnce(mockProject);
+
+      // Mock: já existe um gestor no projeto (Bruno)
+      mockPrismaService.userProjectRole.findFirst.mockResolvedValueOnce({
+        userId: 'existing-manager-id',
+        projectId: 'projeto-alpha',
+        role: 'MANAGER',
+        user: {
+          id: 'existing-manager-id',
+          name: 'Bruno André Mendes Carvalho',
+          isActive: true
+        }
+      });
+
+      // Act & Assert
+      await expect(service.createUser(secondManagerData))
+        .rejects
+        .toThrow('O projeto "Projeto Delta" já possui um gestor: Bruno André Mendes Carvalho. Um projeto só pode ter um gestor ativo por vez.');
+    });
+
+    it('deve permitir criação de gestor em projeto sem gestor', async () => {
+      // Limpar todos os mocks
+      jest.clearAllMocks();
+      mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
+
+      // Dados para criar gestor em projeto sem gestor
+      const newManagerData = {
+        ...mockCreateUserDto,
+        email: 'novo.gestor@rocketcorp.com',
+        mentorId: undefined, // Remover mentor para simplificar o teste
+        projectAssignments: [
+          {
+            projectId: 'projeto-sem-gestor',
+            roleInProject: 'gestor' as 'gestor'
+          }
+        ]
+      };
+
+      // Mock: email não existe
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
+
+      // Mock: projeto existe
+      mockPrismaService.project.findUnique.mockResolvedValueOnce({
+        id: 'projeto-sem-gestor',
+        name: 'Projeto Sem Gestor',
+        isActive: true
+      });
+
+      // Mock: não existe gestor no projeto
+      mockPrismaService.userProjectRole.findFirst.mockResolvedValueOnce(null);
+
+      // Mock: busca de usuários legacy (fallback)
+      mockPrismaService.user.findMany.mockResolvedValueOnce([]);
+
+      // Mock: criação do usuário
+      const createdUser = {
+        id: 'new-manager-id',
+        name: newManagerData.name,
+        email: newManagerData.email,
+        roles: '[\"colaborador\",\"gestor\"]',
+        jobTitle: newManagerData.jobTitle,
+        seniority: newManagerData.seniority,
+        careerTrack: newManagerData.careerTrack,
+        businessUnit: newManagerData.businessUnit,
+        managerId: null,
+        mentorId: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      mockPrismaService.user.create.mockResolvedValueOnce(createdUser);
+
+      // Mock: userProjectRole.findMany para updateDirectReports (colaboradores do projeto)
+      mockPrismaService.userProjectRole.findMany.mockResolvedValueOnce([
+        {
+          userId: 'collaborator-1',
+          projectId: 'projeto-sem-gestor',
+          role: 'COLLABORATOR',
+          user: {
+            id: 'collaborator-1',
+            name: 'Colaborador Teste',
+            isActive: true,
+            managerId: null
+          }
+        }
+      ]);
+
+      // Mock: user.findUnique para currentUser (directReports)
+      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+        id: 'new-manager-id',
+        directReports: null
+      });
+
+      // Mock: user.update para directReports
+      mockPrismaService.user.update.mockResolvedValueOnce({} as any);
+
+      // Mock: user.updateMany para managerId
+      mockPrismaService.user.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      // Mock: getUserProfile
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(createdUser);
+
+      // Mock: getProjectRoles
+      mockPrismaService.userProjectAssignment.findMany.mockResolvedValueOnce([
+        {
+          userId: 'new-manager-id',
+          projectId: 'projeto-sem-gestor',
+          project: {
+            id: 'projeto-sem-gestor',
+            name: 'Projeto Sem Gestor',
+            isActive: true
+          }
+        }
+      ]);
+
+      mockPrismaService.userProjectRole.findMany.mockResolvedValueOnce([
+        {
+          role: 'MANAGER'
+        }
+      ]);
+
+      // Act
+      const result = await service.createUser(newManagerData);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.roles).toEqual(['colaborador', 'gestor']);
+      expect(mockPrismaService.user.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('createUser - Sucesso', () => {
+    it('deve criar usuário colaborador com sucesso', async () => {
+      // Limpar todos os mocks
+      jest.clearAllMocks();
+      mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
+
+      // Mock do usuário criado com roles válido
+      const createdUser = {
         id: 'new-user-123',
         name: mockCreateUserDto.name,
         email: mockCreateUserDto.email,
         passwordHash: '$2a$12$hashedPassword',
-        roles: '["colaborador"]',
+        roles: '["colaborador"]', // JSON string válido
         jobTitle: mockCreateUserDto.jobTitle,
         seniority: mockCreateUserDto.seniority,
         careerTrack: mockCreateUserDto.careerTrack,
@@ -175,38 +334,41 @@ describe('UserService', () => {
         updatedAt: new Date(),
       };
 
-      // Setup básico para testes de sucesso
-      // Sequência de chamadas findUnique para CASO COM MENTOR:
-      // 1. validateUserCreation: Email check
-      // 2. validateUserCreation: Mentor check
-      // 3. processUserData: Mentor name lookup
-      // 4. getUserProfile: User data
-      // 5. getUserProfile: Mentor lookup
-      mockPrismaService.user.findUnique
-        .mockResolvedValueOnce(null) // 1. Email check
-        .mockResolvedValueOnce(mockMentor) // 2. Mentor exists (validateUserCreation)
-        .mockResolvedValueOnce(mockMentor) // 3. Mentor name lookup (processUserData)
-        .mockResolvedValueOnce(createdUser) // 4. getUserProfile main query
-        .mockResolvedValueOnce(mockMentor); // 5. mentor lookup (getUserProfile)
+      // Contador para rastrear chamadas
+      let findUniqueCallCount = 0;
+      
+      // Usar mockImplementation para controlar as chamadas
+      mockPrismaService.user.findUnique.mockImplementation((args: any) => {
+        findUniqueCallCount++;
+        
+        if (args.where.email) {
+          // Email check - deve retornar null (email não existe)
+          return Promise.resolve(null);
+        } else if (args.where.id === mockMentor.id) {
+          // Mentor lookup
+          return Promise.resolve(mockMentor);
+        } else if (args.where.id === createdUser.id) {
+          // User profile lookup - CRUCIAL: deve retornar o usuário com roles
+          return Promise.resolve(createdUser);
+        } else {
+          return Promise.resolve(null);
+        }
+      });
       
       mockPrismaService.project.findUnique.mockResolvedValue(mockProject);
       mockPrismaService.userProjectRole.findFirst.mockResolvedValue(null);
-      
-      // Mock para findMany - deve retornar array vazio se não há gestores
       mockPrismaService.user.findMany.mockResolvedValue([]);
-      
-      mockPrismaService.userProjectRole.findMany
-        .mockResolvedValueOnce([]) // Para updateDirectReports
-        .mockResolvedValueOnce([{ role: 'COLLABORATOR' }]); // Para getProjectRoles
-      
       mockPrismaService.user.create.mockResolvedValue(createdUser);
       
-      mockPrismaService.userProjectAssignment.findMany.mockResolvedValue([
-        { project: mockProject }
-      ]);
-    });
+      // Mocks para createUserRelationships
+      mockPrismaService.userProjectAssignment.create.mockResolvedValue({});
+      mockPrismaService.userProjectRole.create.mockResolvedValue({});
+      mockPrismaService.userRoleAssignment.upsert.mockResolvedValue({});
+      
+      // Mocks para updateDirectReports e getProjectRoles
+      mockPrismaService.userProjectRole.findMany.mockResolvedValue([{ role: 'COLLABORATOR' }]);
+      mockPrismaService.userProjectAssignment.findMany.mockResolvedValue([{ project: mockProject }]);
 
-    it('deve criar usuário colaborador com sucesso', async () => {
       // Act
       const result = await service.createUser(mockCreateUserDto);
 
@@ -219,29 +381,152 @@ describe('UserService', () => {
     });
 
     it('deve criar relacionamentos no banco de dados', async () => {
+      // Limpar todos os mocks
+      jest.clearAllMocks();
+      mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
+
+      // Usar email único para evitar conflitos
+      const uniqueUserDto = { 
+        ...mockCreateUserDto, 
+        email: 'joao.relacionamentos@rocketcorp.com' 
+      };
+
+      const uniqueUser = {
+        id: 'unique-user-123',
+        name: uniqueUserDto.name,
+        email: uniqueUserDto.email,
+        passwordHash: '$2a$12$hashedPassword',
+        roles: '["colaborador"]',
+        jobTitle: uniqueUserDto.jobTitle,
+        seniority: uniqueUserDto.seniority,
+        careerTrack: uniqueUserDto.careerTrack,
+        businessUnit: uniqueUserDto.businessUnit,
+        managerId: null,
+        mentorId: mockMentor.id,
+        directReports: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Configurar mocks
+      mockPrismaService.user.findUnique.mockImplementation((args: any) => {
+        if (args.where.email) {
+          return Promise.resolve(null);
+        } else if (args.where.id === mockMentor.id) {
+          return Promise.resolve(mockMentor);
+        } else if (args.where.id === uniqueUser.id) {
+          return Promise.resolve(uniqueUser);
+        } else {
+          return Promise.resolve(null);
+        }
+      });
+      
+      mockPrismaService.project.findUnique.mockResolvedValue(mockProject);
+      mockPrismaService.userProjectRole.findFirst.mockResolvedValue(null);
+      mockPrismaService.user.findMany.mockResolvedValue([]);
+      mockPrismaService.user.create.mockResolvedValue(uniqueUser);
+      
+      // Mocks para createUserRelationships
+      mockPrismaService.userProjectAssignment.create.mockResolvedValue({});
+      mockPrismaService.userProjectRole.create.mockResolvedValue({});
+      mockPrismaService.userRoleAssignment.upsert.mockResolvedValue({});
+      
+      // Mocks para updateDirectReports e getProjectRoles
+      mockPrismaService.userProjectRole.findMany.mockResolvedValue([{ role: 'COLLABORATOR' }]);
+      mockPrismaService.userProjectAssignment.findMany.mockResolvedValue([{ project: mockProject }]);
+
       // Act
-      await service.createUser(mockCreateUserDto);
+      await service.createUser(uniqueUserDto);
 
       // Assert
       expect(mockPrismaService.user.create).toHaveBeenCalled();
       expect(mockPrismaService.userProjectAssignment.create).toHaveBeenCalledWith({
         data: {
-          userId: 'new-user-123',
+          userId: uniqueUser.id,
           projectId: 'projeto-delta'
         }
       });
       expect(mockPrismaService.userProjectRole.create).toHaveBeenCalledWith({
         data: {
-          userId: 'new-user-123',
+          userId: uniqueUser.id,
           projectId: 'projeto-delta',
+          role: 'COLLABORATOR'
+        }
+      });
+      expect(mockPrismaService.userRoleAssignment.upsert).toHaveBeenCalledWith({
+        where: {
+          userId_role: {
+            userId: uniqueUser.id,
+            role: 'COLLABORATOR'
+          }
+        },
+        update: {},
+        create: {
+          userId: uniqueUser.id,
           role: 'COLLABORATOR'
         }
       });
     });
 
     it('deve preencher dados do mentor automaticamente', async () => {
+      // Limpar todos os mocks
+      jest.clearAllMocks();
+      mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
+
+      // Usar email único para evitar conflitos
+      const uniqueUserDto = { 
+        ...mockCreateUserDto, 
+        email: 'joao.mentor@rocketcorp.com' 
+      };
+
+      const uniqueUser = {
+        id: 'mentor-user-123',
+        name: uniqueUserDto.name,
+        email: uniqueUserDto.email,
+        passwordHash: '$2a$12$hashedPassword',
+        roles: '["colaborador"]',
+        jobTitle: uniqueUserDto.jobTitle,
+        seniority: uniqueUserDto.seniority,
+        careerTrack: uniqueUserDto.careerTrack,
+        businessUnit: uniqueUserDto.businessUnit,
+        managerId: null,
+        mentorId: mockMentor.id,
+        directReports: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Configurar mocks
+      mockPrismaService.user.findUnique.mockImplementation((args: any) => {
+        if (args.where.email) {
+          return Promise.resolve(null);
+        } else if (args.where.id === mockMentor.id) {
+          return Promise.resolve(mockMentor);
+        } else if (args.where.id === uniqueUser.id) {
+          return Promise.resolve(uniqueUser);
+        } else {
+          return Promise.resolve(null);
+        }
+      });
+      
+      mockPrismaService.project.findUnique.mockResolvedValue(mockProject);
+      mockPrismaService.userProjectRole.findFirst.mockResolvedValue(null);
+      mockPrismaService.user.findMany.mockResolvedValue([]);
+      mockPrismaService.user.create.mockResolvedValue(uniqueUser);
+      
+      // Mocks para createUserRelationships
+      mockPrismaService.userProjectAssignment.create.mockResolvedValue({});
+      mockPrismaService.userProjectRole.create.mockResolvedValue({});
+      mockPrismaService.userRoleAssignment.upsert.mockResolvedValue({});
+      
+      // Mocks para updateDirectReports e getProjectRoles
+      mockPrismaService.userProjectRole.findMany.mockResolvedValue([{ role: 'COLLABORATOR' }]);
+      mockPrismaService.userProjectAssignment.findMany.mockResolvedValue([{ project: mockProject }]);
+
       // Act
-      const result = await service.createUser(mockCreateUserDto);
+      const result = await service.createUser(uniqueUserDto);
 
       // Assert
       expect(result.mentorId).toBe(mockMentor.id);

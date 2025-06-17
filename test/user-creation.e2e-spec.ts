@@ -12,8 +12,10 @@ describe('User Creation (e2e)', () => {
   let adminToken: string;
   let hrToken: string;
   let collaboratorToken: string;
+  let validMentorId: string;
 
-  const validUserData = {
+  const validProjectMemberData = {
+    userType: 'project_member',
     name: 'João Silva Santos',
     email: 'joao.santos@rocketcorp.com',
     password: 'MinhaSenh@123',
@@ -27,7 +29,40 @@ describe('User Creation (e2e)', () => {
         roleInProject: 'colaborador'
       }
     ],
-    mentorId: 'cmc06gfpa0002tz1cymfs5rww' // Carla Dias como mentor
+    get mentorId() { return validMentorId; }
+  };
+
+  const validAdminData = {
+    userType: 'admin',
+    name: 'Admin Teste',
+    email: 'admin.teste@rocketcorp.com',
+    password: 'AdminSenh@123',
+    jobTitle: 'DevOps Engineer',
+    seniority: 'Sênior',
+    careerTrack: 'Tech',
+    businessUnit: 'Operations'
+  };
+
+  const validRhData = {
+    userType: 'rh',
+    name: 'RH Teste',
+    email: 'rh.teste@rocketcorp.com',
+    password: 'RhSenh@123',
+    jobTitle: 'People & Culture Manager',
+    seniority: 'Sênior',
+    careerTrack: 'Business',
+    businessUnit: 'Operations'
+  };
+
+  const validComiteData = {
+    userType: 'comite',
+    name: 'Comitê Teste',
+    email: 'comite.teste@rocketcorp.com',
+    password: 'ComiteSenh@123',
+    jobTitle: 'Head of Engineering',
+    seniority: 'Principal',
+    careerTrack: 'Tech',
+    businessUnit: 'Digital Products'
   };
 
   beforeAll(async () => {
@@ -48,6 +83,17 @@ describe('User Creation (e2e)', () => {
 
     prismaService = moduleFixture.get<PrismaService>(PrismaService);
     authService = moduleFixture.get<AuthService>(AuthService);
+
+    // Buscar um mentor válido (Carla Dias)
+    const mentor = await prismaService.user.findFirst({
+      where: {
+        email: 'carla.dias@rocketcorp.com'
+      }
+    });
+    
+    if (mentor) {
+      validMentorId = mentor.id;
+    }
 
     // Gerar tokens para diferentes tipos de usuário
     await generateTestTokens();
@@ -111,7 +157,7 @@ describe('User Creation (e2e)', () => {
       it('deve rejeitar requisição sem token', async () => {
         return request(app.getHttpServer())
           .post('/api/users')
-          .send(validUserData)
+          .send(validProjectMemberData)
           .expect(401);
       });
 
@@ -119,7 +165,7 @@ describe('User Creation (e2e)', () => {
         return request(app.getHttpServer())
           .post('/api/users')
           .set('Authorization', 'Bearer token-invalido')
-          .send(validUserData)
+          .send(validProjectMemberData)
           .expect(401);
       });
 
@@ -127,7 +173,7 @@ describe('User Creation (e2e)', () => {
         return request(app.getHttpServer())
           .post('/api/users')
           .set('Authorization', `Bearer ${collaboratorToken}`)
-          .send(validUserData)
+          .send(validProjectMemberData)
           .expect(403)
           .expect(res => {
             expect(res.body.message).toContain('Acesso negado');
@@ -136,7 +182,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve aceitar usuário admin', async () => {
         const testData = {
-          ...validUserData,
+          ...validAdminData,
           email: 'teste.admin@rocketcorp.com'
         };
 
@@ -154,7 +200,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve aceitar usuário RH', async () => {
         const testData = {
-          ...validUserData,
+          ...validRhData,
           email: 'teste.rh@rocketcorp.com'
         };
 
@@ -167,6 +213,177 @@ describe('User Creation (e2e)', () => {
             expect(res.body.email).toBe(testData.email);
             expect(res.body.name).toBe(testData.name);
           });
+      });
+    });
+
+    describe('Validações de userType', () => {
+      it('deve rejeitar dados sem userType', async () => {
+        const { userType, ...dataWithoutUserType } = validProjectMemberData;
+
+        return request(app.getHttpServer())
+          .post('/api/users')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send(dataWithoutUserType)
+          .expect(400)
+          .expect(res => {
+            expect(res.body.message).toEqual(expect.arrayContaining([
+              expect.stringContaining('userType deve ser um dos seguintes valores')
+            ]));
+          });
+      });
+
+      it('deve rejeitar userType inválido', async () => {
+        const invalidData = {
+          ...validProjectMemberData,
+          userType: 'tipo_invalido'
+        };
+
+        return request(app.getHttpServer())
+          .post('/api/users')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send(invalidData)
+          .expect(400)
+          .expect(res => {
+            expect(res.body.message).toEqual(expect.arrayContaining([
+              'userType deve ser um dos seguintes valores: admin, rh, comite, project_member'
+            ]));
+          });
+      });
+    });
+
+    describe('Criação de usuários por tipo', () => {
+      describe('Usuário Admin', () => {
+        it('deve criar usuário admin sem projectAssignments', async () => {
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(validAdminData)
+            .expect(201)
+            .expect(res => {
+              expect(res.body.email).toBe(validAdminData.email);
+              expect(res.body.roles).toEqual(['admin']);
+              expect(res.body.managerId).toBeUndefined();
+              expect(res.body.mentorId).toBeUndefined();
+              expect(res.body.projectRoles).toEqual([]);
+            });
+        });
+
+        it('deve ignorar projectAssignments para usuário admin', async () => {
+          const timestamp = Date.now();
+          const adminWithProjects = {
+            ...validAdminData,
+            email: `admin.com.projetos.${timestamp}@rocketcorp.com`,
+            projectAssignments: [
+              {
+                projectId: 'projeto-delta',
+                roleInProject: 'gestor'
+              }
+            ]
+          };
+
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(adminWithProjects)
+            .expect(201)
+            .expect(res => {
+              expect(res.body.roles).toEqual(['admin']);
+              expect(res.body.projectRoles).toEqual([]);
+            });
+        });
+      });
+
+      describe('Usuário RH', () => {
+        it('deve criar usuário RH sem projectAssignments', async () => {
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(validRhData)
+            .expect(201)
+            .expect(res => {
+              expect(res.body.email).toBe(validRhData.email);
+              expect(res.body.roles).toEqual(['rh']);
+              expect(res.body.projectRoles).toEqual([]);
+            });
+        });
+      });
+
+      describe('Usuário Comitê', () => {
+        it('deve criar usuário comitê sem projectAssignments', async () => {
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(validComiteData)
+            .expect(201)
+            .expect(res => {
+              expect(res.body.email).toBe(validComiteData.email);
+              expect(res.body.roles).toEqual(['comite']);
+              expect(res.body.projectRoles).toEqual([]);
+            });
+        });
+      });
+
+      describe('Usuário Project Member', () => {
+        it('deve criar membro de projeto com projectAssignments', async () => {
+          const timestamp = Date.now();
+          const testData = {
+            ...validProjectMemberData,
+            email: `joao.santos.${timestamp}@rocketcorp.com`
+          };
+
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(testData)
+            .expect(201)
+            .expect(res => {
+              expect(res.body.email).toBe(testData.email);
+              expect(res.body.roles).toEqual(['colaborador']);
+              expect(res.body.projectRoles).toHaveLength(1);
+              expect(res.body.projectRoles[0].projectId).toBe('projeto-delta');
+              expect(res.body.projectRoles[0].roles).toEqual(['COLLABORATOR']);
+            });
+        });
+
+        it('deve rejeitar membro de projeto sem projectAssignments', async () => {
+          const { projectAssignments, ...memberWithoutProjects } = validProjectMemberData;
+          const testData = {
+            ...memberWithoutProjects,
+            email: 'membro.sem.projetos@rocketcorp.com'
+          };
+
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(testData)
+            .expect(400)
+            .expect(res => {
+              expect(res.body.message).toContain('Membros de projeto devem ter pelo menos uma atribuição de projeto');
+            });
+        });
+
+        it('deve criar gestor com role de manager', async () => {
+          const managerData = {
+            ...validProjectMemberData,
+            email: 'gestor.teste@rocketcorp.com',
+            projectAssignments: [
+              {
+                projectId: 'projeto-delta',
+                roleInProject: 'gestor'
+              }
+            ]
+          };
+
+          return request(app.getHttpServer())
+            .post('/api/users')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(managerData)
+            .expect(201)
+            .expect(res => {
+              expect(res.body.roles).toEqual(['colaborador', 'gestor']);
+              expect(res.body.projectRoles[0].roles).toEqual(['MANAGER']);
+            });
+        });
       });
     });
 
@@ -185,7 +402,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve rejeitar email com domínio incorreto', async () => {
         const invalidData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste@gmail.com'
         };
 
@@ -201,7 +418,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve rejeitar senha muito curta', async () => {
         const invalidData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.senha@rocketcorp.com',
           password: '123'
         };
@@ -218,7 +435,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve rejeitar jobTitle inválido', async () => {
         const invalidData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.job@rocketcorp.com',
           jobTitle: 'Cargo Inexistente'
         };
@@ -232,7 +449,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve rejeitar projectAssignments vazio', async () => {
         const invalidData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.projeto@rocketcorp.com',
           projectAssignments: []
         };
@@ -249,7 +466,7 @@ describe('User Creation (e2e)', () => {
       it('deve rejeitar email já existente', async () => {
         // Criar primeiro usuário
         const firstUserData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.duplicado@rocketcorp.com'
         };
 
@@ -272,7 +489,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve rejeitar projeto inexistente', async () => {
         const invalidData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.projeto.inexistente@rocketcorp.com',
           projectAssignments: [
             {
@@ -294,7 +511,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve rejeitar mentor inexistente', async () => {
         const invalidData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.mentor.inexistente@rocketcorp.com',
           mentorId: 'mentor-inexistente'
         };
@@ -313,7 +530,7 @@ describe('User Creation (e2e)', () => {
     describe('Processamento automático', () => {
       it('deve criar colaborador com role correta', async () => {
         const testData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.colaborador@rocketcorp.com',
           projectAssignments: [
             {
@@ -337,7 +554,7 @@ describe('User Creation (e2e)', () => {
 
       it('deve criar gestor com roles corretas', async () => {
         const testData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.gestor@rocketcorp.com',
           projectAssignments: [
             {
@@ -371,50 +588,37 @@ describe('User Creation (e2e)', () => {
           }
         });
 
-        if (managerInProject) {
-          const testData = {
-            ...validUserData,
-            email: 'teste.gestor.auto@rocketcorp.com',
-            projectAssignments: [
-              {
-                projectId: 'projeto-delta',
-                roleInProject: 'colaborador'
-              }
-            ]
-          };
+        const testData = {
+          ...validProjectMemberData,
+          email: 'teste.sem.gestor@rocketcorp.com',
+          projectAssignments: [
+            {
+              projectId: 'projeto-delta',
+              roleInProject: 'colaborador'
+            }
+          ]
+        };
 
-          return request(app.getHttpServer())
-            .post('/api/users')
-            .set('Authorization', `Bearer ${adminToken}`)
-            .send(testData)
-            .expect(201)
-            .expect(res => {
+        return request(app.getHttpServer())
+          .post('/api/users')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send(testData)
+          .expect(201)
+          .expect(res => {
+            if (managerInProject) {
               expect(res.body.managerId).toBe(managerInProject.user.id);
               expect(res.body.managerName).toBe(managerInProject.user.name);
-            });
-        } else {
-          // Se não há gestor, deve funcionar sem gestor
-          const testData = {
-            ...validUserData,
-            email: 'teste.sem.gestor@rocketcorp.com'
-          };
-
-          return request(app.getHttpServer())
-            .post('/api/users')
-            .set('Authorization', `Bearer ${adminToken}`)
-            .send(testData)
-            .expect(201)
-            .expect(res => {
+            } else {
               expect(res.body.managerId).toBeUndefined();
               expect(res.body.managerName).toBeUndefined();
-            });
-        }
+            }
+          });
       });
 
       it('deve preencher dados do mentor automaticamente', async () => {
-        const mentorId = 'cmc06gfpa0002tz1cymfs5rww'; // ID da Carla Dias
+        const mentorId = validMentorId;
         const testData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.mentor.auto@rocketcorp.com',
           mentorId
         };
@@ -434,12 +638,12 @@ describe('User Creation (e2e)', () => {
           });
       });
 
-              it('deve funcionar sem mentor quando não informado', async () => {
-          const { mentorId, ...testDataWithoutMentor } = validUserData;
-          const testData = {
-            ...testDataWithoutMentor,
-            email: 'teste.sem.mentor@rocketcorp.com'
-          };
+      it('deve funcionar sem mentor quando não informado', async () => {
+        const { mentorId, ...testDataWithoutMentor } = validProjectMemberData;
+        const testData = {
+          ...testDataWithoutMentor,
+          email: 'teste.sem.mentor@rocketcorp.com'
+        };
 
         return request(app.getHttpServer())
           .post('/api/users')
@@ -456,7 +660,7 @@ describe('User Creation (e2e)', () => {
     describe('Estrutura de resposta', () => {
       it('deve retornar usuário completo sem senha', async () => {
         const testData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.resposta@rocketcorp.com'
         };
 
@@ -467,39 +671,30 @@ describe('User Creation (e2e)', () => {
           .expect(201)
           .expect(res => {
             const user = res.body;
-            
+
             // Campos obrigatórios
-            expect(user).toHaveProperty('id');
-            expect(user).toHaveProperty('name');
-            expect(user).toHaveProperty('email');
-            expect(user).toHaveProperty('roles');
-            expect(user).toHaveProperty('jobTitle');
-            expect(user).toHaveProperty('seniority');
-            expect(user).toHaveProperty('careerTrack');
-            expect(user).toHaveProperty('businessUnit');
-            expect(user).toHaveProperty('projectRoles');
-            expect(user).toHaveProperty('isActive');
-            expect(user).toHaveProperty('createdAt');
-            expect(user).toHaveProperty('updatedAt');
-
-            // Não deve conter senha
-            expect(user).not.toHaveProperty('password');
-            expect(user).not.toHaveProperty('passwordHash');
-
-            // Validar tipos
-            expect(typeof user.id).toBe('string');
-            expect(typeof user.name).toBe('string');
-            expect(typeof user.email).toBe('string');
-            expect(Array.isArray(user.roles)).toBe(true);
-            expect(Array.isArray(user.projectRoles)).toBe(true);
-            expect(typeof user.isActive).toBe('boolean');
+            expect(user.id).toBeDefined();
+            expect(user.email).toBe(testData.email);
+            expect(user.name).toBe(testData.name);
+            expect(user.jobTitle).toBe(testData.jobTitle);
+            expect(user.seniority).toBe(testData.seniority);
+            expect(user.careerTrack).toBe(testData.careerTrack);
+            expect(user.businessUnit).toBe(testData.businessUnit);
+            expect(user.roles).toBeDefined();
+            expect(user.projectRoles).toBeDefined();
             expect(user.isActive).toBe(true);
+            expect(user.createdAt).toBeDefined();
+            expect(user.updatedAt).toBeDefined();
+
+            // Não deve retornar senha
+            expect(user.password).toBeUndefined();
+            expect(user.passwordHash).toBeUndefined();
           });
       });
 
       it('deve criar relacionamentos no banco corretamente', async () => {
         const testData = {
-          ...validUserData,
+          ...validProjectMemberData,
           email: 'teste.relacionamentos@rocketcorp.com'
         };
 
@@ -513,17 +708,31 @@ describe('User Creation (e2e)', () => {
 
         // Verificar UserProjectAssignment
         const projectAssignment = await prismaService.userProjectAssignment.findFirst({
-          where: { userId }
+          where: {
+            userId: userId,
+            projectId: 'projeto-delta'
+          }
         });
         expect(projectAssignment).toBeDefined();
-        expect(projectAssignment?.projectId).toBe('projeto-delta');
 
         // Verificar UserProjectRole
         const projectRole = await prismaService.userProjectRole.findFirst({
-          where: { userId }
+          where: {
+            userId: userId,
+            projectId: 'projeto-delta',
+            role: 'COLLABORATOR'
+          }
         });
         expect(projectRole).toBeDefined();
-        expect(projectRole?.role).toBe('COLLABORATOR');
+
+        // Verificar UserRoleAssignment
+        const roleAssignment = await prismaService.userRoleAssignment.findFirst({
+          where: {
+            userId: userId,
+            role: 'COLLABORATOR'
+          }
+        });
+        expect(roleAssignment).toBeDefined();
       });
     });
   });

@@ -3,6 +3,16 @@ import { IsEmail, IsString, IsNotEmpty, IsArray, ValidateNested, IsEnum, IsOptio
 import { Type } from 'class-transformer';
 
 /**
+ * Enum para definir o tipo principal do usuário
+ */
+export enum UserType {
+  ADMIN = 'admin',
+  RH = 'rh', 
+  COMITE = 'comite',
+  PROJECT_MEMBER = 'project_member'
+}
+
+/**
  * DTO para definir a alocação de um usuário em um projeto
  */
 export class ProjectAssignmentDto {
@@ -19,7 +29,9 @@ export class ProjectAssignmentDto {
     example: 'colaborador',
     enum: ['colaborador', 'gestor']
   })
-  @IsEnum(['colaborador', 'gestor'])
+  @IsEnum(['colaborador', 'gestor'], {
+    message: 'roleInProject deve ser um dos seguintes valores: colaborador, gestor'
+  })
   roleInProject: 'colaborador' | 'gestor';
 }
 
@@ -27,6 +39,17 @@ export class ProjectAssignmentDto {
  * DTO para criação de novos usuários
  */
 export class CreateUserDto {
+  @ApiProperty({
+    description: 'Tipo principal do usuário que define seu escopo de atuação',
+    example: 'project_member',
+    enum: UserType,
+    enumName: 'UserType'
+  })
+  @IsEnum(UserType, {
+    message: 'userType deve ser um dos seguintes valores: admin, rh, comite, project_member'
+  })
+  userType: UserType;
+
   @ApiProperty({
     description: 'Nome completo do usuário',
     example: 'Ana Silva Oliveira'
@@ -58,9 +81,35 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'Cargo/Posição do colaborador',
     example: 'Desenvolvedora Frontend',
-    enum: ['Desenvolvedora Frontend', 'Desenvolvedor Backend', 'Product Designer', 'Product Manager', 'Tech Lead', 'DevOps Engineer', 'Data Analyst', 'QA Engineer']
+    enum: [
+      'Desenvolvedora Frontend', 
+      'Desenvolvedor Backend', 
+      'Product Designer', 
+      'Product Manager', 
+      'Tech Lead', 
+      'DevOps Engineer', 
+      'Data Analyst', 
+      'QA Engineer',
+      'People & Culture Manager',
+      'Head of Engineering',
+      'System Administrator'
+    ]
   })
-  @IsEnum(['Desenvolvedora Frontend', 'Desenvolvedor Backend', 'Product Designer', 'Product Manager', 'Tech Lead', 'DevOps Engineer', 'Data Analyst', 'QA Engineer'])
+  @IsEnum([
+    'Desenvolvedora Frontend', 
+    'Desenvolvedor Backend', 
+    'Product Designer', 
+    'Product Manager', 
+    'Tech Lead', 
+    'DevOps Engineer', 
+    'Data Analyst', 
+    'QA Engineer',
+    'People & Culture Manager',
+    'Head of Engineering',
+    'System Administrator'
+  ], {
+    message: 'jobTitle deve ser um dos seguintes valores: Desenvolvedora Frontend, Desenvolvedor Backend, Product Designer, Product Manager, Tech Lead, DevOps Engineer, Data Analyst, QA Engineer, People & Culture Manager, Head of Engineering, System Administrator'
+  })
   jobTitle: string;
 
   @ApiProperty({
@@ -68,7 +117,9 @@ export class CreateUserDto {
     example: 'Pleno',
     enum: ['Júnior', 'Pleno', 'Sênior', 'Principal', 'Staff']
   })
-  @IsEnum(['Júnior', 'Pleno', 'Sênior', 'Principal', 'Staff'])
+  @IsEnum(['Júnior', 'Pleno', 'Sênior', 'Principal', 'Staff'], {
+    message: 'seniority deve ser um dos seguintes valores: Júnior, Pleno, Sênior, Principal, Staff'
+  })
   seniority: string;
 
   @ApiProperty({
@@ -76,7 +127,9 @@ export class CreateUserDto {
     example: 'Tech',
     enum: ['Tech', 'Business']
   })
-  @IsEnum(['Tech', 'Business'])
+  @IsEnum(['Tech', 'Business'], {
+    message: 'careerTrack deve ser um dos seguintes valores: Tech, Business'
+  })
   careerTrack: string;
 
   @ApiProperty({
@@ -84,11 +137,13 @@ export class CreateUserDto {
     example: 'Digital Products',
     enum: ['Digital Products', 'Operations']
   })
-  @IsEnum(['Digital Products', 'Operations'])
+  @IsEnum(['Digital Products', 'Operations'], {
+    message: 'businessUnit deve ser um dos seguintes valores: Digital Products, Operations'
+  })
   businessUnit: string;
 
   @ApiProperty({
-    description: 'Array de alocações em projetos',
+    description: 'Array de alocações em projetos (obrigatório apenas para userType = project_member)',
     type: [ProjectAssignmentDto],
     example: [
       {
@@ -99,18 +154,17 @@ export class CreateUserDto {
         projectId: 'projeto-beta',
         roleInProject: 'gestor'
       }
-    ]
+    ],
+    required: false
   })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1, {
-    message: 'Pelo menos um projeto deve ser atribuído'
-  })
   @ValidateNested({ each: true })
   @Type(() => ProjectAssignmentDto)
-  projectAssignments: ProjectAssignmentDto[];
+  projectAssignments?: ProjectAssignmentDto[];
 
   @ApiProperty({
-    description: 'ID do mentor designado (opcional)',
+    description: 'ID do mentor designado (opcional, ignorado para userType = admin, rh, comite)',
     example: 'cmbyavwvk0002tzsgi5r3edy5',
     required: false
   })

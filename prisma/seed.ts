@@ -186,6 +186,7 @@ async function main() {
   // LIMPEZA E CRIAÇÃO DE USUÁRIOS
   // ==========================================
   console.log('🧹 Limpando dados existentes...');
+  await prisma.userProjectRole.deleteMany();
   await prisma.userProjectAssignment.deleteMany();
   await prisma.userRoleAssignment.deleteMany();
   await prisma.user.deleteMany();
@@ -194,38 +195,94 @@ async function main() {
   const password = 'password123';
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  console.log('👥 Criando usuários robustos...');
+  console.log('👥 Criando usuários com nova estrutura...');
 
   // ==========================================
-  // USUÁRIO 1: ANA OLIVEIRA - DESENVOLVEDORA FRONTEND PLENO
+  // USUÁRIO 1: EDUARDO TECH - ADMIN PURO
   // ==========================================
-  const ana = await prisma.user.create({
+  const eduardo = await prisma.user.create({
     data: {
-      name: 'Ana Beatriz Oliveira Santos',
-      email: 'ana.oliveira@rocketcorp.com',
+      name: 'Eduardo José Ferreira da Silva',
+      email: 'eduardo.tech@rocketcorp.com',
       passwordHash: hashedPassword,
-      roles: JSON.stringify(['colaborador']), // Campo legado - mantido para compatibilidade
+      roles: JSON.stringify(['admin']), // Campo legado - mantido para compatibilidade
 
       // Dados organizacionais completos
-      jobTitle: 'Desenvolvedora Frontend',
-      seniority: 'Pleno',
-      careerTrack: 'Tecnologia',
-      businessUnit: 'Digital Products',
+      jobTitle: 'DevOps Engineer',
+      seniority: 'Sênior',
+      careerTrack: 'Tech',
+      businessUnit: 'Operations',
 
-      // Dados de projetos (legado - agora substituído por UserProjectAssignment + UserProjectRole)
-      projects: JSON.stringify(['projeto-alpha', 'projeto-mobile-app']),
-      managerId: null, // Será preenchido após criar Bruno
-      directReports: null, // Ana não tem liderados
-      mentorId: null, // Será preenchido após criar Carla
+      // Admin puro - sem vínculos de projeto ou hierarquia
+      projects: null,
+      managerId: null,
+      directReports: null,
+      mentorId: null,
 
       isActive: true,
     },
   });
 
-  console.log(`✅ Usuário criado: ${ana.name} (${ana.email})`);
+  console.log(`✅ Usuário ADMIN criado: ${eduardo.name} (${eduardo.email})`);
 
   // ==========================================
-  // USUÁRIO 2: BRUNO MENDES - TECH LEAD SÊNIOR
+  // USUÁRIO 2: DIANA COSTA - RH PURO
+  // ==========================================
+  const diana = await prisma.user.create({
+    data: {
+      name: 'Diana Cristina Costa Lima',
+      email: 'diana.costa@rocketcorp.com',
+      passwordHash: hashedPassword,
+      roles: JSON.stringify(['rh']),
+
+      // Dados organizacionais completos
+      jobTitle: 'People & Culture Manager',
+      seniority: 'Sênior',
+      careerTrack: 'Business',
+      businessUnit: 'Operations',
+
+      // RH puro - sem vínculos de projeto ou hierarquia
+      projects: null,
+      managerId: null,
+      directReports: null,
+      mentorId: null,
+
+      isActive: true,
+    },
+  });
+
+  console.log(`✅ Usuário RH criado: ${diana.name} (${diana.email})`);
+
+  // ==========================================
+  // USUÁRIO 3: CARLA DIAS - COMITÊ PURO
+  // ==========================================
+  const carla = await prisma.user.create({
+    data: {
+      name: 'Carla Regina Dias Fernandes',
+      email: 'carla.dias@rocketcorp.com',
+      passwordHash: hashedPassword,
+      roles: JSON.stringify(['comite']),
+
+      // Dados organizacionais completos
+      jobTitle: 'Head of Engineering',
+      seniority: 'Principal',
+      careerTrack: 'Tech',
+      businessUnit: 'Digital Products',
+
+      // Comitê puro - sem vínculos de projeto ou hierarquia
+      projects: null,
+      managerId: null,
+      directReports: null,
+      mentorId: null,
+
+      isActive: true,
+    },
+  });
+
+  console.log(`✅ Usuário COMITÊ criado: ${carla.name} (${carla.email})`);
+
+  // ==========================================
+  // USUÁRIO 4: BRUNO MENDES - GESTOR + COLABORADOR
   // ==========================================
   const bruno = await prisma.user.create({
     data: {
@@ -235,81 +292,53 @@ async function main() {
       roles: JSON.stringify(['colaborador', 'gestor']),
 
       // Dados organizacionais completos
-      jobTitle: 'Tech Lead Sênior',
+      jobTitle: 'Tech Lead',
       seniority: 'Sênior',
-      careerTrack: 'Tecnologia',
+      careerTrack: 'Tech',
       businessUnit: 'Digital Products',
 
       // Dados de projetos (legado - agora substituído por UserProjectAssignment + UserProjectRole)
-      projects: JSON.stringify(['projeto-alpha', 'projeto-api-core', 'projeto-delta']),
-      managerId: null, // Será preenchido após criar Carla
+      projects: JSON.stringify(['projeto-alpha', 'projeto-api-core']),
+      managerId: null,
       directReports: JSON.stringify([]), // Será atualizado após criar Ana e Felipe
-      mentorId: null, // Será preenchido após criar Carla
+      mentorId: null,
 
       isActive: true,
     },
   });
 
-  console.log(`✅ Usuário criado: ${bruno.name} (${bruno.email})`);
+  console.log(`✅ Usuário GESTOR+COLABORADOR criado: ${bruno.name} (${bruno.email})`);
 
   // ==========================================
-  // USUÁRIO 3: CARLA DIAS - HEAD OF ENGINEERING PRINCIPAL
+  // USUÁRIO 5: ANA OLIVEIRA - COLABORADORA
   // ==========================================
-  const carla = await prisma.user.create({
+  const ana = await prisma.user.create({
     data: {
-      name: 'Carla Regina Dias Fernandes',
-      email: 'carla.dias@rocketcorp.com',
+      name: 'Ana Beatriz Oliveira Santos',
+      email: 'ana.oliveira@rocketcorp.com',
       passwordHash: hashedPassword,
-      roles: JSON.stringify(['colaborador', 'comite']),
+      roles: JSON.stringify(['colaborador']),
 
       // Dados organizacionais completos
-      jobTitle: 'Head of Engineering',
-      seniority: 'Principal',
-      careerTrack: 'Tecnologia',
+      jobTitle: 'Desenvolvedora Frontend',
+      seniority: 'Pleno',
+      careerTrack: 'Tech',
       businessUnit: 'Digital Products',
 
-      // Dados de projetos e relacionamentos
-      projects: JSON.stringify(['projeto-beta', 'projeto-gamma', 'projeto-delta']),
-      managerId: null, // Carla não tem gestor (C-Level)
-      directReports: JSON.stringify([]), // Será atualizado após criar Bruno e Diana
-      mentorId: null, // Carla não tem mentor
+      // Dados de projetos
+      projects: JSON.stringify(['projeto-alpha', 'projeto-mobile-app']),
+      managerId: bruno.id, // Bruno é seu gestor
+      directReports: null, // Ana não tem liderados
+      mentorId: null, // Sem mentor neste exemplo
 
       isActive: true,
     },
   });
 
-  console.log(`✅ Usuário criado: ${carla.name} (${carla.email})`);
+  console.log(`✅ Usuário COLABORADOR criado: ${ana.name} (${ana.email})`);
 
   // ==========================================
-  // USUÁRIO 4: DIANA COSTA - PEOPLE & CULTURE MANAGER SÊNIOR
-  // ==========================================
-  const diana = await prisma.user.create({
-    data: {
-      name: 'Diana Cristina Costa Lima',
-      email: 'diana.costa@rocketcorp.com',
-      passwordHash: hashedPassword,
-      roles: JSON.stringify(['colaborador', 'rh']),
-
-      // Dados organizacionais completos
-      jobTitle: 'People & Culture Manager',
-      seniority: 'Sênior',
-      careerTrack: 'Negócios',
-      businessUnit: 'Operações',
-
-      // Dados de projetos e relacionamentos
-      projects: JSON.stringify(['projeto-beta']), // Projeto de modernização do RH
-      managerId: null, // Será preenchido após atualizar Carla
-      directReports: null, // Diana não tem liderados diretos
-      mentorId: null, // Será preenchido após atualizar Carla
-
-      isActive: true,
-    },
-  });
-
-  console.log(`✅ Usuário criado: ${diana.name} (${diana.email})`);
-
-  // ==========================================
-  // USUÁRIO 5: FELIPE SILVA - DESENVOLVEDOR BACKEND JÚNIOR
+  // USUÁRIO 6: FELIPE SILVA - COLABORADOR
   // ==========================================
   const felipe = await prisma.user.create({
     data: {
@@ -321,130 +350,56 @@ async function main() {
       // Dados organizacionais completos
       jobTitle: 'Desenvolvedor Backend',
       seniority: 'Júnior',
-      careerTrack: 'Tecnologia',
+      careerTrack: 'Tech',
       businessUnit: 'Digital Products',
 
-      // Dados de projetos e relacionamentos
+      // Dados de projetos
       projects: JSON.stringify(['projeto-api-core', 'projeto-mobile-app']),
-      managerId: null, // Será preenchido após atualizar Bruno
+      managerId: bruno.id, // Bruno é seu gestor
       directReports: null, // Felipe não tem liderados
-      mentorId: null, // Será preenchido após atualizar Ana
+      mentorId: ana.id, // Ana é sua mentora
 
       isActive: true,
     },
   });
 
-  console.log(`✅ Usuário criado: ${felipe.name} (${felipe.email})`);
+  console.log(`✅ Usuário COLABORADOR criado: ${felipe.name} (${felipe.email})`);
 
   // ==========================================
-  // USUÁRIO 6: EDUARDO TECH - DEVOPS ENGINEER SÊNIOR (ADMIN)
+  // ATUALIZAR DIRECT REPORTS DO BRUNO
   // ==========================================
-  const eduardo = await prisma.user.create({
-    data: {
-      name: 'Eduardo José Ferreira da Silva',
-      email: 'eduardo.tech@rocketcorp.com',
-      passwordHash: hashedPassword,
-      roles: JSON.stringify(['admin']),
-
-      // Dados organizacionais completos
-      jobTitle: 'DevOps Engineer',
-      seniority: 'Sênior',
-      careerTrack: 'Tecnologia',
-      businessUnit: 'Operações',
-
-      // Dados de projetos e relacionamentos
-      projects: JSON.stringify(['projeto-delta', 'projeto-gamma']), // Projetos de infraestrutura
-      managerId: null, // Eduardo reporta diretamente ao CTO (não presente no seed)
-      directReports: null, // Eduardo não tem liderados
-      mentorId: null, // Eduardo não tem mentor
-
-      isActive: true,
-    },
-  });
-
-  console.log(`✅ Usuário criado: ${eduardo.name} (${eduardo.email})`);
-
-  // ==========================================
-  // CONFIGURAÇÃO DE RELACIONAMENTOS HIERÁRQUICOS
-  // ==========================================
-  console.log('🔗 Configurando relacionamentos hierárquicos...');
-
-  // Ana: gestor = Bruno, mentor = Carla
-  await prisma.user.update({
-    where: { id: ana.id },
-    data: {
-      managerId: bruno.id,
-      mentorId: carla.id,
-    },
-  });
-  console.log(`✅ Ana → Gestor: ${bruno.name}, Mentor: ${carla.name}`);
-
-  // Bruno: gestor = Carla, mentor = Carla, liderados = [Ana, Felipe]
   await prisma.user.update({
     where: { id: bruno.id },
     data: {
-      managerId: carla.id,
-      mentorId: carla.id,
       directReports: JSON.stringify([ana.id, felipe.id]),
     },
   });
-  console.log(`✅ Bruno → Gestor: ${carla.name}, Mentor: ${carla.name}, Liderados: Ana e Felipe`);
-
-  // Carla: liderados = [Bruno, Diana]
-  await prisma.user.update({
-    where: { id: carla.id },
-    data: {
-      directReports: JSON.stringify([bruno.id, diana.id]),
-    },
-  });
-  console.log(`✅ Carla → Liderados: Bruno e Diana`);
-
-  // Diana: gestor = Carla, mentor = Carla
-  await prisma.user.update({
-    where: { id: diana.id },
-    data: {
-      managerId: carla.id,
-      mentorId: carla.id,
-    },
-  });
-  console.log(`✅ Diana → Gestor: ${carla.name}, Mentor: ${carla.name}`);
-
-  // Felipe: gestor = Bruno, mentor = Ana
-  await prisma.user.update({
-    where: { id: felipe.id },
-    data: {
-      managerId: bruno.id,
-      mentorId: ana.id,
-    },
-  });
-  console.log(`✅ Felipe → Gestor: ${bruno.name}, Mentor: ${ana.name}`);
+  console.log(`✅ Bruno → Liderados: Ana e Felipe`);
 
   // ==========================================
   // CONFIGURAÇÃO DE ROLE ASSIGNMENTS (NOVAS ESTRUTURAS)
   // ==========================================
-  console.log('👥 Configurando role assignments...');
+  console.log('👥 Configurando role assignments globais...');
 
   const roleAssignments = [
-    // Ana: Colaboradora
-    { userId: ana.id, role: 'COLLABORATOR' as const },
+    // Eduardo: Admin puro
+    { userId: eduardo.id, role: 'ADMIN' as const },
+    
+    // Diana: RH puro
+    { userId: diana.id, role: 'RH' as const },
+    
+    // Carla: Comitê puro
+    { userId: carla.id, role: 'COMMITTEE' as const },
     
     // Bruno: Colaborador + Gestor
     { userId: bruno.id, role: 'COLLABORATOR' as const },
     { userId: bruno.id, role: 'MANAGER' as const },
     
-    // Carla: Colaboradora + Comitê
-    { userId: carla.id, role: 'COLLABORATOR' as const },
-    { userId: carla.id, role: 'COMMITTEE' as const },
-    
-    // Diana: Colaboradora + RH
-    { userId: diana.id, role: 'COLLABORATOR' as const },
-    { userId: diana.id, role: 'RH' as const },
+    // Ana: Colaboradora
+    { userId: ana.id, role: 'COLLABORATOR' as const },
     
     // Felipe: Colaborador
     { userId: felipe.id, role: 'COLLABORATOR' as const },
-    
-    // Eduardo: Admin
-    { userId: eduardo.id, role: 'ADMIN' as const },
   ];
 
   for (const assignment of roleAssignments) {
@@ -461,35 +416,22 @@ async function main() {
   }
 
   // ==========================================
-  // CONFIGURAÇÃO DE ATRIBUIÇÕES DE PROJETO
+  // CONFIGURAÇÃO DE ATRIBUIÇÕES DE PROJETO (APENAS PARA MEMBROS DE PROJETO)
   // ==========================================
   console.log('📋 Configurando atribuições de projeto...');
 
   const projectAssignments = [
-    // Ana: Projeto Alpha (plataforma de vendas) e Mobile App
+    // Bruno: Projeto Alpha (liderar) e API Core
+    { userId: bruno.id, projectId: 'projeto-alpha' },
+    { userId: bruno.id, projectId: 'projeto-api-core' },
+    
+    // Ana: Projeto Alpha e Mobile App
     { userId: ana.id, projectId: 'projeto-alpha' },
     { userId: ana.id, projectId: 'projeto-mobile-app' },
     
-    // Bruno: Projeto Alpha (liderar), API Core e Delta (infraestrutura)
-    { userId: bruno.id, projectId: 'projeto-alpha' },
-    { userId: bruno.id, projectId: 'projeto-api-core' },
-    { userId: bruno.id, projectId: 'projeto-delta' },
-    
-    // Carla: Projetos estratégicos (Beta, Gamma, Delta)
-    { userId: carla.id, projectId: 'projeto-beta' },
-    { userId: carla.id, projectId: 'projeto-gamma' },
-    { userId: carla.id, projectId: 'projeto-delta' },
-    
-    // Diana: Projeto Beta (modernização RH)
-    { userId: diana.id, projectId: 'projeto-beta' },
-    
-    // Felipe: API Core e Mobile App (projetos de aprendizado)
+    // Felipe: API Core e Mobile App
     { userId: felipe.id, projectId: 'projeto-api-core' },
     { userId: felipe.id, projectId: 'projeto-mobile-app' },
-    
-    // Eduardo: Delta (cloud) e Gamma (infraestrutura BI)
-    { userId: eduardo.id, projectId: 'projeto-delta' },
-    { userId: eduardo.id, projectId: 'projeto-gamma' },
   ];
 
   for (const assignment of projectAssignments) {
@@ -512,29 +454,16 @@ async function main() {
 
   const userProjectRoles = [
     // PROJETO ALPHA - Plataforma de Vendas
-    { userId: ana.id, projectId: 'projeto-alpha', role: 'COLLABORATOR' as const },
     { userId: bruno.id, projectId: 'projeto-alpha', role: 'MANAGER' as const }, // Bruno é gestor no Alpha
-    
-    // PROJETO BETA - Modernização RH  
-    { userId: carla.id, projectId: 'projeto-beta', role: 'COMMITTEE' as const }, // Carla é comitê no Beta
-    { userId: diana.id, projectId: 'projeto-beta', role: 'RH' as const }, // Diana é RH no Beta
-    
-    // PROJETO GAMMA - BI e Analytics
-    { userId: carla.id, projectId: 'projeto-gamma', role: 'MANAGER' as const }, // Carla é gestora no Gamma
-    { userId: eduardo.id, projectId: 'projeto-gamma', role: 'ADMIN' as const }, // Eduardo é admin no Gamma
-    
-    // PROJETO DELTA - Cloud Migration
-    { userId: bruno.id, projectId: 'projeto-delta', role: 'COLLABORATOR' as const }, // Bruno colaborador no Delta
-    { userId: carla.id, projectId: 'projeto-delta', role: 'COMMITTEE' as const }, // Carla comitê no Delta
-    { userId: eduardo.id, projectId: 'projeto-delta', role: 'MANAGER' as const }, // Eduardo gestor no Delta
-    
-    // PROJETO MOBILE APP
-    { userId: ana.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Ana colaboradora no Mobile
-    { userId: felipe.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Felipe colaborador no Mobile
+    { userId: ana.id, projectId: 'projeto-alpha', role: 'COLLABORATOR' as const }, // Ana colaboradora no Alpha
     
     // PROJETO API CORE
     { userId: bruno.id, projectId: 'projeto-api-core', role: 'MANAGER' as const }, // Bruno gestor no API Core
     { userId: felipe.id, projectId: 'projeto-api-core', role: 'COLLABORATOR' as const }, // Felipe colaborador no API Core
+    
+    // PROJETO MOBILE APP
+    { userId: ana.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Ana colaboradora no Mobile
+    { userId: felipe.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Felipe colaborador no Mobile
   ];
 
   for (const userProjectRole of userProjectRoles) {
@@ -561,44 +490,47 @@ async function main() {
   console.log(`   - ${cycles.length} ciclos de avaliação`);
   console.log(`   - ${criteria.length} critérios (${criteria.filter(c => c.pillar === 'BEHAVIOR').length} comportamentais, ${criteria.filter(c => c.pillar === 'EXECUTION').length} execução, ${criteria.filter(c => c.pillar === 'MANAGEMENT').length} gestão)`);
   console.log(`   - ${projects.length} projetos`);
-  console.log(`   - 6 usuários com perfis completos`);
+  console.log(`   - 6 usuários com perfis separados por escopo`);
   console.log(`   - ${roleAssignments.length} atribuições de role globais`);
   console.log(`   - ${projectAssignments.length} atribuições de projeto`);
   console.log(`   - ${userProjectRoles.length} roles específicas por projeto`);
   console.log('');
   console.log('👥 Usuários disponíveis para login:');
-  console.log('  📧 ana.oliveira@rocketcorp.com - Senha: password123');
-  console.log('     👤 Ana Beatriz Oliveira Santos | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | 🏢 Digital Products');
+  console.log('');
+  console.log('🔧 PAPÉIS GLOBAIS (sem vínculos de projeto):');
+  console.log('  📧 eduardo.tech@rocketcorp.com - Senha: password123');
+  console.log('     👤 Eduardo José Ferreira da Silva | 🎯 ADMIN PURO | 💼 DevOps Engineer Sênior | 🏢 Operations');
+  console.log('  📧 diana.costa@rocketcorp.com - Senha: password123');
+  console.log('     👤 Diana Cristina Costa Lima | 🎯 RH PURO | 💼 People & Culture Manager Sênior | 🏢 Operations');
+  console.log('  📧 carla.dias@rocketcorp.com - Senha: password123');
+  console.log('     👤 Carla Regina Dias Fernandes | 🎯 COMITÊ PURO | 💼 Head of Engineering Principal | 🏢 Digital Products');
+  console.log('');
+  console.log('👥 MEMBROS DE PROJETO (com vínculos de projeto):');
   console.log('  📧 bruno.mendes@rocketcorp.com - Senha: password123');
   console.log('     👤 Bruno André Mendes Carvalho | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | 🏢 Digital Products');
-  console.log('  📧 carla.dias@rocketcorp.com - Senha: password123');
-  console.log('     👤 Carla Regina Dias Fernandes | 🎯 Comitê + Colaboradora | 💼 Head of Engineering Principal | 🏢 Digital Products');
-  console.log('  📧 diana.costa@rocketcorp.com - Senha: password123');
-  console.log('     👤 Diana Cristina Costa Lima | 🎯 RH + Colaboradora | 💼 People & Culture Manager Sênior | 🏢 Operações');
+  console.log('  📧 ana.oliveira@rocketcorp.com - Senha: password123');
+  console.log('     👤 Ana Beatriz Oliveira Santos | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | 🏢 Digital Products');
   console.log('  📧 felipe.silva@rocketcorp.com - Senha: password123');
   console.log('     👤 Felipe Augusto Silva Rodrigues | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | 🏢 Digital Products');
-  console.log('  📧 eduardo.tech@rocketcorp.com - Senha: password123');
-  console.log('     👤 Eduardo José Ferreira da Silva | 🎯 Admin | 💼 DevOps Engineer Sênior | 🏢 Operações');
   console.log('');
-  console.log('🏢 Estrutura Organizacional:');
-  console.log('  👑 Carla Dias (Head) → Bruno Mendes (Tech Lead) → Ana Oliveira & Felipe Silva');
-  console.log('  👑 Carla Dias (Head) → Diana Costa (RH)');
-  console.log('  🔧 Eduardo Tech (Admin - Independente)');
+  console.log('🏢 Nova Estrutura Organizacional:');
+  console.log('  🔧 Eduardo Tech (Admin) - Independente, gerencia sistema');
+  console.log('  👥 Diana Costa (RH) - Independente, gerencia pessoas e políticas');
+  console.log('  ⚖️ Carla Dias (Comitê) - Independente, equalização de avaliações');
+  console.log('  👑 Bruno Mendes (Gestor) → Ana Oliveira & Felipe Silva (Colaboradores)');
   console.log('');
   console.log('🎯 Tipos de Usuário:');
-  console.log('  • Colaborador: Participa como avaliado');
-  console.log('  • Gestor: Avalia liderados + é avaliado');
-  console.log('  • Comitê: Equalização final + é avaliado');
-  console.log('  • RH: Configuração e acompanhamento');
-  console.log('  • Admin: Gerenciamento total do sistema');
+  console.log('  • Admin: Gerenciamento total do sistema (sem vínculos de projeto)');
+  console.log('  • RH: Configuração e acompanhamento (sem vínculos de projeto)');
+  console.log('  • Comitê: Equalização final (sem vínculos de projeto)');
+  console.log('  • Colaborador: Participa como avaliado (vinculado a projetos)');
+  console.log('  • Gestor: Avalia liderados + é avaliado (vinculado a projetos)');
   console.log('');
   console.log('🔑 Exemplos de Roles por Projeto:');
+  console.log('  • Bruno: MANAGER no Alpha e API Core');
   console.log('  • Ana: COLLABORATOR no Alpha e Mobile App');
-  console.log('  • Bruno: MANAGER no Alpha/API Core, COLLABORATOR no Delta');
-  console.log('  • Carla: MANAGER no Gamma, COMMITTEE no Beta/Delta');
-  console.log('  • Eduardo: MANAGER no Delta, ADMIN no Gamma');
-  console.log('  • Diana: RH no Beta');
-  console.log('  • Felipe: COLLABORATOR no Mobile App e API Core');
+  console.log('  • Felipe: COLLABORATOR no API Core e Mobile App');
+  console.log('  • Eduardo, Diana, Carla: SEM vínculos de projeto');
 }
 
 main()

@@ -48,7 +48,6 @@ describe('DatabaseService', () => {
       expect(user).toBeDefined();
       expect(user?.name).toBe('Carla Regina Dias Fernandes');
       expect(user?.email).toBe('carla.dias@rocketcorp.com');
-      expect(user?.roles).toContain('colaborador');
       expect(user?.roles).toContain('comite');
     });
 

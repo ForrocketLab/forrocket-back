@@ -1,9 +1,10 @@
 import { validate } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { CreateUserDto, ProjectAssignmentDto } from './create-user.dto';
+import { CreateUserDto, ProjectAssignmentDto, UserType } from './create-user.dto';
 
 describe('CreateUserDto', () => {
-  const validUserData = {
+  const validProjectMemberData = {
+    userType: UserType.PROJECT_MEMBER,
     name: 'João Silva Santos',
     email: 'joao.santos@rocketcorp.com',
     password: 'MinhaSenh@123',
@@ -20,10 +21,32 @@ describe('CreateUserDto', () => {
     mentorId: 'mentor-123'
   };
 
+  const validAdminData = {
+    userType: UserType.ADMIN,
+    name: 'Admin Sistema',
+    email: 'admin.sistema@rocketcorp.com',
+    password: 'AdminSenh@123',
+    jobTitle: 'DevOps Engineer',
+    seniority: 'Sênior',
+    careerTrack: 'Tech',
+    businessUnit: 'Operations'
+  };
+
   describe('Validações básicas', () => {
-    it('deve validar com dados corretos', async () => {
+    it('deve validar com dados corretos para project_member', async () => {
       // Arrange
-      const dto = plainToClass(CreateUserDto, validUserData);
+      const dto = plainToClass(CreateUserDto, validProjectMemberData);
+
+      // Act
+      const errors = await validate(dto);
+
+      // Assert
+      expect(errors).toHaveLength(0);
+    });
+
+    it('deve validar com dados corretos para admin', async () => {
+      // Arrange
+      const dto = plainToClass(CreateUserDto, validAdminData);
 
       // Act
       const errors = await validate(dto);
@@ -34,7 +57,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar name vazio', async () => {
       // Arrange
-      const invalidData = { ...validUserData, name: '' };
+      const invalidData = { ...validProjectMemberData, name: '' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -48,7 +71,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar name não string', async () => {
       // Arrange
-      const invalidData = { ...validUserData, name: 123 };
+      const invalidData = { ...validProjectMemberData, name: 123 };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -61,10 +84,43 @@ describe('CreateUserDto', () => {
     });
   });
 
+  describe('Validações de userType', () => {
+    it('deve rejeitar userType inválido', async () => {
+      // Arrange
+      const invalidData = { ...validProjectMemberData, userType: 'tipo_invalido' };
+      const dto = plainToClass(CreateUserDto, invalidData);
+
+      // Act
+      const errors = await validate(dto);
+
+      // Assert
+      expect(errors).toHaveLength(1);
+      expect(errors[0].property).toBe('userType');
+      expect(errors[0].constraints).toHaveProperty('isEnum');
+      expect(errors[0].constraints?.isEnum).toBe('userType deve ser um dos seguintes valores: admin, rh, comite, project_member');
+    });
+
+    it('deve aceitar todos os userTypes válidos', async () => {
+      const validTypes = [UserType.ADMIN, UserType.RH, UserType.COMITE, UserType.PROJECT_MEMBER];
+
+      for (const userType of validTypes) {
+        // Arrange
+        const validData = { ...validProjectMemberData, userType };
+        const dto = plainToClass(CreateUserDto, validData);
+
+        // Act
+        const errors = await validate(dto);
+
+        // Assert
+        expect(errors).toHaveLength(0);
+      }
+    });
+  });
+
   describe('Validações de email', () => {
     it('deve rejeitar email inválido', async () => {
       // Arrange
-      const invalidData = { ...validUserData, email: 'email-invalido' };
+      const invalidData = { ...validProjectMemberData, email: 'email-invalido' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -78,7 +134,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar email com domínio incorreto', async () => {
       // Arrange
-      const invalidData = { ...validUserData, email: 'user@gmail.com' };
+      const invalidData = { ...validProjectMemberData, email: 'user@gmail.com' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -93,7 +149,7 @@ describe('CreateUserDto', () => {
 
     it('deve aceitar email com domínio @rocketcorp.com', async () => {
       // Arrange
-      const validData = { ...validUserData, email: 'teste@rocketcorp.com' };
+      const validData = { ...validProjectMemberData, email: 'teste@rocketcorp.com' };
       const dto = plainToClass(CreateUserDto, validData);
 
       // Act
@@ -107,7 +163,7 @@ describe('CreateUserDto', () => {
   describe('Validações de senha', () => {
     it('deve rejeitar senha com menos de 8 caracteres', async () => {
       // Arrange
-      const invalidData = { ...validUserData, password: '123' };
+      const invalidData = { ...validProjectMemberData, password: '123' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -122,7 +178,7 @@ describe('CreateUserDto', () => {
 
     it('deve aceitar senha com 8 ou mais caracteres', async () => {
       // Arrange
-      const validData = { ...validUserData, password: 'MinhaSenh@123' };
+      const validData = { ...validProjectMemberData, password: 'MinhaSenh@123' };
       const dto = plainToClass(CreateUserDto, validData);
 
       // Act
@@ -135,17 +191,18 @@ describe('CreateUserDto', () => {
 
   describe('Validações de enums', () => {
     it('deve rejeitar jobTitle inválido', async () => {
-      // Arrange
-      const invalidData = { ...validUserData, jobTitle: 'Cargo Inválido' };
-      const dto = plainToClass(CreateUserDto, invalidData);
+      const invalidData = {
+        ...validProjectMemberData,
+        jobTitle: 'Cargo Inexistente'
+      };
 
-      // Act
+      const dto = plainToClass(CreateUserDto, invalidData);
       const errors = await validate(dto);
 
-      // Assert
       expect(errors).toHaveLength(1);
       expect(errors[0].property).toBe('jobTitle');
       expect(errors[0].constraints).toHaveProperty('isEnum');
+      expect(errors[0].constraints?.isEnum).toBe('jobTitle deve ser um dos seguintes valores: Desenvolvedora Frontend, Desenvolvedor Backend, Product Designer, Product Manager, Tech Lead, DevOps Engineer, Data Analyst, QA Engineer, People & Culture Manager, Head of Engineering, System Administrator');
     });
 
     it('deve aceitar jobTitles válidos', async () => {
@@ -162,7 +219,7 @@ describe('CreateUserDto', () => {
 
       for (const title of validTitles) {
         // Arrange
-        const validData = { ...validUserData, jobTitle: title };
+        const validData = { ...validProjectMemberData, jobTitle: title };
         const dto = plainToClass(CreateUserDto, validData);
 
         // Act
@@ -175,7 +232,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar seniority inválido', async () => {
       // Arrange
-      const invalidData = { ...validUserData, seniority: 'Super Sênior' };
+      const invalidData = { ...validProjectMemberData, seniority: 'Super Sênior' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -185,6 +242,7 @@ describe('CreateUserDto', () => {
       expect(errors).toHaveLength(1);
       expect(errors[0].property).toBe('seniority');
       expect(errors[0].constraints).toHaveProperty('isEnum');
+      expect(errors[0].constraints?.isEnum).toBe('seniority deve ser um dos seguintes valores: Júnior, Pleno, Sênior, Principal, Staff');
     });
 
     it('deve aceitar seniorities válidos', async () => {
@@ -192,7 +250,7 @@ describe('CreateUserDto', () => {
 
       for (const seniority of validSeniorities) {
         // Arrange
-        const validData = { ...validUserData, seniority };
+        const validData = { ...validProjectMemberData, seniority };
         const dto = plainToClass(CreateUserDto, validData);
 
         // Act
@@ -205,7 +263,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar careerTrack inválido', async () => {
       // Arrange
-      const invalidData = { ...validUserData, careerTrack: 'Marketing' };
+      const invalidData = { ...validProjectMemberData, careerTrack: 'Marketing' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -215,6 +273,7 @@ describe('CreateUserDto', () => {
       expect(errors).toHaveLength(1);
       expect(errors[0].property).toBe('careerTrack');
       expect(errors[0].constraints).toHaveProperty('isEnum');
+      expect(errors[0].constraints?.isEnum).toBe('careerTrack deve ser um dos seguintes valores: Tech, Business');
     });
 
     it('deve aceitar careerTracks válidos', async () => {
@@ -222,7 +281,7 @@ describe('CreateUserDto', () => {
 
       for (const track of validTracks) {
         // Arrange
-        const validData = { ...validUserData, careerTrack: track };
+        const validData = { ...validProjectMemberData, careerTrack: track };
         const dto = plainToClass(CreateUserDto, validData);
 
         // Act
@@ -235,7 +294,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar businessUnit inválido', async () => {
       // Arrange
-      const invalidData = { ...validUserData, businessUnit: 'Marketing' };
+      const invalidData = { ...validProjectMemberData, businessUnit: 'Marketing' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -245,6 +304,7 @@ describe('CreateUserDto', () => {
       expect(errors).toHaveLength(1);
       expect(errors[0].property).toBe('businessUnit');
       expect(errors[0].constraints).toHaveProperty('isEnum');
+      expect(errors[0].constraints?.isEnum).toBe('businessUnit deve ser um dos seguintes valores: Digital Products, Operations');
     });
 
     it('deve aceitar businessUnits válidos', async () => {
@@ -252,7 +312,7 @@ describe('CreateUserDto', () => {
 
       for (const unit of validUnits) {
         // Arrange
-        const validData = { ...validUserData, businessUnit: unit };
+        const validData = { ...validProjectMemberData, businessUnit: unit };
         const dto = plainToClass(CreateUserDto, validData);
 
         // Act
@@ -265,10 +325,10 @@ describe('CreateUserDto', () => {
   });
 
   describe('Validações de projectAssignments', () => {
-    it('deve aceitar projectAssignments vazio (validação no backend)', async () => {
+    it('deve aceitar projectAssignments vazio para tipos globais', async () => {
       // Arrange
       const dto = {
-        ...validUserData,
+        ...validAdminData,
         projectAssignments: []
       };
 
@@ -276,14 +336,12 @@ describe('CreateUserDto', () => {
       const errors = await validate(plainToClass(CreateUserDto, dto));
 
       // Assert
-      // Array vazio DEVE falhar por causa do @ArrayMinSize(1)
-      expect(errors).toHaveLength(1);
-      expect(errors[0].constraints?.arrayMinSize).toBe('Pelo menos um projeto deve ser atribuído');
+      expect(errors).toHaveLength(0);
     });
 
     it('deve rejeitar projectAssignments não array', async () => {
       // Arrange
-      const invalidData = { ...validUserData, projectAssignments: 'não é array' };
+      const invalidData = { ...validProjectMemberData, projectAssignments: 'não é array' };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -298,7 +356,7 @@ describe('CreateUserDto', () => {
     it('deve validar ProjectAssignmentDto aninhado', async () => {
       // Arrange
       const invalidData = {
-        ...validUserData,
+        ...validProjectMemberData,
         projectAssignments: [
           {
             projectId: '', // inválido
@@ -322,7 +380,7 @@ describe('CreateUserDto', () => {
   describe('Validações de mentorId (opcional)', () => {
     it('deve aceitar mentorId undefined', async () => {
       // Arrange
-      const validData = { ...validUserData };
+      const validData = { ...validProjectMemberData };
       const { mentorId, ...dataWithoutMentor } = validData;
       const dto = plainToClass(CreateUserDto, dataWithoutMentor);
 
@@ -335,7 +393,7 @@ describe('CreateUserDto', () => {
 
     it('deve aceitar mentorId válido', async () => {
       // Arrange
-      const validData = { ...validUserData, mentorId: 'mentor-123' };
+      const validData = { ...validProjectMemberData, mentorId: 'mentor-123' };
       const dto = plainToClass(CreateUserDto, validData);
 
       // Act
@@ -347,7 +405,7 @@ describe('CreateUserDto', () => {
 
     it('deve rejeitar mentorId não string', async () => {
       // Arrange
-      const invalidData = { ...validUserData, mentorId: 123 };
+      const invalidData = { ...validProjectMemberData, mentorId: 123 };
       const dto = plainToClass(CreateUserDto, invalidData);
 
       // Act
@@ -437,6 +495,7 @@ describe('ProjectAssignmentDto', () => {
       expect(errors).toHaveLength(1);
       expect(errors[0].property).toBe('roleInProject');
       expect(errors[0].constraints).toHaveProperty('isEnum');
+      expect(errors[0].constraints?.isEnum).toBe('roleInProject deve ser um dos seguintes valores: colaborador, gestor');
     });
   });
 }); 

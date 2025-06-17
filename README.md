@@ -39,26 +39,6 @@ pnpm run start:dev
 
 O comando `pnpm prisma db seed` popula o banco com dados completos para teste:
 
-### **📊 Estruturas Criadas**
-- **3 ciclos de avaliação** (2024.2 fechado, 2025.1 ativo, 2025.2 futuro)
-- **16 critérios de avaliação** (6 comportamentais, 6 execução, 4 gestão)
-- **6 projetos** com descrições realísticas
-- **6 usuários** com perfis organizacionais completos
-- **9 atribuições de role globais** (sistema legado + novo)
-- **13 atribuições de projeto** (usuários associados a projetos)
-- **13 roles específicas por projeto** (granularidade total)
-
-### **👥 Usuários para Teste**
-
-| Nome | Email | Senha | Roles Globais | Cargo | Senioridade |
-|------|-------|-------|---------------|-------|-------------|
-| **Ana Oliveira** | ana.oliveira@rocketcorp.com | password123 | colaborador | Desenvolvedora Frontend | Pleno |
-| **Bruno Mendes** | bruno.mendes@rocketcorp.com | password123 | colaborador, gestor | Tech Lead | Sênior |
-| **Carla Dias** | carla.dias@rocketcorp.com | password123 | colaborador, comitê | Head of Engineering | Principal |
-| **Diana Costa** | diana.costa@rocketcorp.com | password123 | colaborador, rh | People & Culture Manager | Sênior |
-| **Felipe Silva** | felipe.silva@rocketcorp.com | password123 | colaborador | Desenvolvedor Backend | Júnior |
-| **Eduardo Tech** | eduardo.tech@rocketcorp.com | password123 | admin | DevOps Engineer | Sênior |
-
 ### **🏢 Estrutura Organizacional**
 ```
 👑 Carla Dias (Head of Engineering)
@@ -69,36 +49,6 @@ O comando `pnpm prisma db seed` popula o banco com dados completos para teste:
 
 🔧 Eduardo Tech (Admin - Independente)
 ```
-
-### **🔑 Roles por Projeto (Sistema Novo)** ✨
-| Usuário | Projeto Alpha | Projeto Beta | Mobile App | API Core | Delta | Gamma |
-|---------|---------------|--------------|------------|----------|-------|-------|
-| **Ana** | COLLABORATOR | - | **TECH_LEAD** | - | - | - |
-| **Bruno** | **TECH_LEAD** | - | - | **MANAGER** | COLLABORATOR | - |
-| **Carla** | - | **MANAGER** | - | - | STAKEHOLDER | **MANAGER** |
-| **Diana** | - | STAKEHOLDER | - | - | - | - |
-| **Felipe** | - | - | COLLABORATOR | COLLABORATOR | - | - |
-| **Eduardo** | - | - | - | - | **MANAGER** | **TECH_LEAD** |
-
-### **🏗️ Projetos Disponíveis**
-1. **Projeto Alpha** - Plataforma de vendas (React + Node.js)
-2. **Projeto Beta** - Modernização RH (microserviços)
-3. **Projeto Gamma** - BI e Analytics (Power BI + Spark)
-4. **Projeto Delta** - Cloud Migration (AWS + Docker)
-5. **App Mobile RocketCorp** - App nativo iOS/Android
-6. **API Core** - Refatoração da API principal
-
-### **🎯 Tipos de Role**
-- **👤 Colaborador**: Participa como avaliado no processo
-- **👨‍💼 Gestor**: Avalia liderados diretos + é avaliado
-- **👑 Comitê**: Participa da equalização final + é avaliado
-- **👩‍💼 RH**: Configuração e acompanhamento geral
-- **🔧 Admin**: Gerenciamento total do sistema
-
-### **📋 Critérios de Avaliação**
-- **Comportamentais** (6): Sentimento de Dono, Colaboração, Comunicação, Proatividade, Adaptabilidade, Aprendizado Contínuo
-- **Execução** (6): Qualidade de Entrega, Produtividade, Cumprimento de Prazos, Resolução de Problemas, Organização, Foco em Resultados
-- **Gestão** (4): Liderança, Desenvolvimento de Equipe, Tomada de Decisão, Planejamento Estratégico
 
 ## 🧪 **Executar Testes**
 
