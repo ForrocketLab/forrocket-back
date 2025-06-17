@@ -7,6 +7,7 @@ import {
   Get,
   UseGuards,
   ValidationPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,8 +18,9 @@ import {
   ApiExtraModels,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { UserService } from './user.service';
 import { LoginDto, LoginResponseDto, ErrorResponseDto } from './dto/login.dto';
-import { UserInfoDto, UserProfileDto } from './dto/user.dto';
+import { UserInfoDto, UserProfileDto, CreateUserDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { Public } from './public.decorator';
@@ -29,10 +31,13 @@ import { User } from './entities/user.entity';
  * Gerencia as rotas relacionadas ao login, autenticação e perfil de usuários
  */
 @ApiTags('Autenticação')
-@ApiExtraModels(LoginDto, LoginResponseDto, UserInfoDto, UserProfileDto, ErrorResponseDto)
-@Controller('api/auth')
+@ApiExtraModels(LoginDto, LoginResponseDto, UserInfoDto, UserProfileDto, CreateUserDto, ErrorResponseDto)
+@Controller('api')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService
+  ) {}
 
   /**
    * Endpoint para realizar login no sistema RPE
@@ -40,7 +45,7 @@ export class AuthController {
    * @returns Token JWT e informações do usuário para autenticação
    */
   @Public()
-  @Post('login')
+  @Post('auth/login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Realizar login no sistema',
@@ -209,11 +214,138 @@ export class AuthController {
   }
 
   /**
+   * Endpoint para criar novos usuários no sistema
+   * @param createUserDto - Dados para criação do usuário
+   * @returns Usuário criado (sem a senha)
+   */
+  @Post('users')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Criar novo usuário no sistema RPE',
+    description: `
+      Cria um novo usuário no sistema aplicando todas as regras de negócio e validações automaticamente.
+      
+      **🔒 Acesso Restrito**: Apenas usuários com roles ADMIN ou RH podem criar novos usuários.
+      
+      **🤖 Processamento Automático:**
+      - ✅ Validação de email @rocketcorp.com
+      - ✅ Hash seguro da senha
+      - ✅ Determinação automática de roles baseada nos projetos
+      - ✅ Identificação automática do gestor direto
+      - ✅ Atualização de relacionamentos hierárquicos
+      - ✅ Associação a projetos e roles específicas
+      
+      **📋 Validações Aplicadas:**
+      - Email único no sistema
+      - Domínio corporativo obrigatório
+      - Projetos devem existir e estar ativos
+      - Mentor deve existir e estar ativo (se informado)
+      - Valores de enum válidos para todos os campos
+    `,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuário criado com sucesso',
+    type: UserProfileDto,
+    example: {
+      id: 'cmbyavwvn0006tzsgxyz456def',
+      name: 'João Silva Santos',
+      email: 'joao.santos@rocketcorp.com',
+      roles: ['colaborador'],
+      jobTitle: 'Desenvolvedor Backend',
+      seniority: 'Júnior',
+      careerTrack: 'Tech',
+      businessUnit: 'Digital Products',
+      projectRoles: [
+        {
+          projectId: 'api-core',
+          projectName: 'API Core',
+          roles: ['COLLABORATOR']
+        }
+      ],
+      managerId: 'cmbyavwvh0001tzsg5owfxwbq',
+      managerName: 'Bruno Mendes',
+      mentorId: 'cmbyavwvk0002tzsgi5r3edy5',
+      mentorName: 'Carla Dias',
+      isActive: true,
+      createdAt: '2024-01-15T10:00:00.000Z',
+      updatedAt: '2024-01-15T10:00:00.000Z'
+    }
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados de entrada inválidos ou regras de negócio violadas',
+    type: ErrorResponseDto,
+    examples: {
+      'email-invalido': {
+        summary: 'Email com domínio inválido',
+        value: {
+          statusCode: 400,
+          message: 'Email deve ter o domínio @rocketcorp.com',
+          error: 'Bad Request'
+        }
+      },
+      'projeto-inexistente': {
+        summary: 'Projeto não encontrado',
+        value: {
+          statusCode: 400,
+          message: 'Projeto com ID projeto-inexistente não encontrado',
+          error: 'Bad Request'
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou usuário não autenticado',
+    type: ErrorResponseDto,
+    example: {
+      statusCode: 401,
+      message: 'Token inválido ou expirado',
+      error: 'Unauthorized'
+    }
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para criar usuários',
+    type: ErrorResponseDto,
+    example: {
+      statusCode: 403,
+      message: 'Acesso negado. Apenas usuários ADMIN ou RH podem criar usuários.',
+      error: 'Forbidden'
+    }
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Email já existe no sistema',
+    type: ErrorResponseDto,
+    example: {
+      statusCode: 409,
+      message: 'Usuário com este email já existe',
+      error: 'Conflict'
+    }
+  })
+  async createUser(
+    @Body(ValidationPipe) createUserDto: CreateUserDto,
+    @CurrentUser() currentUser: User
+  ): Promise<UserProfileDto> {
+    // Verificar se o usuário tem permissão para criar usuários
+    if (!currentUser.roles.includes('admin') && !currentUser.roles.includes('rh')) {
+      throw new ForbiddenException('Acesso negado. Apenas usuários ADMIN ou RH podem criar usuários.');
+    }
+
+    const newUser = await this.userService.createUser(createUserDto);
+    return newUser;
+  }
+
+  /**
    * Endpoint para obter informações do perfil do usuário autenticado
    * @param user - Usuário atual (extraído do JWT)
    * @returns Informações do perfil do usuário
    */
-  @Get('profile')
+  @Get('auth/profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('bearer')
   @ApiOperation({
@@ -361,7 +493,7 @@ export class AuthController {
    * @returns Status da API
    */
   @Public()
-  @Get('status')
+  @Get('auth/status')
   @ApiOperation({
     summary: 'Verificar status da API de autenticação',
     description: 'Endpoint público para verificar se a API de autenticação está funcionando.',
