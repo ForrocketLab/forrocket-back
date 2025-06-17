@@ -10,157 +10,317 @@ datasource db {
   url      = "file:./database.sqlite"
 }
 
+enum UserRole {
+  COLLABORATOR
+  MANAGER
+  MENTOR
+  COMMITTEE
+  RH
+  ADMIN
+}
+
+enum CriterionPillar {
+  BEHAVIOR
+  EXECUTION
+  MANAGEMENT
+}
+
+enum EvaluationStatus {
+  DRAFT
+  SUBMITTED
+  EQUALIZED
+  CLOSED
+}
+
+enum CycleStatus {
+  UPCOMING
+  OPEN
+  EQUALIZATION
+  CLOSED
+}
+
+// ENTIDADES CENTRAIS
+
 model User {
-  // ==========================================
-  // DADOS DE IDENTIFICAÇÃO E ACESSO
-  // ==========================================
-  id           String   @id @default(cuid())
+  id           String    @id @default(uuid())
   name         String
-  email        String   @unique
+  email        String    @unique
   passwordHash String
-  roles        String   // Armazenado como JSON string (array de UserRole)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  // ==========================================
-  // DADOS DE ESTRUTURA ORGANIZACIONAL
-  // ==========================================
-  jobTitle     String   // Cargo/Posição do colaborador
-  seniority    String   // Nível de senioridade
-  careerTrack  String   // Trilha de carreira
-  businessUnit String   // Unidade de negócio
+  /// DADOS DE ESTRUTURA ORGANIZACIONAL
+  jobTitle     String
+  seniority    String
+  careerTrack  String
+  businessUnit String
 
-  // ==========================================
-  // DADOS DE ALOCAÇÃO E RELACIONAMENTO
-  // ==========================================
-  projects       String?  // Array de projetos (JSON string)
-  managerId      String?  // ID do gestor direto
-  directReports  String?  // Array de IDs dos liderados (JSON string)
-  mentorId       String?  // ID do mentor designado
+  /// RELACIONAMENTOS DE HIERARQUIA E MENTORIA
+  managerId String?
+  manager   User?     @relation("ManagerToDirectReports", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports User[] @relation("ManagerToDirectReports")
 
-  // ==========================================
-  // METADADOS DE CONTROLE
-  // ==========================================
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  mentorId     String?
+  mentor       User?     @relation("MentorToMentees", fields: [mentorId], references: [id], onDelete: SetNull)
+  mentees      User[]    @relation("MentorToMentees")
 
-  // ==========================================
-  // RELACIONAMENTOS COM AVALIAÇÕES
-  // ==========================================
-  // Autoavaliações criadas pelo usuário
-  selfAssessments SelfAssessment[]
+  /// RELACIONAMENTOS MUITOS-PARA-MUITOS - Aponta para a nova tabela de junção
+  roles    UserRoleAssignment[]
+  projects UserProjectAssignment[]
 
-  // Avaliações 360 criadas pelo usuário (como avaliador)
-  assessments360Created Assessment360[] @relation("Assessment360Author")
-  
-  // Avaliações 360 recebidas pelo usuário (como avaliado)
-  assessments360Received Assessment360[] @relation("Assessment360Evaluated")
-
-  // Avaliações de mentoring criadas pelo usuário (como mentorado)
-  mentoringAssessmentsCreated MentoringAssessment[] @relation("MentoringAssessmentAuthor")
-  
-  // Avaliações de mentoring recebidas pelo usuário (como mentor)
-  mentoringAssessmentsReceived MentoringAssessment[] @relation("MentoringAssessmentMentor")
-
-  // Feedbacks de referência criados pelo usuário (como autor)
-  referenceFeedbacksCreated ReferenceFeedback[] @relation("ReferenceFeedbackAuthor")
-  
-  // Feedbacks de referência recebidos pelo usuário (como referenciado)
-  referenceFeedbacksReceived ReferenceFeedback[] @relation("ReferenceFeedbackReferenced")
+  /// RELACIONAMENTOS COM AVALIAÇÕES E DOCUMENTOS
+  selfAssessments      SelfAssessment[]
+  assessmentsGiven     Assessment360[] @relation("Assessor")
+  assessmentsReceived  Assessment360[] @relation("Evaluated")
+  referencesGiven      ReferenceFeedback[] @relation("ReferenceAuthor")
+  referencesReceived   ReferenceFeedback[] @relation("ReferenceSubject")
+  finalEvaluations     FinalEvaluation[]
+  okrs                 OKR[]
+  pdis                 PDI[]
+  committeeObservations CommitteeObservation[]
 
   @@map("users")
 }
 
+model EvaluationCycle {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  status    CycleStatus @default(UPCOMING)
+  startDate DateTime
+  endDate   DateTime
+
+  /// RELACIONAMENTO COM PAPÉIS CONTEXTUAIS
+  participants UserRoleAssignment[]
+
+  // Outros relacionamentos
+  selfAssessments   SelfAssessment[]
+  assessments360    Assessment360[]
+  referenceFeedbacks ReferenceFeedback[]
+  finalEvaluations   FinalEvaluation[]
+  okrs              OKR[]
+  pdis              PDI[]
+
+  @@map("evaluation_cycles")
+}
+
+model Criterion {
+  id              String   @id @default(uuid())
+  name            String
+  description     String
+  pillar          CriterionPillar
+  isActive        Boolean  @default(true)
+
+  selfAssessmentAnswers SelfAssessmentAnswer[]
+  assessment360Answers Assessment360Answer[]
+  finalEvaluationAnswers FinalEvaluationAnswer[]
+
+  @@map("criteria")
+}
+
 // ==========================================
-// TABELAS DE AVALIAÇÕES
+// TABELAS DE AVALIAÇÕES (Sem alterações aqui)
 // ==========================================
 
 model SelfAssessment {
-  id          String   @id @default(cuid())
-  cycle       String   // Ciclo de avaliação (ex: "2025.1")
-  authorId    String   // ID do usuário que criou a autoavaliação
-  status      String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  submittedAt DateTime?
+  id        String           @id @default(uuid())
+  cycleId   String
+  authorId  String
+  status    EvaluationStatus @default(DRAFT)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
-  // Relacionamentos
-  author  User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author  User                 @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  cycle   EvaluationCycle      @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   answers SelfAssessmentAnswer[]
 
-  @@unique([authorId, cycle]) // Um usuário só pode ter uma autoavaliação por ciclo
+  @@unique([authorId, cycleId])
   @@map("self_assessments")
 }
 
 model SelfAssessmentAnswer {
-  id               String @id @default(cuid())
+  id               String @id @default(uuid())
   selfAssessmentId String
-  criterionId      String // ID do critério (ex: "sentimento-de-dono")
-  score            Int    // Nota de 1 a 5
-  justification    String // Justificativa textual
+  criterionId      String
+  score            Int
+  justification    String
 
-  // Relacionamentos
   selfAssessment SelfAssessment @relation(fields: [selfAssessmentId], references: [id], onDelete: Cascade)
+  criterion      Criterion      @relation(fields: [criterionId], references: [id], onDelete: Restrict)
 
-  @@unique([selfAssessmentId, criterionId]) // Uma resposta por critério por autoavaliação
+  @@unique([selfAssessmentId, criterionId])
   @@map("self_assessment_answers")
 }
 
 model Assessment360 {
-  id               String   @id @default(cuid())
-  cycle            String   // Ciclo de avaliação
-  authorId         String   // ID do usuário que criou a avaliação
-  evaluatedUserId  String   // ID do usuário sendo avaliado
-  overallScore     Int      // Nota geral de 1 a 5
-  strengths        String   // Pontos fortes
-  improvements     String   // Pontos de melhoria
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  submittedAt      DateTime?
+  id              String           @id @default(uuid())
+  cycleId         String
+  authorId        String
+  evaluatedUserId String
+  status          EvaluationStatus @default(DRAFT)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  // Relacionamentos
-  author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
-  evaluatedUser User @relation("Assessment360Evaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
+  author        User                  @relation("Assessor", fields: [authorId], references: [id], onDelete: Cascade)
+  evaluatedUser User                  @relation("Evaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
+  cycle         EvaluationCycle       @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  answers       Assessment360Answer[]
 
-  @@unique([authorId, evaluatedUserId, cycle]) // Um usuário só pode avaliar outro uma vez por ciclo
+  @@unique([authorId, evaluatedUserId, cycleId])
   @@map("assessments_360")
 }
 
-model MentoringAssessment {
-  id            String   @id @default(cuid())
-  cycle         String   // Ciclo de avaliação
-  authorId      String   // ID do mentorado que criou a avaliação
-  mentorId      String   // ID do mentor sendo avaliado
-  score         Int      // Nota de 1 a 5
-  justification String   // Justificativa da avaliação
-  status        String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  submittedAt   DateTime?
+model Assessment360Answer {
+  id            String   @id @default(uuid())
+  assessmentId  String
+  criterionId   String
+  score         Int
+  justification String
 
-  // Relacionamentos
-  author User @relation("MentoringAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  mentor User @relation("MentoringAssessmentMentor", fields: [mentorId], references: [id], onDelete: Cascade)
+  assessment Assessment360 @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  criterion  Criterion     @relation(fields: [criterionId], references: [id], onDelete: Restrict)
 
-  @@unique([authorId, mentorId, cycle]) // Um mentorado só pode avaliar um mentor uma vez por ciclo
-  @@map("mentoring_assessments")
+  @@unique([assessmentId, criterionId])
+  @@map("assessment_360_answers")
 }
 
 model ReferenceFeedback {
-  id                String   @id @default(cuid())
-  cycle             String   // Ciclo de avaliação
-  authorId          String   // ID do usuário que criou o feedback
-  referencedUserId  String   // ID do usuário sendo referenciado
-  justification     String   // Feedback textual
-  status            String   @default("DRAFT") // DRAFT | SUBMITTED
+  id                String   @id @default(uuid())
+  cycleId           String
+  authorId          String
+  referencedUserId  String
+  topic             String
+  justification     String
   createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  submittedAt       DateTime?
+
+  author         User            @relation("ReferenceAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  referencedUser User            @relation("ReferenceSubject", fields: [referencedUserId], references: [id], onDelete: Cascade)
+  cycle          EvaluationCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("reference_feedbacks")
+}
+
+model FinalEvaluation {
+  id        String   @id @default(uuid())
+  cycleId   String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user    User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle   EvaluationCycle           @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  answers FinalEvaluationAnswer[]
+  committeeObservations CommitteeObservation[]
+
+  @@unique([userId, cycleId])
+  @@map("final_evaluations")
+}
+
+model FinalEvaluationAnswer {
+  id                String @id @default(uuid())
+  finalEvaluationId String
+  criterionId       String
+  finalScore        Int
+  committeeNotes    String
+
+  finalEvaluation FinalEvaluation @relation(fields: [finalEvaluationId], references: [id], onDelete: Cascade)
+  criterion       Criterion       @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([finalEvaluationId, criterionId])
+  @@map("final_evaluation_answers")
+}
+
+model CommitteeObservation {
+    id String @id @default(uuid())
+    finalEvaluationId String
+    authorId String
+    observation String
+    createdAt DateTime @default(now())
+
+    finalEvaluation FinalEvaluation @relation(fields: [finalEvaluationId], references: [id], onDelete: Cascade)
+    author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+    @@map("committee_observations")
+}
+
+// ==========================================
+// MÓDULOS DE OKR E PDI (Sem alterações aqui)
+// ==========================================
+
+model OKR {
+  id          String   @id @default(uuid())
+  cycleId     String
+  userId      String
+  objective   String
+  keyResult   String
+  progress    Float    @default(0)
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle EvaluationCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("okrs")
+}
+
+model PDI {
+  id               String   @id @default(uuid())
+  cycleId          String
+  userId           String
+  developmentGoal  String
+  actionPlan       String
+  status           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle EvaluationCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("pdis")
+}
+
+// ==========================================
+// TABELAS DE JUNÇÃO (Muitos-para-Muitos) - Principais Alterações
+// ==========================================
+
+model Project {
+  id    String @id @default(uuid())
+  name  String @unique
+  /// O relacionamento agora aponta para a nova tabela de junção
+  assignedUsers UserProjectAssignment[]
+  rolesAssigned UserRoleAssignment[]
+
+  @@map("projects")
+}
+
+model UserProjectAssignment {
+  userId    String
+  projectId String
+  
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@map("user_project_assignments")
+}
+
+// Tabela de junção de roles com ESCOPO
+model UserRoleAssignment {
+  id        String   @id @default(uuid()) // Chave primária simples para facilitar
+  userId    String
+  role      UserRole
+
+  // ESCOPOS (CAMPOS OPCIONAIS)
+  projectId String? // Se preenchido, a role se aplica a este projeto
+  cycleId   String? // Se preenchido, a role se aplica a este ciclo
 
   // Relacionamentos
-  author         User @relation("ReferenceFeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  referencedUser User @relation("ReferenceFeedbackReferenced", fields: [referencedUserId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cycle   EvaluationCycle? @relation(fields: [cycleId], references: [id], onDelete: Cascade)
 
-  @@unique([authorId, referencedUserId, cycle]) // Um usuário só pode referenciar outro uma vez por ciclo
-  @@map("reference_feedbacks")
+  // Garante que uma role não seja atribuída duas vezes no mesmo contexto
+  @@unique([userId, role, projectId, cycleId])
+  @@map("user_role_assignments")
 }
