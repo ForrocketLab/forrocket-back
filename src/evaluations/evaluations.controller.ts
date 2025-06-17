@@ -15,7 +15,7 @@ import {
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
-} from './dto';
+} from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';

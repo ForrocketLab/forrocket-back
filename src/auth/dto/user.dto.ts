@@ -1,6 +1,33 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
+ * DTO para role específica em um projeto
+ */
+export class UserProjectRoleDto {
+  @ApiProperty({
+    description: 'ID do projeto',
+    example: 'projeto-alpha',
+    type: String
+  })
+  projectId: string;
+
+  @ApiProperty({
+    description: 'Nome do projeto',
+    example: 'Projeto Alpha',
+    type: String
+  })
+  projectName: string;
+
+  @ApiProperty({
+    description: 'Roles específicas do usuário neste projeto',
+    example: ['COLLABORATOR', 'TECH_LEAD'],
+    type: [String],
+    enum: ['COLLABORATOR', 'MANAGER', 'COMMITTEE', 'HR', 'ADMIN'],
+  })
+  roles: string[];
+}
+
+/**
  * DTO para informações básicas do usuário autenticado
  */
 export class UserInfoDto {
@@ -106,11 +133,22 @@ export class UserProfileDto {
   // ==========================================
 
   @ApiProperty({
-    description: 'Projetos em que o usuário está alocado',
-    example: ['app-mobile', 'dashboard'],
-    type: [String]
+    description: 'Projetos em que o usuário está alocado com suas roles específicas',
+    example: [
+      {
+        projectId: 'projeto-alpha',
+        projectName: 'Projeto Alpha',
+        roles: ['COLLABORATOR']
+      },
+      {
+        projectId: 'projeto-beta',
+        projectName: 'Projeto Beta',
+        roles: ['COLLABORATOR', 'TECH_LEAD']
+      }
+    ],
+    type: [UserProjectRoleDto]
   })
-  projects: string[];
+  projectRoles: UserProjectRoleDto[];
 
   @ApiProperty({
     description: 'ID do gestor direto',

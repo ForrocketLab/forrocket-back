@@ -1,10 +1,11 @@
 import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto, LoginResponseDto } from './dto/login.dto';
-import { UserInfoDto } from './dto/user.dto';
+import { UserInfoDto, UserProjectRoleDto } from './dto/user.dto';
 import { User } from './entities/user.entity';
 import { JwtPayload } from './jwt-payload.interface';
 import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import * as bcrypt from 'bcryptjs';
 
 /**
@@ -15,7 +16,8 @@ import * as bcrypt from 'bcryptjs';
 export class AuthService {
   constructor(
     private jwtService: JwtService,
-    private databaseService: DatabaseService
+    private databaseService: DatabaseService,
+    private prisma: PrismaService
   ) {}
 
   /**
@@ -146,5 +148,54 @@ export class AuthService {
    */
   hasAnyRole(user: User, roles: string[]): boolean {
     return roles.some(role => user.roles.includes(role));
+  }
+
+  /**
+   * Busca as roles específicas do usuário por projeto
+   * @param userId - ID do usuário
+   * @returns Lista de projetos com suas roles específicas
+   */
+  async getUserProjectRoles(userId: string): Promise<UserProjectRoleDto[]> {
+    // Buscar atribuições de projeto do usuário
+    const userProjectAssignments = await this.prisma.userProjectAssignment.findMany({
+      where: { userId },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    // Para cada projeto ativo, buscar as roles específicas
+    const projectRoles: UserProjectRoleDto[] = [];
+    
+    for (const assignment of userProjectAssignments) {
+      if (!assignment.project.isActive) continue;
+
+      // Buscar roles específicas do usuário neste projeto
+      const userRoles = await this.prisma.userProjectRole.findMany({
+        where: {
+          userId,
+          projectId: assignment.project.id,
+        },
+        select: {
+          role: true,
+        },
+      });
+
+      const roles = userRoles.map((ur) => ur.role);
+
+      projectRoles.push({
+        projectId: assignment.project.id,
+        projectName: assignment.project.name,
+        roles,
+      });
+    }
+
+    return projectRoles.sort((a, b) => a.projectName.localeCompare(b.projectName));
   }
 } 

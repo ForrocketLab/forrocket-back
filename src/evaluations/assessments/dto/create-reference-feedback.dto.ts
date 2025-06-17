@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -20,6 +20,15 @@ export class CreateReferenceFeedbackDto {
   @IsString()
   @IsNotEmpty()
   referencedUserId: string;
+
+  @ApiProperty({
+    description: 'Tópico do feedback (opcional)',
+    example: 'Colaboração em projeto',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  topic?: string;
 
   @ApiProperty({
     description: 'Feedback sobre o colega referenciado',

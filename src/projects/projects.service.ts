@@ -274,4 +274,158 @@ export class ProjectsService {
     // Verificar se o mentor sendo avaliado é realmente o mentor do usuário
     return mentorId === evaluator.mentorId;
   }
+
+  /**
+   * Busca todos os projetos ativos
+   */
+  async getAllProjects() {
+    return this.prisma.project.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Busca apenas os projetos em que o usuário está atribuído com suas roles específicas
+   */
+  async getUserProjects(userId: string) {
+    // Buscar projetos através da nova estrutura UserProjectAssignment
+    const userProjectAssignments = await this.prisma.userProjectAssignment.findMany({
+      where: { userId },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    // Para cada projeto, buscar as roles específicas do usuário
+    const projectsWithRoles = await Promise.all(
+      userProjectAssignments
+        .filter((assignment) => assignment.project.isActive) // Filtrar apenas projetos ativos
+        .map(async (assignment) => {
+          const project = assignment.project;
+          
+          // Buscar roles específicas do usuário neste projeto
+          const userRoles = await this.getUserRolesInProject(userId, project.id);
+          
+          return {
+            ...project,
+            userRoles, // NOVA: roles específicas do usuário neste projeto
+          };
+        })
+    );
+
+    // Ordenar por nome
+    return projectsWithRoles.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * NOVA FUNCIONALIDADE: Busca teammates por projeto com roles específicas
+   */
+  async getTeammatesByProjectsWithRoles(userId: string) {
+    // Buscar projetos onde o usuário tem atribuição via nova estrutura
+    const userProjectAssignments = await this.prisma.userProjectAssignment.findMany({
+      where: { userId },
+      include: {
+        project: {
+          include: {
+            userAssignments: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    jobTitle: true,
+                    seniority: true,
+                  },
+                },
+              },
+            },
+            userProjectRoles: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return userProjectAssignments.map((assignment) => {
+      const project = assignment.project;
+      
+      // Mapear teammates com suas roles específicas
+      const teammates = project.userAssignments
+        .filter((ua) => ua.userId !== userId)
+        .map((ua) => {
+          // Buscar roles específicas deste usuário neste projeto
+          const userRoles = project.userProjectRoles
+            .filter((upr) => upr.userId === ua.userId)
+            .map((upr) => upr.role);
+
+          return {
+            id: ua.user.id,
+            name: ua.user.name,
+            email: ua.user.email,
+            jobTitle: ua.user.jobTitle,
+            seniority: ua.user.seniority,
+            projectRoles: userRoles, // NOVA: roles específicas neste projeto
+          };
+        });
+
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        projectDescription: project.description,
+        teammates,
+      };
+    });
+  }
+
+  /**
+   * NOVA FUNCIONALIDADE: Verifica roles específicas de um usuário em um projeto
+   */
+  async getUserRolesInProject(userId: string, projectId: string): Promise<string[]> {
+    const userProjectRoles = await this.prisma.userProjectRole.findMany({
+      where: {
+        userId,
+        projectId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    return userProjectRoles.map((upr) => upr.role);
+  }
+
+  /**
+   * NOVA FUNCIONALIDADE: Verifica se usuário tem role específica em projeto
+   */
+  async hasRoleInProject(userId: string, projectId: string, role: any): Promise<boolean> {
+    const userProjectRole = await this.prisma.userProjectRole.findFirst({
+      where: {
+        userId,
+        projectId,
+        role: role as any,
+      },
+    });
+
+    return !!userProjectRole;
+  }
 }

@@ -5,6 +5,7 @@ import { ProjectsService } from './projects.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProjectDto, ProjectWithUserRolesDto, ProjectTeammatesDto, EvaluableUsersResponseDto } from './dto';
 
 @ApiTags('Projetos')
 @ApiBearerAuth()
@@ -22,30 +23,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 200,
     description: 'Lista de colegas por projeto retornada com sucesso',
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          projectName: { type: 'string', example: 'projeto-app-mobile' },
-          teammates: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', example: 'user-123' },
-                name: { type: 'string', example: 'Ana Oliveira' },
-                email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
-                jobTitle: { type: 'string', example: 'Desenvolvedora Frontend' },
-                seniority: { type: 'string', example: 'Pleno' },
-                roles: { type: 'array', items: { type: 'string' }, example: ['colaborador'] },
-                isManager: { type: 'boolean', example: false },
-              },
-            },
-          },
-        },
-      },
-    },
+    type: [ProjectTeammatesDto],
   })
   @ApiResponse({
     status: 401,
@@ -64,64 +42,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 200,
     description: 'Lista de usuários avaliáveis retornada com sucesso',
-    schema: {
-      type: 'object',
-      properties: {
-        colleagues: {
-          type: 'array',
-          description: 'Colegas de trabalho (mesmo projeto)',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string', example: 'user-123' },
-              name: { type: 'string', example: 'Ana Oliveira' },
-              email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
-              jobTitle: { type: 'string', example: 'Desenvolvedora Frontend' },
-              seniority: { type: 'string', example: 'Pleno' },
-              roles: { type: 'array', items: { type: 'string' }, example: ['colaborador'] },
-            },
-          },
-        },
-        managers: {
-          type: 'array',
-          description: 'Gestores diretos',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string', example: 'user-456' },
-              name: { type: 'string', example: 'Bruno Mendes' },
-              email: { type: 'string', example: 'bruno.mendes@rocketcorp.com' },
-              jobTitle: { type: 'string', example: 'Tech Lead' },
-              seniority: { type: 'string', example: 'Sênior' },
-              roles: {
-                type: 'array',
-                items: { type: 'string' },
-                example: ['colaborador', 'gestor'],
-              },
-            },
-          },
-        },
-        mentors: {
-          type: 'array',
-          description: 'Mentores designados',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string', example: 'user-789' },
-              name: { type: 'string', example: 'Carla Dias' },
-              email: { type: 'string', example: 'carla.dias@rocketcorp.com' },
-              jobTitle: { type: 'string', example: 'Head of Engineering' },
-              seniority: { type: 'string', example: 'Principal' },
-              roles: {
-                type: 'array',
-                items: { type: 'string' },
-                example: ['colaborador', 'comite'],
-              },
-            },
-          },
-        },
-      },
-    },
+    type: EvaluableUsersResponseDto,
   })
   @ApiResponse({
     status: 401,
@@ -129,5 +50,65 @@ export class ProjectsController {
   })
   async getEvaluableUsers(@CurrentUser() user: User) {
     return this.projectsService.getEvaluableUsers(user.id);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'Listar projetos do usuário com suas roles',
+    description: 'Retorna apenas os projetos em que o usuário logado está atribuído, incluindo suas roles específicas em cada projeto',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de projetos do usuário com roles retornada com sucesso',
+    type: [ProjectWithUserRolesDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getProjects(@CurrentUser() user: User) {
+    return this.projectsService.getUserProjects(user.id);
+  }
+
+  @Get('teammates-with-roles')
+  @ApiOperation({
+    summary: 'Listar colegas de trabalho por projetos com roles específicas',
+    description: 'Lista todos os colegas de trabalho com suas roles específicas em cada projeto (NOVA FUNCIONALIDADE).',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Lista de colegas por projeto com roles recuperada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          projectId: { type: 'string', example: 'clzf8x9y20002abcdef123457' },
+          projectName: { type: 'string', example: 'Sistema de Avaliação 360' },
+          projectDescription: { type: 'string', example: 'Plataforma para avaliações de performance' },
+          teammates: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', example: 'clzf8x9y20001abcdef123456' },
+                name: { type: 'string', example: 'Ana Beatriz Santos' },
+                email: { type: 'string', example: 'ana.santos@rocketcorp.com' },
+                jobTitle: { type: 'string', example: 'Desenvolvedora Frontend Pleno' },
+                seniority: { type: 'string', example: 'Pleno' },
+                projectRoles: {
+                  type: 'array',
+                  items: { type: 'string', enum: ['MANAGER', 'TECH_LEAD', 'COLLABORATOR', 'STAKEHOLDER', 'SCRUM_MASTER'] },
+                  example: ['COLLABORATOR', 'TECH_LEAD']
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getTeammatesWithRoles(@CurrentUser() user: User) {
+    return this.projectsService.getTeammatesByProjectsWithRoles(user.id);
   }
 }

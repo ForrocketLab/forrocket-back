@@ -18,7 +18,7 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  roles        String   // Armazenado como JSON string (array de UserRole)
+  roles        String   // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
 
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
@@ -31,7 +31,7 @@ model User {
   // ==========================================
   // DADOS DE ALOCAÇÃO E RELACIONAMENTO
   // ==========================================
-  projects       String?  // Array de projetos (JSON string)
+  projects       String?  // Array de projetos (JSON string) - DEPRECATED: migrar para UserProjectAssignment
   managerId      String?  // ID do gestor direto
   directReports  String?  // Array de IDs dos liderados (JSON string)
   mentorId       String?  // ID do mentor designado
@@ -44,7 +44,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // ==========================================
-  // RELACIONAMENTOS COM AVALIAÇÕES
+  // RELACIONAMENTOS COM AVALIAÇÕES (COMPATIBILIDADE)
   // ==========================================
   // Autoavaliações criadas pelo usuário
   selfAssessments SelfAssessment[]
@@ -67,16 +67,24 @@ model User {
   // Feedbacks de referência recebidos pelo usuário (como referenciado)
   referenceFeedbacksReceived ReferenceFeedback[] @relation("ReferenceFeedbackReferenced")
 
+  // ==========================================
+  // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
+  // ==========================================
+  // Relacionamentos com novas estruturas
+  roleAssignments    UserRoleAssignment[]
+  projectAssignments UserProjectAssignment[]
+  projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
+
   @@map("users")
 }
 
 // ==========================================
-// TABELAS DE AVALIAÇÕES
+// TABELAS DE AVALIAÇÕES (COMPATIBILIDADE MANTIDA)
 // ==========================================
 
 model SelfAssessment {
   id          String   @id @default(cuid())
-  cycle       String   // Ciclo de avaliação (ex: "2025.1")
+  cycle       String   // Ciclo de avaliação (ex: "2025.1") - FUTURO: migrar para FK evaluation_cycles
   authorId    String   // ID do usuário que criou a autoavaliação
   status      String   @default("DRAFT") // DRAFT | SUBMITTED
   createdAt   DateTime @default(now())
@@ -94,7 +102,7 @@ model SelfAssessment {
 model SelfAssessmentAnswer {
   id               String @id @default(cuid())
   selfAssessmentId String
-  criterionId      String // ID do critério (ex: "sentimento-de-dono")
+  criterionId      String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
   score            Int    // Nota de 1 a 5
   justification    String // Justificativa textual
 
@@ -107,7 +115,7 @@ model SelfAssessmentAnswer {
 
 model Assessment360 {
   id               String   @id @default(cuid())
-  cycle            String   // Ciclo de avaliação
+  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
   authorId         String   // ID do usuário que criou a avaliação
   evaluatedUserId  String   // ID do usuário sendo avaliado
   overallScore     Int      // Nota geral de 1 a 5
@@ -128,7 +136,7 @@ model Assessment360 {
 
 model MentoringAssessment {
   id            String   @id @default(cuid())
-  cycle         String   // Ciclo de avaliação
+  cycle         String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
   authorId      String   // ID do mentorado que criou a avaliação
   mentorId      String   // ID do mentor sendo avaliado
   score         Int      // Nota de 1 a 5
@@ -148,9 +156,10 @@ model MentoringAssessment {
 
 model ReferenceFeedback {
   id                String   @id @default(cuid())
-  cycle             String   // Ciclo de avaliação
+  cycle             String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
   authorId          String   // ID do usuário que criou o feedback
   referencedUserId  String   // ID do usuário sendo referenciado
+  topic             String?  // Tópico do feedback (NOVO CAMPO)
   justification     String   // Feedback textual
   status            String   @default("DRAFT") // DRAFT | SUBMITTED
   createdAt         DateTime @default(now())
@@ -163,4 +172,127 @@ model ReferenceFeedback {
 
   @@unique([authorId, referencedUserId, cycle]) // Um usuário só pode referenciar outro uma vez por ciclo
   @@map("reference_feedbacks")
+}
+
+// ==========================================
+// NOVAS ESTRUTURAS DE CONTROLE
+// ==========================================
+
+model EvaluationCycle {
+  id        String      @id @default(cuid())
+  name      String      @unique // Ex: "2025.1", "2025.2"
+  status    CycleStatus @default(UPCOMING)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("evaluation_cycles")
+}
+
+model Criterion {
+  id          String          @id @default(cuid()) // Ex: "sentimento-de-dono"
+  name        String          // Ex: "Sentimento de Dono"
+  description String          // Descrição detalhada do critério
+  pillar      CriterionPillar // BEHAVIOR, EXECUTION, MANAGEMENT
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("criteria")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  userAssignments UserProjectAssignment[]
+  userProjectRoles UserProjectRole[]  // NOVA: Roles específicas por projeto
+
+  @@map("projects")
+}
+
+// ==========================================
+// TABELAS PIVÔS (RELACIONAMENTOS)
+// ==========================================
+
+model UserRoleAssignment {
+  userId String
+  role   UserRole
+
+  // Relacionamentos
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_role_assignments")
+}
+
+model UserProjectAssignment {
+  userId    String
+  projectId String
+
+  // Relacionamentos
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@map("user_project_assignments")
+}
+
+// ==========================================
+// NOVA FUNCIONALIDADE: ROLES POR PROJETO
+// ==========================================
+
+model UserProjectRole {
+  id        String   @id @default(cuid())
+  userId    String   // ID do usuário
+  projectId String   // ID do projeto
+  role      UserRole // Role do usuário neste projeto específico (gestor, colaborador, comite, rh, admin)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId, role]) // Um usuário pode ter múltiplas roles no mesmo projeto
+  @@map("user_project_roles")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  COLLABORATOR // colaborador
+  MANAGER      // gestor
+  MENTOR       // mentor
+  COMMITTEE    // comite
+  RH           // rh
+  ADMIN        // admin
+}
+
+enum CriterionPillar {
+  BEHAVIOR
+  EXECUTION
+  MANAGEMENT
+}
+
+enum EvaluationStatus {
+  DRAFT
+  SUBMITTED
+  EQUALIZED
+  CLOSED
+}
+
+enum CycleStatus {
+  UPCOMING
+  OPEN
+  EQUALIZATION
+  CLOSED
 }

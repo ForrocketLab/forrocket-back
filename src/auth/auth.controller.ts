@@ -239,7 +239,18 @@ export class AuthController {
           seniority: 'Pleno',
           careerTrack: 'Tech',
           businessUnit: 'Digital Products',
-          projects: ['app-mobile', 'dashboard'],
+          projectRoles: [
+            {
+              projectId: 'app-mobile',
+              projectName: 'App Mobile',
+              roles: ['COLLABORATOR']
+            },
+            {
+              projectId: 'dashboard',
+              projectName: 'Dashboard Analytics',
+              roles: ['COLLABORATOR']
+            }
+          ],
           managerId: 'cmbyavwvh0001tzsg5owfxwbq',
           managerName: 'Bruno Mendes',
           mentorId: 'cmbyavwvk0002tzsgi5r3edy5',
@@ -260,7 +271,18 @@ export class AuthController {
           seniority: 'Sênior',
           careerTrack: 'Tech',
           businessUnit: 'Digital Products',
-          projects: ['api-core', 'arquitetura'],
+          projectRoles: [
+            {
+              projectId: 'api-core',
+              projectName: 'API Core',
+              roles: ['COLLABORATOR', 'MANAGER']
+            },
+            {
+              projectId: 'arquitetura',
+              projectName: 'Arquitetura',
+              roles: ['COLLABORATOR', 'TECH_LEAD']
+            }
+          ],
           managerId: 'cmbyavwvk0002tzsgi5r3edy5',
           managerName: 'Carla Dias',
           directReports: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
@@ -281,7 +303,18 @@ export class AuthController {
           seniority: 'Sênior',
           careerTrack: 'Tech',
           businessUnit: 'Operations',
-          projects: ['infraestrutura', 'ci-cd'],
+          projectRoles: [
+            {
+              projectId: 'infraestrutura',
+              projectName: 'Infraestrutura',
+              roles: ['COLLABORATOR', 'ADMIN']
+            },
+            {
+              projectId: 'ci-cd',
+              projectName: 'CI/CD Pipeline',
+              roles: ['COLLABORATOR', 'ADMIN']
+            }
+          ],
           isActive: true,
           createdAt: '2024-01-15T10:00:00.000Z',
           updatedAt: '2024-01-15T10:00:00.000Z'
@@ -300,6 +333,9 @@ export class AuthController {
     }
   })
   async getProfile(@CurrentUser() user: User): Promise<UserProfileDto> {
+    // Buscar roles específicas do usuário por projeto
+    const projectRoles = await this.authService.getUserProjectRoles(user.id);
+    
     // Retorna o perfil completo do usuário
     return {
       id: user.id,
@@ -310,7 +346,7 @@ export class AuthController {
       seniority: user.seniority,
       careerTrack: user.careerTrack,
       businessUnit: user.businessUnit,
-      projects: user.projects,
+      projectRoles,
       managerId: user.managerId,
       directReports: user.directReports,
       mentorId: user.mentorId,

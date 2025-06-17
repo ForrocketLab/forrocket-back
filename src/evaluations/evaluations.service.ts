@@ -10,7 +10,7 @@ import {
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
-} from './dto';
+} from './assessments/dto';
 import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
 import { isValidCriterionId } from '../models/criteria';
@@ -280,6 +280,7 @@ export class EvaluationsService {
         cycle: dto.cycle,
         status: 'DRAFT',
         referencedUserId: dto.referencedUserId,
+        topic: dto.topic, // Campo opcional
         justification: dto.justification,
       },
     });

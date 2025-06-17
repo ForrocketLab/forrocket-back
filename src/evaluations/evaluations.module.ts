@@ -5,8 +5,15 @@ import { EvaluationsService } from './evaluations.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
 
+// Submódulos
+import { CyclesModule } from './cycles/cycles.module';
+
 @Module({
-  imports: [DatabaseModule, ProjectsModule],
+  imports: [
+    DatabaseModule, 
+    ProjectsModule,
+    CyclesModule,
+  ],
   controllers: [EvaluationsController],
   providers: [EvaluationsService],
   exports: [EvaluationsService],
