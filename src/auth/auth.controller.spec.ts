@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UserService } from './user.service';
 import { LoginDto } from './dto/login.dto';
 import { User } from './entities/user.entity';
 
@@ -40,6 +41,13 @@ describe('AuthController', () => {
 
   const mockAuthService = {
     login: jest.fn(),
+    getUserProjectRoles: jest.fn(),
+  };
+
+  const mockUserService = {
+    getUserProfile: jest.fn(),
+    createUser: jest.fn(),
+    findUserById: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -49,6 +57,10 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: UserService,
+          useValue: mockUserService,
         },
       ],
     }).compile();
@@ -110,6 +122,14 @@ describe('AuthController', () => {
   describe('getProfile', () => {
     it('deve retornar perfil do usuário', async () => {
       // Arrange
+      const mockProjectRoles = [
+        {
+          projectId: 'projeto-app-mobile',
+          projectName: 'App Mobile',
+          roles: ['COLLABORATOR']
+        }
+      ];
+
       const expectedProfile = {
         id: mockUser.id,
         name: mockUser.name,
@@ -119,7 +139,7 @@ describe('AuthController', () => {
         seniority: mockUser.seniority,
         careerTrack: mockUser.careerTrack,
         businessUnit: mockUser.businessUnit,
-        projects: mockUser.projects,
+        projectRoles: mockProjectRoles,
         managerId: mockUser.managerId,
         directReports: mockUser.directReports,
         mentorId: mockUser.mentorId,
@@ -128,11 +148,14 @@ describe('AuthController', () => {
         updatedAt: mockUser.updatedAt,
       };
 
+      mockAuthService.getUserProjectRoles.mockResolvedValue(mockProjectRoles);
+
       // Act
       const result = await controller.getProfile(mockUser);
 
       // Assert
       expect(result).toEqual(expectedProfile);
+      expect(mockAuthService.getUserProjectRoles).toHaveBeenCalledWith(mockUser.id);
     });
   });
 

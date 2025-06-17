@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsNotEmpty, IsArray, ValidateNested, IsEnum, IsOptional, MinLength, Matches } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, IsArray, ValidateNested, IsEnum, IsOptional, MinLength, Matches, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -102,6 +102,9 @@ export class CreateUserDto {
     ]
   })
   @IsArray()
+  @ArrayMinSize(1, {
+    message: 'Pelo menos um projeto deve ser atribuído'
+  })
   @ValidateNested({ each: true })
   @Type(() => ProjectAssignmentDto)
   projectAssignments: ProjectAssignmentDto[];
