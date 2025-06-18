@@ -10,6 +10,7 @@ import {
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
+  CreateManagerAssessmentDto,
 } from './assessments/dto';
 import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
@@ -286,6 +287,100 @@ export class EvaluationsService {
     });
 
     return referenceFeedback;
+  }
+
+  /**
+   * Cria uma avaliação de gestor para liderado
+   */
+  async createManagerAssessment(managerId: string, dto: CreateManagerAssessmentDto) {
+    // Verificar se o gestor tem permissão para fazer avaliações
+    const isManager = await this.projectsService.isManager(managerId);
+    if (!isManager) {
+      throw new ForbiddenException('Apenas gestores podem criar avaliações de liderados');
+    }
+
+    // Verificar se o gestor pode avaliar o usuário específico
+    const canEvaluate = await this.projectsService.canManagerEvaluateUser(
+      managerId,
+      dto.evaluatedUserId,
+    );
+    if (!canEvaluate) {
+      throw new ForbiddenException(
+        'Você só pode avaliar liderados dos projetos onde você é gestor',
+      );
+    }
+
+    // Verificar se já existe uma avaliação para este liderado neste ciclo
+    const existingAssessment = await this.prisma.managerAssessment.findFirst({
+      where: {
+        authorId: managerId,
+        evaluatedUserId: dto.evaluatedUserId,
+        cycle: dto.cycle,
+      },
+    });
+
+    if (existingAssessment) {
+      throw new BadRequestException(
+        `Já existe uma avaliação para este liderado no ciclo ${dto.cycle}`,
+      );
+    }
+
+    // Mapear os dados do DTO para o formato do banco (apenas critérios de comportamento)
+    const answers = [
+      // Comportamento
+      {
+        criterionId: 'sentimento-de-dono',
+        score: dto.sentimentoDeDonoScore,
+        justification: dto.sentimentoDeDonoJustification,
+      },
+      {
+        criterionId: 'resiliencia-adversidades',
+        score: dto.resilienciaAdversidadesScore,
+        justification: dto.resilienciaAdversidadesJustification,
+      },
+      {
+        criterionId: 'organizacao-trabalho',
+        score: dto.organizacaoTrabalhoScore,
+        justification: dto.organizacaoTrabalhoJustification,
+      },
+      {
+        criterionId: 'capacidade-aprender',
+        score: dto.capacidadeAprenderScore,
+        justification: dto.capacidadeAprenderJustification,
+      },
+      {
+        criterionId: 'team-player',
+        score: dto.teamPlayerScore,
+        justification: dto.teamPlayerJustification,
+      },
+    ];
+
+    // Criar a avaliação de gestor com os 5 critérios de comportamento
+    const managerAssessment = await this.prisma.managerAssessment.create({
+      data: {
+        authorId: managerId,
+        evaluatedUserId: dto.evaluatedUserId,
+        cycle: dto.cycle,
+        status: 'DRAFT',
+        answers: {
+          create: answers,
+        },
+      },
+      include: {
+        answers: true,
+        evaluatedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+          },
+        },
+      },
+    });
+
+    return managerAssessment;
   }
 
   /**

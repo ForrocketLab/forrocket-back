@@ -428,4 +428,140 @@ export class ProjectsService {
 
     return !!userProjectRole;
   }
+
+  /**
+   * Verifica se um usuário é gestor de pelo menos um projeto
+   */
+  async isManager(userId: string): Promise<boolean> {
+    const managerRole = await this.prisma.userProjectRole.findFirst({
+      where: {
+        userId,
+        role: 'MANAGER',
+      },
+    });
+
+    return !!managerRole;
+  }
+
+  /**
+   * Verifica se um gestor pode avaliar um liderado específico
+   * - O gestor deve ser MANAGER em pelo menos um projeto
+   * - O liderado deve estar no mesmo projeto onde o gestor é MANAGER
+   * - Não pode avaliar a si mesmo
+   */
+  async canManagerEvaluateUser(managerId: string, evaluatedUserId: string): Promise<boolean> {
+    // Não pode avaliar a si mesmo
+    if (managerId === evaluatedUserId) {
+      return false;
+    }
+
+    // Verificar se o usuário avaliado existe
+    const evaluatedUser = await this.prisma.user.findUnique({
+      where: { id: evaluatedUserId },
+    });
+    if (!evaluatedUser) {
+      return false;
+    }
+
+    // Buscar projetos onde o manager tem role de MANAGER
+    const managerProjects = await this.prisma.userProjectRole.findMany({
+      where: {
+        userId: managerId,
+        role: 'MANAGER',
+      },
+      select: {
+        projectId: true,
+      },
+    });
+
+    if (managerProjects.length === 0) {
+      return false;
+    }
+
+    const managerProjectIds = managerProjects.map(p => p.projectId);
+
+    // Verificar se o usuário avaliado está em algum dos projetos onde o manager é gestor
+    const evaluatedUserInProject = await this.prisma.userProjectRole.findFirst({
+      where: {
+        userId: evaluatedUserId,
+        projectId: { in: managerProjectIds },
+      },
+    });
+
+    return !!evaluatedUserInProject;
+  }
+
+  /**
+   * Busca todos os liderados que um gestor pode avaliar
+   */
+  async getEvaluableSubordinates(managerId: string) {
+    // Buscar projetos onde o manager tem role de MANAGER
+    const managerProjects = await this.prisma.userProjectRole.findMany({
+      where: {
+        userId: managerId,
+        role: 'MANAGER',
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (managerProjects.length === 0) {
+      return [];
+    }
+
+    const managerProjectIds = managerProjects.map(p => p.projectId);
+
+    // Buscar todos os usuários que estão nos projetos onde o manager é gestor
+    const subordinates = await this.prisma.userProjectRole.findMany({
+      where: {
+        projectId: { in: managerProjectIds },
+        userId: { not: managerId }, // Excluir o próprio gestor
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+          },
+        },
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    // Agrupar por projeto
+    const result = managerProjects.map(managerProject => {
+      const projectSubordinates = subordinates
+        .filter(sub => sub.projectId === managerProject.projectId)
+        .map(sub => ({
+          id: sub.user.id,
+          name: sub.user.name,
+          email: sub.user.email,
+          jobTitle: sub.user.jobTitle,  
+          seniority: sub.user.seniority,
+          role: sub.role,
+        }));
+
+      return {
+        projectId: managerProject.project.id,
+        projectName: managerProject.project.name,
+        subordinates: projectSubordinates,
+      };
+    });
+
+    return result;
+  }
 }

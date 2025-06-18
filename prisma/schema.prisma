@@ -67,6 +67,12 @@ model User {
   // Feedbacks de referência recebidos pelo usuário (como referenciado)
   referenceFeedbacksReceived ReferenceFeedback[] @relation("ReferenceFeedbackReferenced")
 
+  // Avaliações de gestor criadas pelo usuário (como gestor)
+  managerAssessmentsCreated ManagerAssessment[] @relation("ManagerAssessmentAuthor")
+  
+  // Avaliações de gestor recebidas pelo usuário (como liderado)
+  managerAssessmentsReceived ManagerAssessment[] @relation("ManagerAssessmentEvaluated")
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
@@ -172,6 +178,39 @@ model ReferenceFeedback {
 
   @@unique([authorId, referencedUserId, cycle]) // Um usuário só pode referenciar outro uma vez por ciclo
   @@map("reference_feedbacks")
+}
+
+model ManagerAssessment {
+  id               String   @id @default(cuid())
+  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId         String   // ID do gestor que criou a avaliação
+  evaluatedUserId  String   // ID do liderado sendo avaliado
+  status           String   @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  submittedAt      DateTime?
+
+  // Relacionamentos
+  author        User @relation("ManagerAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  evaluatedUser User @relation("ManagerAssessmentEvaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
+  answers       ManagerAssessmentAnswer[]
+
+  @@unique([authorId, evaluatedUserId, cycle]) // Um gestor só pode avaliar um liderado uma vez por ciclo
+  @@map("manager_assessments")
+}
+
+model ManagerAssessmentAnswer {
+  id                    String @id @default(cuid())
+  managerAssessmentId   String
+  criterionId           String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
+  score                 Int    // Nota de 1 a 5
+  justification         String // Justificativa textual
+
+  // Relacionamentos
+  managerAssessment ManagerAssessment @relation(fields: [managerAssessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([managerAssessmentId, criterionId]) // Uma resposta por critério por avaliação de gestor
+  @@map("manager_assessment_answers")
 }
 
 // ==========================================

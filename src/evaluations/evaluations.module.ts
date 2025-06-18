@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { EvaluationsController } from './evaluations.controller';
+import { ManagerController } from './manager.controller';
 import { EvaluationsService } from './evaluations.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
@@ -14,7 +15,7 @@ import { CyclesModule } from './cycles/cycles.module';
     ProjectsModule,
     CyclesModule,
   ],
-  controllers: [EvaluationsController],
+  controllers: [EvaluationsController, ManagerController],
   providers: [EvaluationsService],
   exports: [EvaluationsService],
 })
