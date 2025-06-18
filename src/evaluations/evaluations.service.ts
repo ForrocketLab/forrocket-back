@@ -17,6 +17,7 @@ import { PrismaService } from '../database/prisma.service';
 import { isValidCriterionId } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
 import { CollaboratorEvaluationType } from '../models/evaluations/collaborator';
+import { ManagerDashboardDto } from './manager/manager-dashboard.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -30,7 +31,11 @@ export class EvaluationsService {
    * @param evaluationId O ID da avaliação a ser submetida
    * @param authorId O ID do autor da avaliação (para validação de segurança)
    */
-  async submitAssessment(evaluationId: string, authorId: string, evaluationType: 'self' | '360' | 'mentoring' | 'reference') {
+  async submitAssessment(
+    evaluationId: string,
+    authorId: string,
+    evaluationType: 'self' | '360' | 'mentoring' | 'reference',
+  ) {
     let model: any;
     let updateWhere: any;
 
@@ -62,7 +67,9 @@ export class EvaluationsService {
     });
 
     if (!existingAssessment) {
-      throw new NotFoundException(`Avaliação com ID ${evaluationId} não encontrada ou você não é o autor.`);
+      throw new NotFoundException(
+        `Avaliação com ID ${evaluationId} não encontrada ou você não é o autor.`,
+      );
     }
 
     if (existingAssessment.status === 'SUBMITTED') {
@@ -553,5 +560,70 @@ export class EvaluationsService {
         referenceFeedbacksCount: referenceFeedbacks.length,
       },
     };
+  }
+
+  async getManagerDashboard(managerId: string, cycle: string): Promise<ManagerDashboardDto[]> {
+    // projetos com todos os liderados
+    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+
+    // se não houver liderados, retorna array vazio.
+    if (projectsWithSubordinates.length === 0) {
+      return [];
+    }
+
+    // ids de todos os liderados de todos os projetos
+    const allSubordinateIds = projectsWithSubordinates.flatMap((p) =>
+      p.subordinates.map((s) => s.id),
+    );
+
+    // busca todos os dados de avaliação de todos os liderados de uma só vez.
+    const subordinatesProgress = await this.prisma.user.findMany({
+      where: {
+        id: { in: allSubordinateIds },
+      },
+      select: {
+        id: true, // id será utilizado para fazer o Map
+        selfAssessments: {
+          where: { cycle },
+          select: { status: true },
+        },
+        managerAssessmentsReceived: {
+          where: { authorId: managerId, cycle },
+          select: { status: true },
+        },
+        _count: {
+          select: {
+            assessments360Created: { where: { cycle } },
+          },
+        },
+      },
+    });
+
+    // acesso rápido aos dados de progresso (Map para amis performance).
+    const progressMap = new Map(
+      subordinatesProgress.map((p) => [
+        p.id,
+        {
+          selfAssessmentStatus: p.selfAssessments[0]?.status || 'PENDENTE',
+          managerAssessmentStatus: p.managerAssessmentsReceived[0]?.status || 'PENDENTE',
+          peerAssessmentsCompleted: p._count.assessments360Created,
+        },
+      ]),
+    );
+
+    // mapeia a estrutura original de projetos com os dados do map
+    const dashboardData = projectsWithSubordinates.map((project) => ({
+      ...project,
+      subordinates: project.subordinates.map((subordinate) => ({
+        ...subordinate,
+        ...(progressMap.get(subordinate.id) || {
+          selfAssessmentStatus: 'PENDENTE',
+          managerAssessmentStatus: 'PENDENTE',
+          peerAssessmentsCompleted: 0,
+        }),
+      })),
+    }));
+
+    return dashboardData;
   }
 }
