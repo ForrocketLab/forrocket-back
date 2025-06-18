@@ -4,9 +4,9 @@ import { IsString, IsInt, Min, Max, IsOptional, IsNotEmpty, IsUUID } from 'class
 export class CreateCommitteeAssessmentDto {
   @ApiProperty({
     description: 'ID do colaborador sendo avaliado pelo comitê',
-    example: 'clz1x2y3z4w5v6u7t8s9r0',
+    example: 'cmc2fyb0i0003tzh4bielb765',
   })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   evaluatedUserId: string;
 
