@@ -7,14 +7,21 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
+  Patch,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, 
+  ApiOperation, 
+  ApiResponse, 
+  ApiBearerAuth, 
+  ApiParam,
+} from '@nestjs/swagger';
 
 import {
   CreateSelfAssessmentDto,
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
+  SubmitAssessmentDto,
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -31,6 +38,42 @@ export class EvaluationsController {
   // ==========================================
   // ENDPOINTS DE CRIAÇÃO (WRITE)
   // ==========================================
+
+
+  @Patch(':id/submit') 
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Submeter uma avaliação',
+    description: 'Muda o status de uma avaliação de DRAFT para SUBMITTED.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID da avaliação a ser submetida',
+    example: 'eval-123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação submetida com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Tipo de avaliação inválido ou avaliação já submetida',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Avaliação não encontrada ou você não é o autor',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async submitAssessment(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() submitDto: SubmitAssessmentDto,
+  ) {
+    return this.evaluationsService.submitAssessment(id, user.id, submitDto.evaluationType);
+  }
 
   @Post('self-assessment')
   @HttpCode(HttpStatus.CREATED)

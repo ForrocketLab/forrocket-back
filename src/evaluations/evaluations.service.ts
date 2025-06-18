@@ -16,6 +16,7 @@ import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
 import { isValidCriterionId } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
+import { CollaboratorEvaluationType } from '../models/evaluations/collaborator';
 
 @Injectable()
 export class EvaluationsService {
@@ -23,6 +24,62 @@ export class EvaluationsService {
     private prisma: PrismaService,
     private projectsService: ProjectsService,
   ) {}
+
+  /**
+   * Submete uma avaliação (muda o status de DRAFT para SUBMITTED)
+   * @param evaluationId O ID da avaliação a ser submetida
+   * @param authorId O ID do autor da avaliação (para validação de segurança)
+   */
+  async submitAssessment(evaluationId: string, authorId: string, evaluationType: 'self' | '360' | 'mentoring' | 'reference') {
+    let model: any;
+    let updateWhere: any;
+
+    // Determinar o modelo e a condição de busca com base no tipo de avaliação
+    switch (evaluationType) {
+      case 'self':
+        model = this.prisma.selfAssessment;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case '360':
+        model = this.prisma.assessment360;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case 'mentoring':
+        model = this.prisma.mentoringAssessment;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case 'reference':
+        model = this.prisma.referenceFeedback;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      default:
+        throw new BadRequestException('Tipo de avaliação inválido.');
+    }
+
+    // Buscar a avaliação para verificar o status e a autoria
+    const existingAssessment = await model.findUnique({
+      where: updateWhere,
+    });
+
+    if (!existingAssessment) {
+      throw new NotFoundException(`Avaliação com ID ${evaluationId} não encontrada ou você não é o autor.`);
+    }
+
+    if (existingAssessment.status === 'SUBMITTED') {
+      throw new BadRequestException('Esta avaliação já foi submetida.');
+    }
+
+    // Atualizar o status para SUBMITTED e registrar a data de submissão
+    const updatedAssessment = await model.update({
+      where: { id: evaluationId },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+      },
+    });
+
+    return updatedAssessment;
+  }
 
   /**
    * Cria uma autoavaliação com todos os 12 critérios
