@@ -229,6 +229,10 @@ export class EvaluationsController {
           type: 'array',
           description: 'Lista de feedbacks de referência dados pelo usuário',
         },
+        managerAssessments: {
+          type: 'array',
+          description: 'Lista de avaliações de gestor feitas pelo usuário',
+        },
         summary: {
           type: 'object',
           properties: {
@@ -236,6 +240,7 @@ export class EvaluationsController {
             assessments360Count: { type: 'number' },
             mentoringAssessmentsCount: { type: 'number' },
             referenceFeedbacksCount: { type: 'number' },
+            managerAssessmentsCount: { type: 'number' },
           },
         },
       },
@@ -351,13 +356,75 @@ export class EvaluationsController {
             },
           },
         },
+        managerAssessmentsReceived: {
+          type: 'array',
+          description:
+            'Lista de avaliações de gestor recebidas (avaliações feitas pelo seu gestor)',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: 'mgr-123' },
+              cycle: { type: 'string', example: '2025.1' },
+              status: { type: 'string', example: 'SUBMITTED' },
+              createdAt: { type: 'string', format: 'date-time' },
+              submittedAt: { type: 'string', format: 'date-time', nullable: true },
+              author: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'mgr-456' },
+                  name: { type: 'string', example: 'Roberto Santos' },
+                  email: { type: 'string', example: 'roberto.santos@rocketcorp.com' },
+                  jobTitle: { type: 'string', example: 'Tech Lead' },
+                  seniority: { type: 'string', example: 'Sênior' },
+                },
+              },
+              answers: {
+                type: 'array',
+                description: 'Respostas da avaliação de gestor',
+              },
+            },
+          },
+        },
+        committeeAssessmentsReceived: {
+          type: 'array',
+          description: 'Lista de avaliações de comitê recebidas (equalização feita pelo comitê)',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: 'cmt-123' },
+              cycle: { type: 'string', example: '2025.1' },
+              finalScore: { type: 'number', example: 4 },
+              justification: { type: 'string', example: 'Justificativa da equalização...' },
+              observations: {
+                type: 'string',
+                example: 'Observações adicionais...',
+                nullable: true,
+              },
+              status: { type: 'string', example: 'SUBMITTED' },
+              createdAt: { type: 'string', format: 'date-time' },
+              submittedAt: { type: 'string', format: 'date-time', nullable: true },
+              author: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'cmt-456' },
+                  name: { type: 'string', example: 'Carla Oliveira' },
+                  email: { type: 'string', example: 'carla.oliveira@rocketcorp.com' },
+                  jobTitle: { type: 'string', example: 'Head of People' },
+                  seniority: { type: 'string', example: 'Sênior' },
+                },
+              },
+            },
+          },
+        },
         summary: {
           type: 'object',
           properties: {
             assessments360ReceivedCount: { type: 'number', example: 2 },
             mentoringAssessmentsReceivedCount: { type: 'number', example: 1 },
             referenceFeedbacksReceivedCount: { type: 'number', example: 3 },
-            totalReceivedCount: { type: 'number', example: 6 },
+            managerAssessmentsReceivedCount: { type: 'number', example: 1 },
+            committeeAssessmentsReceivedCount: { type: 'number', example: 1 },
+            totalReceivedCount: { type: 'number', example: 8 },
           },
         },
       },
