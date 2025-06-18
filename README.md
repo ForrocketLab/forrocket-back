@@ -120,4 +120,18 @@ taskkill /PID <PID_NUMBER> /F
 # No Linux/Mac
 lsof -ti:3000 | xargs kill -9
 ```
+
+### **Erros de TypeScript após git pull**
+Este erro comum acontece quando o Prisma Client não está sincronizado com o schema após fazer pull de mudanças:
+
+```bash
+# Solução completa (executar na sequência):
+pnpm install
+pnpm prisma generate
+pnpm prisma db push
+pnpm run build  # para verificar se os erros foram resolvidos
+```
+
+**Explicação**: Mudanças no arquivo `prisma/schema.prisma` requerem regeneração do Prisma Client para atualizar os tipos TypeScript.
+
 ---
