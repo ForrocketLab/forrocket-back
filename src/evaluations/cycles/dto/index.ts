@@ -1,1 +1,1 @@
-export * from './evaluation-cycle.dto'; 
+export * from './evaluation-cycle.dto';

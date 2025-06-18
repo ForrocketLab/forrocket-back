@@ -16,6 +16,7 @@ async function main() {
       id: '2024.2',
       name: '2024.2',
       status: 'CLOSED' as const,
+      phase: 'EQUALIZATION' as const,
       startDate: new Date('2024-07-01'),
       endDate: new Date('2024-12-31'),
     },
@@ -23,6 +24,7 @@ async function main() {
       id: '2025.1',
       name: '2025.1',
       status: 'OPEN' as const,
+      phase: 'ASSESSMENTS' as const,
       startDate: new Date('2025-01-01'),
       endDate: new Date('2025-06-30'),
     },
@@ -30,6 +32,7 @@ async function main() {
       id: '2025.2',
       name: '2025.2',
       status: 'UPCOMING' as const,
+      phase: 'ASSESSMENTS' as const,
       startDate: new Date('2025-07-01'),
       endDate: new Date('2025-12-31'),
     },
@@ -556,7 +559,7 @@ async function main() {
   // ==========================================
   console.log('✅ Seed concluído com sucesso!');
   console.log('📊 Estruturas criadas:');
-  console.log(`   - ${cycles.length} ciclos de avaliação`);
+  console.log(`   - ${cycles.length} ciclos de avaliação com sistema de fases`);
   console.log(
     `   - ${criteria.length} critérios (${criteria.filter((c) => c.pillar === 'BEHAVIOR').length} comportamentais, ${criteria.filter((c) => c.pillar === 'EXECUTION').length} execução, ${criteria.filter((c) => c.pillar === 'MANAGEMENT').length} gestão)`,
   );
@@ -566,6 +569,34 @@ async function main() {
   console.log(`   - ${projectAssignments.length} atribuições de projeto`);
   console.log(`   - ${userProjectRoles.length} roles específicas por projeto`);
   console.log('');
+
+  // ==========================================
+  // RESUMO DOS CICLOS E FASES
+  // ==========================================
+  console.log('🔄 Sistema de Fases dos Ciclos:');
+  console.log('');
+  cycles.forEach((cycle) => {
+    const statusIcon = cycle.status === 'OPEN' ? '🟢' : cycle.status === 'CLOSED' ? '🔴' : '🟡';
+    let phaseIcon = '❓';
+    const phase = cycle.phase as string;
+    if (phase === 'ASSESSMENTS') phaseIcon = '📝';
+    else if (phase === 'MANAGER_REVIEWS') phaseIcon = '👔';
+    else if (phase === 'EQUALIZATION') phaseIcon = '⚖️';
+
+    console.log(`  ${statusIcon} ${cycle.name} | ${cycle.status} | ${phaseIcon} ${cycle.phase}`);
+  });
+
+  console.log('');
+  console.log('📋 Descrição das Fases:');
+  console.log('  📝 ASSESSMENTS (Fase 1): Autoavaliação, 360, Mentoring, Reference');
+  console.log('  👔 MANAGER_REVIEWS (Fase 2): Avaliações de Gestor');
+  console.log('  ⚖️ EQUALIZATION (Fase 3): Equalização final');
+  console.log('');
+  console.log('🎯 Ciclo Ativo: 2025.1 na fase ASSESSMENTS');
+  console.log('  ✅ Permitidas: Autoavaliação, 360, Mentoring, Reference');
+  console.log('  ❌ Bloqueadas: Avaliações de Gestor');
+  console.log('');
+
   console.log('👥 Usuários disponíveis para login:');
   console.log('');
   console.log('🔧 PAPÉIS GLOBAIS (sem vínculos de projeto):');

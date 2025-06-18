@@ -1,19 +1,13 @@
-import { IsString, IsNumber, Min, Max, IsNotEmpty, ValidateNested, IsInt } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsString, IsNumber, Min, Max, IsNotEmpty, ValidateNested, IsInt } from 'class-validator';
 
 /**
  * DTO para criação de autoavaliação completa
  * Inclui todos os 12 critérios obrigatoriamente
  */
 export class CreateSelfAssessmentDto {
-  @ApiProperty({
-    description: 'Ciclo de avaliação',
-    example: '2025.1'
-  })
-  @IsString()
-  @IsNotEmpty()
-  cycle: string;
+  // Campo cycle removido - será usado automaticamente o ciclo ativo
 
   // ==========================================
   // PILAR: COMPORTAMENTO (5 critérios)
@@ -23,7 +17,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Sentimento de Dono (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -32,7 +26,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Sentimento de Dono',
-    example: 'Demonstro responsabilidade pelos resultados da equipe e tomo iniciativa em projetos importantes.'
+    example:
+      'Demonstro responsabilidade pelos resultados da equipe e tomo iniciativa em projetos importantes.',
   })
   @IsString()
   @IsNotEmpty()
@@ -42,7 +37,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Resiliência nas Adversidades (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -51,7 +46,7 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Resiliência nas Adversidades',
-    example: 'Mantenho-me firme e positivo diante de desafios, adaptando-me bem a mudanças.'
+    example: 'Mantenho-me firme e positivo diante de desafios, adaptando-me bem a mudanças.',
   })
   @IsString()
   @IsNotEmpty()
@@ -61,7 +56,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Organização no Trabalho (1 a 5)',
     example: 5,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -70,7 +65,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Organização no Trabalho',
-    example: 'Mantenho organização pessoal, planejo bem as atividades e gerencio eficientemente o tempo.'
+    example:
+      'Mantenho organização pessoal, planejo bem as atividades e gerencio eficientemente o tempo.',
   })
   @IsString()
   @IsNotEmpty()
@@ -80,7 +76,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Capacidade de Aprender (1 a 5)',
     example: 5,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -89,7 +85,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Capacidade de Aprender',
-    example: 'Demonstro curiosidade, busco constantemente novos conhecimentos e aplico o que aprendo.'
+    example:
+      'Demonstro curiosidade, busco constantemente novos conhecimentos e aplico o que aprendo.',
   })
   @IsString()
   @IsNotEmpty()
@@ -99,7 +96,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Ser "Team Player" (1 a 5)',
     example: 5,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -108,7 +105,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Ser "Team Player"',
-    example: 'Trabalho bem em equipe, colaboro ativamente, compartilho conhecimento e ajudo colegas.'
+    example:
+      'Trabalho bem em equipe, colaboro ativamente, compartilho conhecimento e ajudo colegas.',
   })
   @IsString()
   @IsNotEmpty()
@@ -122,7 +120,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Entregar com Qualidade (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -131,7 +129,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Entregar com Qualidade',
-    example: 'Entrego trabalhos com alta qualidade, atenção aos detalhes e seguindo padrões estabelecidos.'
+    example:
+      'Entrego trabalhos com alta qualidade, atenção aos detalhes e seguindo padrões estabelecidos.',
   })
   @IsString()
   @IsNotEmpty()
@@ -141,7 +140,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Atender aos Prazos (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -150,7 +149,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Atender aos Prazos',
-    example: 'Cumpro prazos estabelecidos, gerencio bem o tempo e comunico antecipadamente possíveis atrasos.'
+    example:
+      'Cumpro prazos estabelecidos, gerencio bem o tempo e comunico antecipadamente possíveis atrasos.',
   })
   @IsString()
   @IsNotEmpty()
@@ -160,7 +160,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Fazer Mais com Menos (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -169,7 +169,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Fazer Mais com Menos',
-    example: 'Otimizo recursos, encontro soluções eficientes e maximizo resultados com recursos limitados.'
+    example:
+      'Otimizo recursos, encontro soluções eficientes e maximizo resultados com recursos limitados.',
   })
   @IsString()
   @IsNotEmpty()
@@ -179,7 +180,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Pensar Fora da Caixa (1 a 5)',
     example: 3,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -188,7 +189,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Pensar Fora da Caixa',
-    example: 'Demonstro criatividade, proponho soluções inovadoras e abordo problemas de forma não convencional.'
+    example:
+      'Demonstro criatividade, proponho soluções inovadoras e abordo problemas de forma não convencional.',
   })
   @IsString()
   @IsNotEmpty()
@@ -202,7 +204,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Gente (1 a 5)',
     example: 3,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -211,7 +213,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Gente',
-    example: 'Desenvolvo pessoas, inspiro e motivo a equipe, promovo um ambiente colaborativo e de crescimento.'
+    example:
+      'Desenvolvo pessoas, inspiro e motivo a equipe, promovo um ambiente colaborativo e de crescimento.',
   })
   @IsString()
   @IsNotEmpty()
@@ -221,7 +224,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Resultados (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -230,7 +233,8 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Resultados',
-    example: 'Foco na entrega de resultados, defino metas claras e acompanho o desempenho da equipe.'
+    example:
+      'Foco na entrega de resultados, defino metas claras e acompanho o desempenho da equipe.',
   })
   @IsString()
   @IsNotEmpty()
@@ -240,7 +244,7 @@ export class CreateSelfAssessmentDto {
     description: 'Nota para Evolução da Rocket Corp (1 a 5)',
     example: 4,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
@@ -249,9 +253,10 @@ export class CreateSelfAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para Evolução da Rocket Corp',
-    example: 'Contribuo ativamente para o crescimento e evolução da empresa, proponho melhorias e inovações.'
+    example:
+      'Contribuo ativamente para o crescimento e evolução da empresa, proponho melhorias e inovações.',
   })
   @IsString()
   @IsNotEmpty()
   evolucaoRocketJustification: string;
-} 
+}
