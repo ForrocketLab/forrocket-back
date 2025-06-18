@@ -10,19 +10,21 @@ async function main() {
   // SEED - EVALUATION CYCLES
   // ==========================================
   console.log('📅 Criando ciclos de avaliação...');
-  
+
   const cycles = [
     {
       id: '2024.2',
       name: '2024.2',
       status: 'CLOSED' as const,
+      phase: 'EQUALIZATION' as const,
       startDate: new Date('2024-07-01'),
       endDate: new Date('2024-12-31'),
     },
     {
       id: '2025.1',
-      name: '2025.1', 
+      name: '2025.1',
       status: 'OPEN' as const,
+      phase: 'ASSESSMENTS' as const,
       startDate: new Date('2025-01-01'),
       endDate: new Date('2025-06-30'),
     },
@@ -30,6 +32,7 @@ async function main() {
       id: '2025.2',
       name: '2025.2',
       status: 'UPCOMING' as const,
+      phase: 'ASSESSMENTS' as const,
       startDate: new Date('2025-07-01'),
       endDate: new Date('2025-12-31'),
     },
@@ -384,20 +387,20 @@ async function main() {
   const roleAssignments = [
     // Eduardo: Admin puro
     { userId: eduardo.id, role: 'ADMIN' as const },
-    
+
     // Diana: RH puro
     { userId: diana.id, role: 'RH' as const },
-    
+
     // Carla: Comitê puro
     { userId: carla.id, role: 'COMMITTEE' as const },
-    
+
     // Bruno: Colaborador + Gestor
     { userId: bruno.id, role: 'COLLABORATOR' as const },
     { userId: bruno.id, role: 'MANAGER' as const },
-    
+
     // Ana: Colaboradora
     { userId: ana.id, role: 'COLLABORATOR' as const },
-    
+
     // Felipe: Colaborador
     { userId: felipe.id, role: 'COLLABORATOR' as const },
   ];
@@ -424,11 +427,11 @@ async function main() {
     // Bruno: Projeto Alpha (liderar) e API Core
     { userId: bruno.id, projectId: 'projeto-alpha' },
     { userId: bruno.id, projectId: 'projeto-api-core' },
-    
+
     // Ana: Projeto Alpha e Mobile App
     { userId: ana.id, projectId: 'projeto-alpha' },
     { userId: ana.id, projectId: 'projeto-mobile-app' },
-    
+
     // Felipe: API Core e Mobile App
     { userId: felipe.id, projectId: 'projeto-api-core' },
     { userId: felipe.id, projectId: 'projeto-mobile-app' },
@@ -456,11 +459,11 @@ async function main() {
     // PROJETO ALPHA - Plataforma de Vendas
     { userId: bruno.id, projectId: 'projeto-alpha', role: 'MANAGER' as const }, // Bruno é gestor no Alpha
     { userId: ana.id, projectId: 'projeto-alpha', role: 'COLLABORATOR' as const }, // Ana colaboradora no Alpha
-    
+
     // PROJETO API CORE
     { userId: bruno.id, projectId: 'projeto-api-core', role: 'MANAGER' as const }, // Bruno gestor no API Core
     { userId: felipe.id, projectId: 'projeto-api-core', role: 'COLLABORATOR' as const }, // Felipe colaborador no API Core
-    
+
     // PROJETO MOBILE APP
     { userId: ana.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Ana colaboradora no Mobile
     { userId: felipe.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Felipe colaborador no Mobile
@@ -487,31 +490,73 @@ async function main() {
   // ==========================================
   console.log('✅ Seed concluído com sucesso!');
   console.log('📊 Estruturas criadas:');
-  console.log(`   - ${cycles.length} ciclos de avaliação`);
-  console.log(`   - ${criteria.length} critérios (${criteria.filter(c => c.pillar === 'BEHAVIOR').length} comportamentais, ${criteria.filter(c => c.pillar === 'EXECUTION').length} execução, ${criteria.filter(c => c.pillar === 'MANAGEMENT').length} gestão)`);
+  console.log(`   - ${cycles.length} ciclos de avaliação com sistema de fases`);
+  console.log(
+    `   - ${criteria.length} critérios (${criteria.filter((c) => c.pillar === 'BEHAVIOR').length} comportamentais, ${criteria.filter((c) => c.pillar === 'EXECUTION').length} execução, ${criteria.filter((c) => c.pillar === 'MANAGEMENT').length} gestão)`,
+  );
   console.log(`   - ${projects.length} projetos`);
   console.log(`   - 6 usuários com perfis separados por escopo`);
   console.log(`   - ${roleAssignments.length} atribuições de role globais`);
   console.log(`   - ${projectAssignments.length} atribuições de projeto`);
   console.log(`   - ${userProjectRoles.length} roles específicas por projeto`);
   console.log('');
+
+  // ==========================================
+  // RESUMO DOS CICLOS E FASES
+  // ==========================================
+  console.log('🔄 Sistema de Fases dos Ciclos:');
+  console.log('');
+  cycles.forEach((cycle) => {
+    const statusIcon = cycle.status === 'OPEN' ? '🟢' : cycle.status === 'CLOSED' ? '🔴' : '🟡';
+    let phaseIcon = '❓';
+    const phase = cycle.phase as string;
+    if (phase === 'ASSESSMENTS') phaseIcon = '📝';
+    else if (phase === 'MANAGER_REVIEWS') phaseIcon = '👔';
+    else if (phase === 'EQUALIZATION') phaseIcon = '⚖️';
+
+    console.log(`  ${statusIcon} ${cycle.name} | ${cycle.status} | ${phaseIcon} ${cycle.phase}`);
+  });
+
+  console.log('');
+  console.log('📋 Descrição das Fases:');
+  console.log('  📝 ASSESSMENTS (Fase 1): Autoavaliação, 360, Mentoring, Reference');
+  console.log('  👔 MANAGER_REVIEWS (Fase 2): Avaliações de Gestor');
+  console.log('  ⚖️ EQUALIZATION (Fase 3): Equalização final');
+  console.log('');
+  console.log('🎯 Ciclo Ativo: 2025.1 na fase ASSESSMENTS');
+  console.log('  ✅ Permitidas: Autoavaliação, 360, Mentoring, Reference');
+  console.log('  ❌ Bloqueadas: Avaliações de Gestor');
+  console.log('');
+
   console.log('👥 Usuários disponíveis para login:');
   console.log('');
   console.log('🔧 PAPÉIS GLOBAIS (sem vínculos de projeto):');
   console.log('  📧 eduardo.tech@rocketcorp.com - Senha: password123');
-  console.log('     👤 Eduardo José Ferreira da Silva | 🎯 ADMIN PURO | 💼 DevOps Engineer Sênior | 🏢 Operations');
+  console.log(
+    '     👤 Eduardo José Ferreira da Silva | 🎯 ADMIN PURO | 💼 DevOps Engineer Sênior | 🏢 Operations',
+  );
   console.log('  📧 diana.costa@rocketcorp.com - Senha: password123');
-  console.log('     👤 Diana Cristina Costa Lima | 🎯 RH PURO | 💼 People & Culture Manager Sênior | 🏢 Operations');
+  console.log(
+    '     👤 Diana Cristina Costa Lima | 🎯 RH PURO | 💼 People & Culture Manager Sênior | 🏢 Operations',
+  );
   console.log('  📧 carla.dias@rocketcorp.com - Senha: password123');
-  console.log('     👤 Carla Regina Dias Fernandes | 🎯 COMITÊ PURO | 💼 Head of Engineering Principal | 🏢 Digital Products');
+  console.log(
+    '     👤 Carla Regina Dias Fernandes | 🎯 COMITÊ PURO | 💼 Head of Engineering Principal | 🏢 Digital Products',
+  );
   console.log('');
   console.log('👥 MEMBROS DE PROJETO (com vínculos de projeto):');
   console.log('  📧 bruno.mendes@rocketcorp.com - Senha: password123');
-  console.log('     👤 Bruno André Mendes Carvalho | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | 🏢 Digital Products');
+  console.log(
+    '     👤 Bruno André Mendes Carvalho | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | 🏢 Digital Products',
+  );
   console.log('  📧 ana.oliveira@rocketcorp.com - Senha: password123');
-  console.log('     👤 Ana Beatriz Oliveira Santos | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | 🏢 Digital Products');
+  console.log(
+    '     👤 Ana Beatriz Oliveira Santos | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | 🏢 Digital Products',
+  );
   console.log('  📧 felipe.silva@rocketcorp.com - Senha: password123');
-  console.log('     👤 Felipe Augusto Silva Rodrigues | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | 🏢 Digital Products');
+  console.log(
+    '     👤 Felipe Augusto Silva Rodrigues | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | 🏢 Digital Products',
+  );
   console.log('');
   console.log('🏢 Nova Estrutura Organizacional:');
   console.log('  🔧 Eduardo Tech (Admin) - Independente, gerencia sistema');

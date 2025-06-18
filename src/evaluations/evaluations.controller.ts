@@ -9,12 +9,7 @@ import {
   HttpCode,
   Patch,
 } from '@nestjs/common';
-import { ApiTags, 
-  ApiOperation, 
-  ApiResponse, 
-  ApiBearerAuth, 
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 
 import {
   CreateSelfAssessmentDto,
@@ -39,8 +34,7 @@ export class EvaluationsController {
   // ENDPOINTS DE CRIAÇÃO (WRITE)
   // ==========================================
 
-
-  @Patch(':id/submit') 
+  @Patch(':id/submit')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Submeter uma avaliação',

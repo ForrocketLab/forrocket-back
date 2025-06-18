@@ -1,21 +1,15 @@
-import { IsString, IsNumber, Min, Max, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, Min, Max, IsNotEmpty } from 'class-validator';
 
 /**
  * DTO para criação de avaliação de mentoring
  */
 export class CreateMentoringAssessmentDto {
-  @ApiProperty({
-    description: 'Ciclo de avaliação',
-    example: '2025.1'
-  })
-  @IsString()
-  @IsNotEmpty()
-  cycle: string;
+  // Campo cycle removido - será usado automaticamente o ciclo ativo
 
   @ApiProperty({
     description: 'ID do mentor que está sendo avaliado',
-    example: 'user-789'
+    example: 'user-789',
   })
   @IsString()
   @IsNotEmpty()
@@ -25,7 +19,7 @@ export class CreateMentoringAssessmentDto {
     description: 'Nota atribuída ao mentor (1 a 5)',
     example: 5,
     minimum: 1,
-    maximum: 5
+    maximum: 5,
   })
   @IsNumber()
   @Min(1)
@@ -34,9 +28,10 @@ export class CreateMentoringAssessmentDto {
 
   @ApiProperty({
     description: 'Justificativa para a avaliação do mentor',
-    example: 'Excelente mentor, sempre disponível para tirar dúvidas e me ajudou muito no desenvolvimento técnico.'
+    example:
+      'Excelente mentor, sempre disponível para tirar dúvidas e me ajudou muito no desenvolvimento técnico.',
   })
   @IsString()
   @IsNotEmpty()
   justification: string;
-} 
+}

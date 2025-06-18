@@ -16,6 +16,7 @@ import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
 import { isValidCriterionId } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
+import { CyclesService } from './cycles/cycles.service';
 import { CollaboratorEvaluationType } from '../models/evaluations/collaborator';
 
 @Injectable()
@@ -23,6 +24,7 @@ export class EvaluationsService {
   constructor(
     private prisma: PrismaService,
     private projectsService: ProjectsService,
+    private cyclesService: CyclesService,
   ) {}
 
   /**
@@ -30,7 +32,11 @@ export class EvaluationsService {
    * @param evaluationId O ID da avaliação a ser submetida
    * @param authorId O ID do autor da avaliação (para validação de segurança)
    */
-  async submitAssessment(evaluationId: string, authorId: string, evaluationType: 'self' | '360' | 'mentoring' | 'reference') {
+  async submitAssessment(
+    evaluationId: string,
+    authorId: string,
+    evaluationType: 'self' | '360' | 'mentoring' | 'reference',
+  ) {
     let model: any;
     let updateWhere: any;
 
@@ -62,7 +68,9 @@ export class EvaluationsService {
     });
 
     if (!existingAssessment) {
-      throw new NotFoundException(`Avaliação com ID ${evaluationId} não encontrada ou você não é o autor.`);
+      throw new NotFoundException(
+        `Avaliação com ID ${evaluationId} não encontrada ou você não é o autor.`,
+      );
     }
 
     if (existingAssessment.status === 'SUBMITTED') {
@@ -82,19 +90,24 @@ export class EvaluationsService {
   }
 
   /**
-   * Cria uma autoavaliação com todos os 12 critérios
+   * Cria uma autoavaliação com todos os 12 critérios para o ciclo ativo
    */
-  async createSelfAssessment(userId: string, dto: CreateSelfAssessmentDto) {
+  async createSelfAssessment(userId: string, dto: Omit<CreateSelfAssessmentDto, 'cycle'>) {
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
     // Verificar se já existe uma autoavaliação para este ciclo
     const existingAssessment = await this.prisma.selfAssessment.findFirst({
       where: {
         authorId: userId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
       },
     });
 
     if (existingAssessment) {
-      throw new BadRequestException(`Já existe uma autoavaliação para o ciclo ${dto.cycle}`);
+      throw new BadRequestException(
+        `Já existe uma autoavaliação para o ciclo ativo ${activeCycle.name}`,
+      );
     }
 
     // Mapear os dados do DTO para o formato do banco
@@ -166,11 +179,11 @@ export class EvaluationsService {
       },
     ];
 
-    // Criar a autoavaliação com todos os 12 critérios
+    // Criar a autoavaliação com todos os 12 critérios usando o ciclo ativo
     const selfAssessment = await this.prisma.selfAssessment.create({
       data: {
         authorId: userId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
         status: 'DRAFT',
         answers: {
           create: answers,
@@ -185,9 +198,12 @@ export class EvaluationsService {
   }
 
   /**
-   * Cria uma avaliação 360
+   * Cria uma avaliação 360 para o ciclo ativo
    */
-  async create360Assessment(userId: string, dto: Create360AssessmentDto) {
+  async create360Assessment(userId: string, dto: Omit<Create360AssessmentDto, 'cycle'>) {
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
     // Verificar se o usuário avaliado existe
     const evaluatedUser = await this.prisma.user.findUnique({
       where: { id: dto.evaluatedUserId },
@@ -213,26 +229,26 @@ export class EvaluationsService {
       );
     }
 
-    // Verificar se já existe uma avaliação 360 para este usuário neste ciclo
+    // Verificar se já existe uma avaliação 360 para este usuário no ciclo ativo
     const existingAssessment = await this.prisma.assessment360.findFirst({
       where: {
         authorId: userId,
         evaluatedUserId: dto.evaluatedUserId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
       },
     });
 
     if (existingAssessment) {
       throw new BadRequestException(
-        `Já existe uma avaliação 360 para este usuário no ciclo ${dto.cycle}`,
+        `Já existe uma avaliação 360 para este usuário no ciclo ativo ${activeCycle.name}`,
       );
     }
 
-    // Criar a avaliação 360
+    // Criar a avaliação 360 para o ciclo ativo
     const assessment360 = await this.prisma.assessment360.create({
       data: {
         authorId: userId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
         status: 'DRAFT',
         evaluatedUserId: dto.evaluatedUserId,
         overallScore: dto.overallScore,
@@ -245,9 +261,15 @@ export class EvaluationsService {
   }
 
   /**
-   * Cria uma avaliação de mentoring
+   * Cria uma avaliação de mentoring para o ciclo ativo
    */
-  async createMentoringAssessment(userId: string, dto: CreateMentoringAssessmentDto) {
+  async createMentoringAssessment(
+    userId: string,
+    dto: Omit<CreateMentoringAssessmentDto, 'cycle'>,
+  ) {
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
     // Verificar se o mentor existe
     const mentor = await this.prisma.user.findUnique({
       where: { id: dto.mentorId },
@@ -268,26 +290,26 @@ export class EvaluationsService {
       );
     }
 
-    // Verificar se já existe uma avaliação de mentoring para este mentor neste ciclo
+    // Verificar se já existe uma avaliação de mentoring para este mentor no ciclo ativo
     const existingAssessment = await this.prisma.mentoringAssessment.findFirst({
       where: {
         authorId: userId,
         mentorId: dto.mentorId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
       },
     });
 
     if (existingAssessment) {
       throw new BadRequestException(
-        `Já existe uma avaliação de mentoring para este mentor no ciclo ${dto.cycle}`,
+        `Já existe uma avaliação de mentoring para este mentor no ciclo ativo ${activeCycle.name}`,
       );
     }
 
-    // Criar a avaliação de mentoring
+    // Criar a avaliação de mentoring para o ciclo ativo
     const mentoringAssessment = await this.prisma.mentoringAssessment.create({
       data: {
         authorId: userId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
         status: 'DRAFT',
         mentorId: dto.mentorId,
         score: dto.score,
@@ -299,9 +321,12 @@ export class EvaluationsService {
   }
 
   /**
-   * Cria um feedback de referência
+   * Cria um feedback de referência para o ciclo ativo
    */
-  async createReferenceFeedback(userId: string, dto: CreateReferenceFeedbackDto) {
+  async createReferenceFeedback(userId: string, dto: Omit<CreateReferenceFeedbackDto, 'cycle'>) {
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
     // Verificar se o usuário referenciado existe
     const referencedUser = await this.prisma.user.findUnique({
       where: { id: dto.referencedUserId },
@@ -316,26 +341,26 @@ export class EvaluationsService {
       throw new BadRequestException('Não é possível referenciar a si mesmo');
     }
 
-    // Verificar se já existe um feedback de referência para este usuário neste ciclo
+    // Verificar se já existe um feedback de referência para este usuário no ciclo ativo
     const existingFeedback = await this.prisma.referenceFeedback.findFirst({
       where: {
         authorId: userId,
         referencedUserId: dto.referencedUserId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
       },
     });
 
     if (existingFeedback) {
       throw new BadRequestException(
-        `Já existe um feedback de referência para este usuário no ciclo ${dto.cycle}`,
+        `Já existe um feedback de referência para este usuário no ciclo ativo ${activeCycle.name}`,
       );
     }
 
-    // Criar o feedback de referência
+    // Criar o feedback de referência para o ciclo ativo
     const referenceFeedback = await this.prisma.referenceFeedback.create({
       data: {
         authorId: userId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
         status: 'DRAFT',
         referencedUserId: dto.referencedUserId,
         topic: dto.topic, // Campo opcional
@@ -347,9 +372,12 @@ export class EvaluationsService {
   }
 
   /**
-   * Cria uma avaliação de gestor para liderado
+   * Cria uma avaliação de gestor para liderado no ciclo ativo
    */
-  async createManagerAssessment(managerId: string, dto: CreateManagerAssessmentDto) {
+  async createManagerAssessment(managerId: string, dto: Omit<CreateManagerAssessmentDto, 'cycle'>) {
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS');
+
     // Verificar se o gestor tem permissão para fazer avaliações
     const isManager = await this.projectsService.isManager(managerId);
     if (!isManager) {
@@ -367,18 +395,18 @@ export class EvaluationsService {
       );
     }
 
-    // Verificar se já existe uma avaliação para este liderado neste ciclo
+    // Verificar se já existe uma avaliação para este liderado no ciclo ativo
     const existingAssessment = await this.prisma.managerAssessment.findFirst({
       where: {
         authorId: managerId,
         evaluatedUserId: dto.evaluatedUserId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
       },
     });
 
     if (existingAssessment) {
       throw new BadRequestException(
-        `Já existe uma avaliação para este liderado no ciclo ${dto.cycle}`,
+        `Já existe uma avaliação para este liderado no ciclo ativo ${activeCycle.name}`,
       );
     }
 
@@ -412,12 +440,12 @@ export class EvaluationsService {
       },
     ];
 
-    // Criar a avaliação de gestor com os 5 critérios de comportamento
+    // Criar a avaliação de gestor com os 5 critérios de comportamento para o ciclo ativo
     const managerAssessment = await this.prisma.managerAssessment.create({
       data: {
         authorId: managerId,
         evaluatedUserId: dto.evaluatedUserId,
-        cycle: dto.cycle,
+        cycle: activeCycle.name,
         status: 'DRAFT',
         answers: {
           create: answers,

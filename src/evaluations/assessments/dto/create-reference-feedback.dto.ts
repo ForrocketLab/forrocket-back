@@ -1,21 +1,15 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 /**
  * DTO para criação de feedback de referência
  */
 export class CreateReferenceFeedbackDto {
-  @ApiProperty({
-    description: 'Ciclo de avaliação',
-    example: '2025.1'
-  })
-  @IsString()
-  @IsNotEmpty()
-  cycle: string;
+  // Campo cycle removido - será usado automaticamente o ciclo ativo
 
   @ApiProperty({
     description: 'ID do colega que está sendo referenciado',
-    example: 'user-123'
+    example: 'user-123',
   })
   @IsString()
   @IsNotEmpty()
@@ -24,7 +18,7 @@ export class CreateReferenceFeedbackDto {
   @ApiProperty({
     description: 'Tópico do feedback (opcional)',
     example: 'Colaboração em projeto',
-    required: false
+    required: false,
   })
   @IsString()
   @IsOptional()
@@ -32,9 +26,10 @@ export class CreateReferenceFeedbackDto {
 
   @ApiProperty({
     description: 'Feedback sobre o colega referenciado',
-    example: 'Trabalhou comigo no projeto X e demonstrou excelente capacidade de resolução de problemas e colaboração.'
+    example:
+      'Trabalhou comigo no projeto X e demonstrou excelente capacidade de resolução de problemas e colaboração.',
   })
   @IsString()
   @IsNotEmpty()
   justification: string;
-} 
+}
