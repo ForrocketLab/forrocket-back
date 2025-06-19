@@ -49,7 +49,7 @@ export class EvaluationsService {
   async submitAssessment(
     evaluationId: string,
     authorId: string,
-    evaluationType: 'self' | '360' | 'mentoring' | 'reference' | 'manager',
+    evaluationType: 'self' | '360' | 'mentoring' | 'reference' | 'manager' | 'committee',
   ) {
     let model: any;
     let updateWhere: any;
@@ -74,6 +74,10 @@ export class EvaluationsService {
         break;
       case 'manager':
         model = this.prisma.managerAssessment;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case 'committee': // <-- NOVO CASO ADICIONADO
+        model = this.prisma.committeeAssessment;
         updateWhere = { id: evaluationId, authorId: authorId };
         break;
       default:
