@@ -235,7 +235,8 @@ model Criterion {
   name        String          // Ex: "Sentimento de Dono"
   description String          // Descrição detalhada do critério
   pillar      CriterionPillar // BEHAVIOR, EXECUTION, MANAGEMENT
-  isActive    Boolean         @default(true)
+  weight      Float           @default(1.0) // Peso do critério na avaliação (1.0 = 100%)
+  isRequired  Boolean         @default(true) // Se o critério é obrigatório no formulário
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
