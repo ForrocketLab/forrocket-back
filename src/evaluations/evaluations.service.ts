@@ -11,13 +11,16 @@ import {
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
   CreateManagerAssessmentDto,
+  SelfAssessmentCompletionByPillarDto, 
+  OverallCompletionDto,
+  PillarProgressDto,
 } from './assessments/dto';
 import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
-import { isValidCriterionId } from '../models/criteria';
+import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars, isValidCriterionId } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
-import { CollaboratorEvaluationType } from '../models/evaluations/collaborator';
+import { ISelfAssessment, ISelfAssessmentAnswer, EvaluationStatus, CollaboratorEvaluationType } from '../models/evaluations/collaborator';
 
 @Injectable()
 export class EvaluationsService {
@@ -469,6 +472,48 @@ export class EvaluationsService {
   }
 
   /**
+   * Calcula o status de preenchimento de uma autoavaliação por pilar.
+   * Retorna um objeto com { completed: número de critérios completos, total: número total de critérios }
+   * para cada pilar.
+   */
+  private calculateSelfAssessmentCompletionByPillar(selfAssessment: ISelfAssessment): SelfAssessmentCompletionByPillarDto { // <-- Use o DTO como tipo de retorno
+    const pillarCompletion: SelfAssessmentCompletionByPillarDto = {} as SelfAssessmentCompletionByPillarDto; // <-- Inicialize como o DTO
+    const allPillars = getAllPillars();
+
+    // 1. Inicializa a contagem para cada pilar
+    for (const pillar of allPillars) {
+      const criteriaInPillar = getCriteriaByPillar(pillar);
+      pillarCompletion[pillar] = {
+        completed: 0,
+        total: criteriaInPillar.length,
+      };
+    }
+
+    if (!selfAssessment || !selfAssessment.answers) {
+      return pillarCompletion;
+    }
+
+    // 2. Conta os critérios preenchidos por pilar
+    for (const answer of selfAssessment.answers) {
+      const criterion = ALL_CRITERIA.find(c => c.id === answer.criterionId);
+      
+      if (criterion) {
+        const isCompleted = answer.score >= 1 && answer.score <= 5 && answer.justification && answer.justification.trim() !== '';
+        
+        if (isCompleted) {
+          // Incrementa o contador 'completed' para o pilar do critério
+          // Garante que o pilar exista antes de incrementar (já inicializamos acima)
+          if (pillarCompletion[criterion.pillar]) {
+            pillarCompletion[criterion.pillar].completed++;
+          }
+        }
+      }
+    }
+
+    return pillarCompletion;
+  }
+
+  /**
    * Busca todas as avaliações RECEBIDAS por um usuário para um ciclo específico
    */
   async getReceivedEvaluationsByCycle(userId: string, cycle: string) {
@@ -561,10 +606,11 @@ export class EvaluationsService {
 
   /**
    * Busca todas as avaliações de um usuário para um ciclo específico
+   * Incluirá o status de preenchimento por pilar para autoavaliação
    */
   async getUserEvaluationsByCycle(userId: string, cycle: string) {
     const [
-      selfAssessment,
+      selfAssessmentFromDb,
       assessments360,
       mentoringAssessments,
       referenceFeedbacks,
@@ -618,15 +664,49 @@ export class EvaluationsService {
       }),
     ]);
 
+    // **IMPORTANTE**: Converter o objeto retornado pelo Prisma para o tipo ISelfAssessment
+    // A asserção `as EvaluationStatus` corrige o problema de tipagem do 'status'.
+    let selfAssessment: ISelfAssessment | null = null;
+    if (selfAssessmentFromDb) {
+      selfAssessment = {
+        ...selfAssessmentFromDb,
+        status: selfAssessmentFromDb.status as EvaluationStatus, // Asserção de tipo para 'status'
+        createdAt: new Date(selfAssessmentFromDb.createdAt), // Garante que é um objeto Date
+        updatedAt: new Date(selfAssessmentFromDb.updatedAt), // Garante que é um objeto Date
+        submittedAt: selfAssessmentFromDb.submittedAt ? new Date(selfAssessmentFromDb.submittedAt) : undefined, // Garante Date ou undefined
+      } as ISelfAssessment; // Asserção de tipo final para o objeto completo
+    }
+
+    // Calcular o status de preenchimento por pilar para a autoavaliação
+    let selfAssessmentCompletionByPillar: SelfAssessmentCompletionByPillarDto = {} as SelfAssessmentCompletionByPillarDto; // <-- Use o DTO aqui
+    if (selfAssessment) {
+      selfAssessmentCompletionByPillar = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
+    }
+
+    // Calcular o progresso geral da autoavaliação (soma dos pilares)
+    const totalCompleted = Object.values(selfAssessmentCompletionByPillar).reduce((acc, p) => acc + p.completed, 0);
+    const totalOverall = ALL_CRITERIA.length;
+
     return {
       cycle,
-      selfAssessment,
+      selfAssessment: selfAssessment ? {
+        ...selfAssessment,
+        completionStatus: selfAssessmentCompletionByPillar, // Novo campo com o progresso por pilar
+        overallCompletion: { // Progresso geral (X/12)
+          completed: totalCompleted,
+          total: totalOverall,
+        },
+      } : null,
       assessments360,
       mentoringAssessments,
       referenceFeedbacks,
       managerAssessments,
       summary: {
-        selfAssessmentCompleted: !!selfAssessment,
+        selfAssessmentCompleted: !!selfAssessment && selfAssessment.status === 'SUBMITTED',
+        selfAssessmentOverallProgress: { // No summary, a visão geral (X/12)
+          completed: totalCompleted,
+          total: totalOverall,
+        },
         assessments360Count: assessments360.length,
         mentoringAssessmentsCount: mentoringAssessments.length,
         referenceFeedbacksCount: referenceFeedbacks.length,

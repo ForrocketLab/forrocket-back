@@ -9,7 +9,7 @@ import {
   HttpCode,
   Patch,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiExtraModels, } from '@nestjs/swagger';
 
 import {
   CreateSelfAssessmentDto,
@@ -17,6 +17,9 @@ import {
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
   SubmitAssessmentDto,
+  SelfAssessmentCompletionByPillarDto, 
+  OverallCompletionDto, 
+  PillarProgressDto,
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -26,6 +29,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiTags('Avaliações')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@ApiExtraModels(SelfAssessmentCompletionByPillarDto, OverallCompletionDto, PillarProgressDto)
 @Controller('api/evaluations/collaborator')
 export class EvaluationsController {
   constructor(private readonly evaluationsService: EvaluationsService) {}
@@ -216,10 +220,42 @@ export class EvaluationsController {
           type: 'object',
           nullable: true,
           description: 'Autoavaliação do usuário (null se não existir)',
+          properties: {
+            // Campos de IBaseEvaluation e ISelfAssessment que você já tinha ou do Prisma
+            id: { type: 'string', example: 'eval-123' },
+            cycle: { type: 'string', example: '2025.1' },
+            authorId: { type: 'string', example: 'user-456' },
+            status: { type: 'string', example: 'DRAFT', enum: ['DRAFT', 'SUBMITTED'] }, // Adicione o enum aqui
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+            submittedAt: { type: 'string', format: 'date-time', nullable: true },
+            answers: {
+              type: 'array',
+              description: 'Lista de respostas para cada critério',
+              items: {
+                type: 'object', // Você pode criar um DTO mais detalhado para ISelfAssessmentAnswer também
+                properties: {
+                  criterionId: { type: 'string' },
+                  score: { type: 'number' },
+                  justification: { type: 'string' },
+                },
+              },
+            },
+            // NOVOS CAMPOS: Referência aos DTOs recém-criados
+            completionStatus: { // Progresso por pilar
+              type: 'object',
+              $ref: '#/components/schemas/SelfAssessmentCompletionByPillarDto', // Referência ao DTO
+            },
+            overallCompletion: { // Progresso geral
+              type: 'object',
+              $ref: '#/components/schemas/OverallCompletionDto', // Referência ao DTO
+            },
+          },
         },
         assessments360: {
           type: 'array',
           description: 'Lista de avaliações 360 feitas pelo usuário',
+          // ... (manter o schema existente para assessments360, mentoringAssessments, referenceFeedbacks)
         },
         mentoringAssessments: {
           type: 'array',
@@ -237,6 +273,10 @@ export class EvaluationsController {
           type: 'object',
           properties: {
             selfAssessmentCompleted: { type: 'boolean' },
+            selfAssessmentOverallProgress: { // No summary, também referencia o DTO
+              type: 'object',
+              $ref: '#/components/schemas/OverallCompletionDto',
+            },
             assessments360Count: { type: 'number' },
             mentoringAssessmentsCount: { type: 'number' },
             referenceFeedbacksCount: { type: 'number' },
