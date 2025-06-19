@@ -4,3 +4,4 @@ export * from './create-mentoring-assessment.dto';
 export * from './create-reference-feedback.dto';
 export * from './create-manager-assessment.dto';
 export * from './submit-assessment.dto';
+export * from './self-assessment-progress.dto';
