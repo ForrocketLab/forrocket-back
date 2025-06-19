@@ -11,16 +11,27 @@ import {
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
   CreateManagerAssessmentDto,
-  SelfAssessmentCompletionByPillarDto, 
+  SelfAssessmentCompletionByPillarDto,
   OverallCompletionDto,
   PillarProgressDto,
 } from './assessments/dto';
 import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
-import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars, isValidCriterionId } from '../models/criteria';
+import {
+  ALL_CRITERIA,
+  getCriteriaByPillar,
+  getAllPillars,
+  isValidCriterionId,
+} from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
-import { ISelfAssessment, ISelfAssessmentAnswer, EvaluationStatus, CollaboratorEvaluationType } from '../models/evaluations/collaborator';
+import { ManagerDashboardDto } from './manager/manager-dashboard.dto';
+import {
+  ISelfAssessment,
+  ISelfAssessmentAnswer,
+  EvaluationStatus,
+  CollaboratorEvaluationType,
+} from '../models/evaluations/collaborator';
 
 @Injectable()
 export class EvaluationsService {
@@ -476,8 +487,12 @@ export class EvaluationsService {
    * Retorna um objeto com { completed: número de critérios completos, total: número total de critérios }
    * para cada pilar.
    */
-  private calculateSelfAssessmentCompletionByPillar(selfAssessment: ISelfAssessment): SelfAssessmentCompletionByPillarDto { // <-- Use o DTO como tipo de retorno
-    const pillarCompletion: SelfAssessmentCompletionByPillarDto = {} as SelfAssessmentCompletionByPillarDto; // <-- Inicialize como o DTO
+  private calculateSelfAssessmentCompletionByPillar(
+    selfAssessment: ISelfAssessment,
+  ): SelfAssessmentCompletionByPillarDto {
+    // <-- Use o DTO como tipo de retorno
+    const pillarCompletion: SelfAssessmentCompletionByPillarDto =
+      {} as SelfAssessmentCompletionByPillarDto; // <-- Inicialize como o DTO
     const allPillars = getAllPillars();
 
     // 1. Inicializa a contagem para cada pilar
@@ -495,11 +510,15 @@ export class EvaluationsService {
 
     // 2. Conta os critérios preenchidos por pilar
     for (const answer of selfAssessment.answers) {
-      const criterion = ALL_CRITERIA.find(c => c.id === answer.criterionId);
-      
+      const criterion = ALL_CRITERIA.find((c) => c.id === answer.criterionId);
+
       if (criterion) {
-        const isCompleted = answer.score >= 1 && answer.score <= 5 && answer.justification && answer.justification.trim() !== '';
-        
+        const isCompleted =
+          answer.score >= 1 &&
+          answer.score <= 5 &&
+          answer.justification &&
+          answer.justification.trim() !== '';
+
         if (isCompleted) {
           // Incrementa o contador 'completed' para o pilar do critério
           // Garante que o pilar exista antes de incrementar (já inicializamos acima)
@@ -673,37 +692,48 @@ export class EvaluationsService {
         status: selfAssessmentFromDb.status as EvaluationStatus, // Asserção de tipo para 'status'
         createdAt: new Date(selfAssessmentFromDb.createdAt), // Garante que é um objeto Date
         updatedAt: new Date(selfAssessmentFromDb.updatedAt), // Garante que é um objeto Date
-        submittedAt: selfAssessmentFromDb.submittedAt ? new Date(selfAssessmentFromDb.submittedAt) : undefined, // Garante Date ou undefined
+        submittedAt: selfAssessmentFromDb.submittedAt
+          ? new Date(selfAssessmentFromDb.submittedAt)
+          : undefined, // Garante Date ou undefined
       } as ISelfAssessment; // Asserção de tipo final para o objeto completo
     }
 
     // Calcular o status de preenchimento por pilar para a autoavaliação
-    let selfAssessmentCompletionByPillar: SelfAssessmentCompletionByPillarDto = {} as SelfAssessmentCompletionByPillarDto; // <-- Use o DTO aqui
+    let selfAssessmentCompletionByPillar: SelfAssessmentCompletionByPillarDto =
+      {} as SelfAssessmentCompletionByPillarDto; // <-- Use o DTO aqui
     if (selfAssessment) {
-      selfAssessmentCompletionByPillar = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
+      selfAssessmentCompletionByPillar =
+        this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
     }
 
     // Calcular o progresso geral da autoavaliação (soma dos pilares)
-    const totalCompleted = Object.values(selfAssessmentCompletionByPillar).reduce((acc, p) => acc + p.completed, 0);
+    const totalCompleted = Object.values(selfAssessmentCompletionByPillar).reduce(
+      (acc, p) => acc + p.completed,
+      0,
+    );
     const totalOverall = ALL_CRITERIA.length;
 
     return {
       cycle,
-      selfAssessment: selfAssessment ? {
-        ...selfAssessment,
-        completionStatus: selfAssessmentCompletionByPillar, // Novo campo com o progresso por pilar
-        overallCompletion: { // Progresso geral (X/12)
-          completed: totalCompleted,
-          total: totalOverall,
-        },
-      } : null,
+      selfAssessment: selfAssessment
+        ? {
+            ...selfAssessment,
+            completionStatus: selfAssessmentCompletionByPillar, // Novo campo com o progresso por pilar
+            overallCompletion: {
+              // Progresso geral (X/12)
+              completed: totalCompleted,
+              total: totalOverall,
+            },
+          }
+        : null,
       assessments360,
       mentoringAssessments,
       referenceFeedbacks,
       managerAssessments,
       summary: {
         selfAssessmentCompleted: !!selfAssessment && selfAssessment.status === 'SUBMITTED',
-        selfAssessmentOverallProgress: { // No summary, a visão geral (X/12)
+        selfAssessmentOverallProgress: {
+          // No summary, a visão geral (X/12)
           completed: totalCompleted,
           total: totalOverall,
         },
@@ -713,5 +743,70 @@ export class EvaluationsService {
         managerAssessmentsCount: managerAssessments.length,
       },
     };
+  }
+
+  async getManagerDashboard(managerId: string, cycle: string): Promise<ManagerDashboardDto[]> {
+    // projetos com todos os liderados
+    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+
+    // se não houver liderados, retorna array vazio.
+    if (projectsWithSubordinates.length === 0) {
+      return [];
+    }
+
+    // ids de todos os liderados de todos os projetos
+    const allSubordinateIds = projectsWithSubordinates.flatMap((p) =>
+      p.subordinates.map((s) => s.id),
+    );
+
+    // busca todos os dados de avaliação de todos os liderados de uma só vez.
+    const subordinatesProgress = await this.prisma.user.findMany({
+      where: {
+        id: { in: allSubordinateIds },
+      },
+      select: {
+        id: true, // id será utilizado para fazer o Map
+        selfAssessments: {
+          where: { cycle },
+          select: { status: true },
+        },
+        managerAssessmentsReceived: {
+          where: { authorId: managerId, cycle },
+          select: { status: true },
+        },
+        _count: {
+          select: {
+            assessments360Created: { where: { cycle } },
+          },
+        },
+      },
+    });
+
+    // acesso rápido aos dados de progresso (Map para amis performance).
+    const progressMap = new Map(
+      subordinatesProgress.map((p) => [
+        p.id,
+        {
+          selfAssessmentStatus: p.selfAssessments[0]?.status || 'PENDENTE',
+          managerAssessmentStatus: p.managerAssessmentsReceived[0]?.status || 'PENDENTE',
+          peerAssessmentsCompleted: p._count.assessments360Created,
+        },
+      ]),
+    );
+
+    // mapeia a estrutura original de projetos com os dados do map
+    const dashboardData = projectsWithSubordinates.map((project) => ({
+      ...project,
+      subordinates: project.subordinates.map((subordinate) => ({
+        ...subordinate,
+        ...(progressMap.get(subordinate.id) || {
+          selfAssessmentStatus: 'PENDENTE',
+          managerAssessmentStatus: 'PENDENTE',
+          peerAssessmentsCompleted: 0,
+        }),
+      })),
+    }));
+
+    return dashboardData;
   }
 }
