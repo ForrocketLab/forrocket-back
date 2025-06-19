@@ -49,7 +49,7 @@ export class EvaluationsService {
   async submitAssessment(
     evaluationId: string,
     authorId: string,
-    evaluationType: 'self' | '360' | 'mentoring' | 'reference',
+    evaluationType: 'self' | '360' | 'mentoring' | 'reference' | 'manager',
   ) {
     let model: any;
     let updateWhere: any;
@@ -70,6 +70,10 @@ export class EvaluationsService {
         break;
       case 'reference':
         model = this.prisma.referenceFeedback;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case 'manager':
+        model = this.prisma.managerAssessment;
         updateWhere = { id: evaluationId, authorId: authorId };
         break;
       default:
@@ -490,9 +494,8 @@ export class EvaluationsService {
   private calculateSelfAssessmentCompletionByPillar(
     selfAssessment: ISelfAssessment,
   ): SelfAssessmentCompletionByPillarDto {
-    // <-- Use o DTO como tipo de retorno
     const pillarCompletion: SelfAssessmentCompletionByPillarDto =
-      {} as SelfAssessmentCompletionByPillarDto; // <-- Inicialize como o DTO
+      {} as SelfAssessmentCompletionByPillarDto; 
     const allPillars = getAllPillars();
 
     // 1. Inicializa a contagem para cada pilar
@@ -689,13 +692,13 @@ export class EvaluationsService {
     if (selfAssessmentFromDb) {
       selfAssessment = {
         ...selfAssessmentFromDb,
-        status: selfAssessmentFromDb.status as EvaluationStatus, // Asserção de tipo para 'status'
-        createdAt: new Date(selfAssessmentFromDb.createdAt), // Garante que é um objeto Date
-        updatedAt: new Date(selfAssessmentFromDb.updatedAt), // Garante que é um objeto Date
+        status: selfAssessmentFromDb.status as EvaluationStatus, 
+        createdAt: new Date(selfAssessmentFromDb.createdAt),
+        updatedAt: new Date(selfAssessmentFromDb.updatedAt), 
         submittedAt: selfAssessmentFromDb.submittedAt
           ? new Date(selfAssessmentFromDb.submittedAt)
-          : undefined, // Garante Date ou undefined
-      } as ISelfAssessment; // Asserção de tipo final para o objeto completo
+          : undefined, 
+      } as ISelfAssessment; 
     }
 
     // Calcular o status de preenchimento por pilar para a autoavaliação
@@ -718,7 +721,7 @@ export class EvaluationsService {
       selfAssessment: selfAssessment
         ? {
             ...selfAssessment,
-            completionStatus: selfAssessmentCompletionByPillar, // Novo campo com o progresso por pilar
+            completionStatus: selfAssessmentCompletionByPillar, 
             overallCompletion: {
               // Progresso geral (X/12)
               completed: totalCompleted,

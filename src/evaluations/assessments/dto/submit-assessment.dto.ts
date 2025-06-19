@@ -8,10 +8,10 @@ export class SubmitAssessmentDto {
   @ApiProperty({
     description: 'Tipo da avaliação a ser submetida',
     example: 'self',
-    enum: ['self', '360', 'mentoring', 'reference'],
+    enum: ['self', '360', 'mentoring', 'reference', 'manager'],
   })
   @IsString()
   @IsNotEmpty()
-  @IsIn(['self', '360', 'mentoring', 'reference'])
-  evaluationType: 'self' | '360' | 'mentoring' | 'reference';
+  @IsIn(['self', '360', 'mentoring', 'reference', 'manager'])
+  evaluationType: 'self' | '360' | 'mentoring' | 'reference' | 'manager';
 }
