@@ -252,17 +252,23 @@ export class CriteriaController {
     };
   }
 
-  @Patch(':id/make-required')
+  @Patch(':id/toggle-required')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Tornar critério obrigatório',
+    summary: 'Alternar obrigatoriedade do critério (Toggle)',
     description: `
-      Torna um critério obrigatório no preenchimento dos formulários.
+      Alterna a obrigatoriedade de um critério no preenchimento dos formulários.
       
       **Comportamento:**
+      - Se o critério está obrigatório (isRequired: true) → torna opcional (isRequired: false)
+      - Se o critério está opcional (isRequired: false) → torna obrigatório (isRequired: true)
       - O critério continuará aparecendo no formulário (sempre aparece)
-      - Passará a ser obrigatório o preenchimento
-      - Usuários não poderão submeter sem preencher este critério
+      - Funciona como um interruptor (toggle) para facilitar a gestão
+      
+      **Casos de uso:**
+      - Critérios de gestão que podem ser opcionais para alguns colaboradores
+      - Ajustar formulários conforme a necessidade do momento
+      - Facilitar mudanças rápidas sem ter que usar dois endpoints diferentes
     `,
   })
   @ApiParam({
@@ -272,54 +278,14 @@ export class CriteriaController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Critério tornado obrigatório com sucesso',
+    description: 'Obrigatoriedade do critério alternada com sucesso',
     type: CriterionDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Critério não encontrado',
   })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Critério já é obrigatório',
-  })
-  async makeRequired(@Param('id') id: string, @CurrentUser() user: User): Promise<CriterionDto> {
-    return this.criteriaService.makeRequired(id);
-  }
-
-  @Patch(':id/make-optional')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Tornar critério opcional',
-    description: `
-      Torna um critério opcional no preenchimento dos formulários.
-      
-      **Comportamento:**
-      - O critério continuará aparecendo no formulário (sempre aparece)
-      - Passará a ser opcional o preenchimento
-      - Usuários poderão submeter sem preencher este critério
-      - Útil para critérios de gestão que nem todos precisam preencher
-    `,
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID único do critério',
-    example: 'gestao-gente',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Critério tornado opcional com sucesso',
-    type: CriterionDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Critério não encontrado',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Critério já é opcional',
-  })
-  async makeOptional(@Param('id') id: string, @CurrentUser() user: User): Promise<CriterionDto> {
-    return this.criteriaService.makeOptional(id);
+  async toggleRequired(@Param('id') id: string, @CurrentUser() user: User): Promise<CriterionDto> {
+    return this.criteriaService.toggleRequired(id);
   }
 }

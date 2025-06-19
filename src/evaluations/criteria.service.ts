@@ -161,9 +161,9 @@ export class CriteriaService {
   }
 
   /**
-   * Torna um critério obrigatório
+   * Alterna a obrigatoriedade de um critério (toggle isRequired)
    */
-  async makeRequired(id: string): Promise<CriterionDto> {
+  async toggleRequired(id: string): Promise<CriterionDto> {
     const criterion = await this.prisma.criterion.findUnique({
       where: { id },
     });
@@ -172,41 +172,13 @@ export class CriteriaService {
       throw new NotFoundException(`Critério com ID ${id} não encontrado`);
     }
 
-    if (criterion.isRequired) {
-      throw new BadRequestException(`Critério "${criterion.name}" já é obrigatório`);
-    }
+    // Inverte o valor atual de isRequired
+    const newIsRequired = !criterion.isRequired;
 
     const updatedCriterion = await this.prisma.criterion.update({
       where: { id },
       data: {
-        isRequired: true,
-        updatedAt: new Date(),
-      },
-    });
-
-    return this.mapToDto(updatedCriterion);
-  }
-
-  /**
-   * Torna um critério opcional
-   */
-  async makeOptional(id: string): Promise<CriterionDto> {
-    const criterion = await this.prisma.criterion.findUnique({
-      where: { id },
-    });
-
-    if (!criterion) {
-      throw new NotFoundException(`Critério com ID ${id} não encontrado`);
-    }
-
-    if (!criterion.isRequired) {
-      throw new BadRequestException(`Critério "${criterion.name}" já é opcional`);
-    }
-
-    const updatedCriterion = await this.prisma.criterion.update({
-      where: { id },
-      data: {
-        isRequired: false,
+        isRequired: newIsRequired,
         updatedAt: new Date(),
       },
     });

@@ -34,25 +34,53 @@ async function testNewCriteriaStructure() {
       console.log(`   - ${criterion.name}`);
     });
 
-    // 4. Testar mudança de obrigatoriedade
-    console.log('\n4️⃣ Testando mudança de obrigatoriedade...');
+    // 4. Testar toggle de obrigatoriedade
+    console.log('\n4️⃣ Testando toggle de obrigatoriedade...');
 
-    // Tornar um critério opcional
-    const criterionToMakeOptional = 'gestao-resultados';
+    // Testar toggle em um critério
+    const criterionToToggle1 = 'gestao-resultados';
     try {
-      const updatedCriterion = await criteriaService.makeOptional(criterionToMakeOptional);
-      console.log(`   ✅ Critério "${updatedCriterion.name}" tornado opcional com sucesso`);
+      const originalCriterion = await criteriaService.findOne(criterionToToggle1);
+      const originalState = originalCriterion.isRequired;
+      console.log(
+        `   🔄 Critério "${originalCriterion.name}" está: ${originalState ? 'Obrigatório' : 'Opcional'}`,
+      );
+
+      const updatedCriterion = await criteriaService.toggleRequired(criterionToToggle1);
+      console.log(
+        `   ✅ Toggle realizado! Agora está: ${updatedCriterion.isRequired ? 'Obrigatório' : 'Opcional'}`,
+      );
+
+      // Reverter para o estado original
+      await criteriaService.toggleRequired(criterionToToggle1);
+      console.log(`   🔄 Estado revertido para: ${originalState ? 'Obrigatório' : 'Opcional'}`);
     } catch (error) {
-      console.log(`   ℹ️ Critério "${criterionToMakeOptional}" já é opcional ou não existe`);
+      console.log(
+        `   ❌ Erro ao testar toggle no critério "${criterionToToggle1}": ${error.message}`,
+      );
     }
 
-    // Tornar um critério obrigatório
-    const criterionToMakeRequired = 'gestao-gente';
+    // Testar toggle em outro critério
+    const criterionToToggle2 = 'gestao-gente';
     try {
-      const updatedCriterion = await criteriaService.makeRequired(criterionToMakeRequired);
-      console.log(`   ✅ Critério "${updatedCriterion.name}" tornado obrigatório com sucesso`);
+      const originalCriterion = await criteriaService.findOne(criterionToToggle2);
+      const originalState = originalCriterion.isRequired;
+      console.log(
+        `   🔄 Critério "${originalCriterion.name}" está: ${originalState ? 'Obrigatório' : 'Opcional'}`,
+      );
+
+      const updatedCriterion = await criteriaService.toggleRequired(criterionToToggle2);
+      console.log(
+        `   ✅ Toggle realizado! Agora está: ${updatedCriterion.isRequired ? 'Obrigatório' : 'Opcional'}`,
+      );
+
+      // Reverter para o estado original
+      await criteriaService.toggleRequired(criterionToToggle2);
+      console.log(`   🔄 Estado revertido para: ${originalState ? 'Obrigatório' : 'Opcional'}`);
     } catch (error) {
-      console.log(`   ℹ️ Critério "${criterionToMakeRequired}" já é obrigatório ou não existe`);
+      console.log(
+        `   ❌ Erro ao testar toggle no critério "${criterionToToggle2}": ${error.message}`,
+      );
     }
 
     // 5. Resumo final
@@ -65,8 +93,9 @@ async function testNewCriteriaStructure() {
     console.log(`   🔴 Obrigatórios: ${finalRequired.length}`);
     console.log(`   🟡 Opcionais: ${finalOptional.length}`);
     console.log('\n   ✨ Nova estrutura implementada com sucesso!');
-    console.log('   💡 Agora todos os critérios sempre aparecem no formulário');
+    console.log('   💡 Todos os critérios sempre aparecem no formulário');
     console.log('   💡 A diferença é apenas entre obrigatórios e opcionais');
+    console.log('   🔄 Use toggleRequired() para alternar a obrigatoriedade facilmente');
   } catch (error) {
     console.error('❌ Erro durante o teste:', error);
   } finally {
