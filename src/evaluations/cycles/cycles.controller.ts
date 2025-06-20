@@ -211,9 +211,18 @@ export class CyclesController {
   @Patch(':id/activate')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Ativar ciclo de avaliação',
-    description:
-      'Ativa um ciclo específico (muda status para OPEN) e desativa outros ciclos ativos. Apenas administradores podem ativar ciclos.',
+    summary: 'Ativar ciclo de avaliação com deadlines',
+    description: `
+      Ativa um ciclo específico (muda status para OPEN) e desativa outros ciclos ativos. 
+      Permite configurar deadlines completas e automatizar o fim do ciclo.
+      Apenas administradores podem ativar ciclos.
+      
+      **Funcionalidades:**
+      - Configuração de deadlines por fase (avaliações, gestores, equalização)
+      - Automatização do fim do ciclo baseado na deadline de equalização
+      - Validação de consistência de datas e prazos
+      - Tratamento de inconsistências de dados
+    `,
   })
   @ApiParam({
     name: 'id',
@@ -222,12 +231,12 @@ export class CyclesController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Ciclo ativado com sucesso',
+    description: 'Ciclo ativado com sucesso com deadlines configuradas',
     type: EvaluationCycleDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Ciclo já está ativo ou dados inválidos',
+    description: 'Ciclo já está ativo, dados inválidos ou inconsistências de datas',
   })
   @ApiResponse({
     status: 403,
@@ -343,5 +352,84 @@ export class CyclesController {
     }
 
     return this.cyclesService.updateCyclePhase(id, updatePhaseDto);
+  }
+
+  @Get(':id/deadlines')
+  @ApiOperation({
+    summary: 'Obter informações de deadlines e prazos do ciclo',
+    description: `
+      Retorna informações detalhadas sobre deadlines, prazos e status de um ciclo específico.
+      
+      **Informações retornadas:**
+      - Status de cada deadline (OK, URGENT, OVERDUE)
+      - Dias restantes para cada prazo
+      - Resumo de deadlines (total, atrasadas, urgentes)
+      - Inconsistências de datas detectadas
+      - Validações de consistência de prazos
+      
+      **Status de deadline:**
+      - OK: Mais de 3 dias restantes
+      - URGENT: 3 dias ou menos restantes
+      - OVERDUE: Prazo vencido
+    `,
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID do ciclo',
+    example: 'cycle-123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Informações de deadlines retornadas com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        cycle: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            status: { type: 'string' },
+            phase: { type: 'string' },
+            startDate: { type: 'string', format: 'date-time', nullable: true },
+            endDate: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+        deadlines: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              phase: { type: 'string' },
+              name: { type: 'string' },
+              deadline: { type: 'string', format: 'date-time' },
+              daysUntil: { type: 'number' },
+              status: { type: 'string', enum: ['OK', 'URGENT', 'OVERDUE'] },
+            },
+          },
+        },
+        summary: {
+          type: 'object',
+          properties: {
+            totalDeadlines: { type: 'number' },
+            overdueCount: { type: 'number' },
+            urgentCount: { type: 'number' },
+            okCount: { type: 'number' },
+          },
+        },
+        inconsistencies: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        hasInconsistencies: { type: 'boolean' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Ciclo não encontrado',
+  })
+  async getCycleDeadlines(@Param('id') id: string) {
+    return this.cyclesService.getCycleDeadlinesInfo(id);
   }
 }

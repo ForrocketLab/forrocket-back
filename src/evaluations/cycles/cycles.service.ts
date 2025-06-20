@@ -46,16 +46,22 @@ export class CyclesService {
       throw new BadRequestException(`Já existe um ciclo com o nome "${dto.name}"`);
     }
 
+    // Preparar dados para criação
+    const createData = {
+      name: dto.name,
+      status: 'UPCOMING' as const,
+      startDate: dto.startDate ? new Date(dto.startDate) : null,
+      endDate: dto.endDate ? new Date(dto.endDate) : null,
+      assessmentDeadline: dto.assessmentDeadline ? new Date(dto.assessmentDeadline) : null,
+      managerDeadline: dto.managerDeadline ? new Date(dto.managerDeadline) : null,
+      equalizationDeadline: dto.equalizationDeadline ? new Date(dto.equalizationDeadline) : null,
+    };
+
+    // Validar consistência de datas antes de salvar
+    this.validateCycleDatesConsistency(createData);
+
     return this.prisma.evaluationCycle.create({
-      data: {
-        name: dto.name,
-        status: 'UPCOMING',
-        startDate: dto.startDate ? new Date(dto.startDate) : null,
-        endDate: dto.endDate ? new Date(dto.endDate) : null,
-        assessmentDeadline: dto.assessmentDeadline ? new Date(dto.assessmentDeadline) : null,
-        managerDeadline: dto.managerDeadline ? new Date(dto.managerDeadline) : null,
-        equalizationDeadline: dto.equalizationDeadline ? new Date(dto.equalizationDeadline) : null,
-      },
+      data: createData,
     });
   }
 
@@ -77,6 +83,36 @@ export class CyclesService {
       throw new BadRequestException('Este ciclo já está ativo');
     }
 
+    // Preparar dados para atualização
+    const updateData: any = {
+      status: 'OPEN',
+      startDate: dto.startDate ? new Date(dto.startDate) : cycle.startDate,
+      endDate: dto.endDate ? new Date(dto.endDate) : cycle.endDate,
+    };
+
+    // Adicionar deadlines se fornecidas
+    if (dto.assessmentDeadline) {
+      updateData.assessmentDeadline = new Date(dto.assessmentDeadline);
+    }
+    if (dto.managerDeadline) {
+      updateData.managerDeadline = new Date(dto.managerDeadline);
+    }
+    if (dto.equalizationDeadline) {
+      updateData.equalizationDeadline = new Date(dto.equalizationDeadline);
+    }
+
+    // Automatizar endDate baseado na equalizationDeadline se solicitado
+    if (dto.autoSetEndDate !== false && dto.equalizationDeadline) {
+      const equalizationDate = new Date(dto.equalizationDeadline);
+      // Adicionar 7 dias após a deadline de equalização para dar margem
+      const autoEndDate = new Date(equalizationDate);
+      autoEndDate.setDate(autoEndDate.getDate() + 7);
+      updateData.endDate = autoEndDate;
+    }
+
+    // Validar consistência de datas antes de salvar
+    this.validateCycleDatesConsistency(updateData);
+
     // Usar transação para garantir atomicidade
     return this.prisma.$transaction(async (tx) => {
       // Primeiro, desativar todos os ciclos ativos (mudar para CLOSED)
@@ -88,11 +124,7 @@ export class CyclesService {
       // Depois, ativar o ciclo escolhido
       return tx.evaluationCycle.update({
         where: { id: cycleId },
-        data: {
-          status: 'OPEN',
-          startDate: dto.startDate ? new Date(dto.startDate) : cycle.startDate,
-          endDate: dto.endDate ? new Date(dto.endDate) : cycle.endDate,
-        },
+        data: updateData,
       });
     });
   }
@@ -251,6 +283,161 @@ export class CyclesService {
       assessmentDeadline: activeCycle.assessmentDeadline,
       managerDeadline: activeCycle.managerDeadline,
       equalizationDeadline: activeCycle.equalizationDeadline,
+    };
+  }
+
+  /**
+   * Valida consistência de datas do ciclo
+   */
+  private validateCycleDatesConsistency(data: any) {
+    const {
+      startDate,
+      endDate,
+      assessmentDeadline,
+      managerDeadline,
+      equalizationDeadline,
+    } = data;
+
+    // Converter strings para Date se necessário
+    const start = startDate ? (startDate instanceof Date ? startDate : new Date(startDate)) : null;
+    const end = endDate ? (endDate instanceof Date ? endDate : new Date(endDate)) : null;
+    const assessment = assessmentDeadline ? (assessmentDeadline instanceof Date ? assessmentDeadline : new Date(assessmentDeadline)) : null;
+    const manager = managerDeadline ? (managerDeadline instanceof Date ? managerDeadline : new Date(managerDeadline)) : null;
+    const equalization = equalizationDeadline ? (equalizationDeadline instanceof Date ? equalizationDeadline : new Date(equalizationDeadline)) : null;
+
+    // Validar se endDate é posterior a startDate
+    if (start && end && end <= start) {
+      throw new BadRequestException('A data de término deve ser posterior à data de início');
+    }
+
+    // Validar se assessment deadline é posterior a startDate
+    if (start && assessment && assessment <= start) {
+      throw new BadRequestException('O prazo de avaliações deve ser posterior à data de início');
+    }
+
+    // Validar sequência de deadlines: assessment < manager < equalization
+    if (assessment && manager && manager <= assessment) {
+      throw new BadRequestException('O prazo de avaliações de gestor deve ser posterior ao prazo de avaliações');
+    }
+
+    if (manager && equalization && equalization <= manager) {
+      throw new BadRequestException('O prazo de equalização deve ser posterior ao prazo de avaliações de gestor');
+    }
+
+    if (assessment && equalization && equalization <= assessment) {
+      throw new BadRequestException('O prazo de equalização deve ser posterior ao prazo de avaliações');
+    }
+
+    // Validar se equalization deadline é anterior a endDate
+    if (equalization && end && equalization >= end) {
+      throw new BadRequestException('O prazo de equalização deve ser anterior à data de término do ciclo');
+    }
+
+    // Validar se todas as deadlines estão dentro do período do ciclo
+    if (start && assessment && assessment <= start) {
+      throw new BadRequestException('O prazo de avaliações deve estar dentro do período do ciclo');
+    }
+
+    if (start && manager && manager <= start) {
+      throw new BadRequestException('O prazo de avaliações de gestor deve estar dentro do período do ciclo');
+    }
+
+    if (start && equalization && equalization <= start) {
+      throw new BadRequestException('O prazo de equalização deve estar dentro do período do ciclo');
+    }
+
+    if (end && assessment && assessment >= end) {
+      throw new BadRequestException('O prazo de avaliações deve estar dentro do período do ciclo');
+    }
+
+    if (end && manager && manager >= end) {
+      throw new BadRequestException('O prazo de avaliações de gestor deve estar dentro do período do ciclo');
+    }
+  }
+
+  /**
+   * Obtém informações detalhadas sobre deadlines e prazos de um ciclo
+   */
+  async getCycleDeadlinesInfo(cycleId: string) {
+    const cycle = await this.prisma.evaluationCycle.findUnique({
+      where: { id: cycleId },
+    });
+
+    if (!cycle) {
+      throw new NotFoundException('Ciclo não encontrado');
+    }
+
+    const now = new Date();
+    const deadlines: Array<{
+      phase: string;
+      name: string;
+      deadline: Date;
+      daysUntil: number;
+      status: string;
+    }> = [];
+
+    // Deadline de avaliações
+    if (cycle.assessmentDeadline) {
+      const daysUntil = Math.ceil((cycle.assessmentDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      deadlines.push({
+        phase: 'ASSESSMENTS',
+        name: 'Avaliações (Autoavaliação, 360°, Mentoring, Reference)',
+        deadline: cycle.assessmentDeadline,
+        daysUntil,
+        status: daysUntil < 0 ? 'OVERDUE' : daysUntil <= 3 ? 'URGENT' : 'OK',
+      });
+    }
+
+    // Deadline de gestores
+    if (cycle.managerDeadline) {
+      const daysUntil = Math.ceil((cycle.managerDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      deadlines.push({
+        phase: 'MANAGER_REVIEWS',
+        name: 'Avaliações de Gestor',
+        deadline: cycle.managerDeadline,
+        daysUntil,
+        status: daysUntil < 0 ? 'OVERDUE' : daysUntil <= 3 ? 'URGENT' : 'OK',
+      });
+    }
+
+    // Deadline de equalização
+    if (cycle.equalizationDeadline) {
+      const daysUntil = Math.ceil((cycle.equalizationDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      deadlines.push({
+        phase: 'EQUALIZATION',
+        name: 'Equalização do Comitê',
+        deadline: cycle.equalizationDeadline,
+        daysUntil,
+        status: daysUntil < 0 ? 'OVERDUE' : daysUntil <= 3 ? 'URGENT' : 'OK',
+      });
+    }
+
+    // Verificar inconsistências de datas
+    const inconsistencies: string[] = [];
+    try {
+      this.validateCycleDatesConsistency(cycle);
+    } catch (error: any) {
+      inconsistencies.push(error.message);
+    }
+
+    return {
+      cycle: {
+        id: cycle.id,
+        name: cycle.name,
+        status: cycle.status,
+        phase: cycle.phase,
+        startDate: cycle.startDate,
+        endDate: cycle.endDate,
+      },
+      deadlines,
+      summary: {
+        totalDeadlines: deadlines.length,
+        overdueCount: deadlines.filter(d => d.status === 'OVERDUE').length,
+        urgentCount: deadlines.filter(d => d.status === 'URGENT').length,
+        okCount: deadlines.filter(d => d.status === 'OK').length,
+      },
+      inconsistencies,
+      hasInconsistencies: inconsistencies.length > 0,
     };
   }
 }

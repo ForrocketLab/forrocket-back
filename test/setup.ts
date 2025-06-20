@@ -31,6 +31,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Limpeza global após todos os testes
+  await cleanupTestData();
 });
 
 beforeEach(() => {
@@ -40,4 +41,52 @@ beforeEach(() => {
 afterEach(() => {
   // Limpeza após cada teste
   jest.clearAllMocks();
-}); 
+});
+
+// Função de limpeza de dados de teste
+async function cleanupTestData() {
+  if (process.env.NODE_ENV !== 'test') return;
+  
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Padrões que indicam dados de teste
+    const testPatterns = ['Test', 'test', 'TESTE', 'Mock', 'Example', 'E2E', 'Fake'];
+    
+    // Limpar ciclos de teste
+    for (const pattern of testPatterns) {
+      await prisma.evaluationCycle.deleteMany({
+        where: { name: { contains: pattern } },
+      });
+    }
+    
+    // Limpar usuários de teste
+    for (const pattern of testPatterns) {
+      await prisma.user.deleteMany({
+        where: {
+          OR: [
+            { name: { contains: pattern } },
+            { email: { contains: pattern } },
+          ],
+        },
+      });
+    }
+    
+    // Limpar projetos de teste
+    for (const pattern of testPatterns) {
+      await prisma.project.deleteMany({
+        where: {
+          OR: [
+            { name: { contains: pattern } },
+          ],
+        },
+      });
+    }
+    
+    await prisma.$disconnect();
+  } catch (error) {
+    // Silenciar erros de limpeza para não afetar os testes
+    console.warn('⚠️ Aviso: Erro durante limpeza automática:', error.message);
+  }
+} 

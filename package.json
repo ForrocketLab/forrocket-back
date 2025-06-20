@@ -20,7 +20,7 @@
     "test:e2e:security": "jest --testPathPattern=\"security-integration\\.e2e-spec\\.ts$\"",
     "test:e2e:integration": "jest --testPathPattern=\"evaluations-flow-simple\\.e2e-spec\\.ts$\"",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --coverageReporters=html",
+    "test:cov": "jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --coverageReporters=html && npm run test:cleanup",
     "test:cov:full": "jest --coverage --verbose",
     "test:cov:html": "jest --coverage --coverageReporters=html && echo \"📊 Coverage HTML report: file://$(pwd)/coverage/lcov-report/index.html\"",
     "test:cov:json": "jest --coverage --coverageReporters=json",
@@ -31,7 +31,10 @@
     "test:auth": "jest --testPathPattern=auth",
     "db:seed": "ts-node prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:check": "ts-node scripts/check-database-status.ts",
+    "db:cleanup": "ts-node scripts/cleanup-test-data.ts",
+    "test:cleanup": "ts-node scripts/post-test-cleanup.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
