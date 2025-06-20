@@ -22,7 +22,7 @@ export class CommitteeService {
   /**
    * Valida se o usuário é membro do comitê
    */
-  private validateCommitteeMember(userRoles: string): void {
+  private validateCommitteeMember(userRoles: string | string[]): void {
     const parsedRoles = Array.isArray(userRoles) ? userRoles : JSON.parse(userRoles || '[]');
     const isCommittee = parsedRoles.includes('comite') || parsedRoles.includes('COMMITTEE');
 

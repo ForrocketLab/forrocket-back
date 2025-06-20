@@ -21,6 +21,7 @@ import {
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { User } from '../../auth/entities/user.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CommitteeRoleGuard } from './guards/committee-role.guard';
 
 @ApiTags('Avaliações de Comitê')
 @ApiBearerAuth()

@@ -134,6 +134,9 @@ describe('CyclesService', () => {
           status: 'UPCOMING',
           startDate: new Date('2024-07-01'),
           endDate: new Date('2024-09-30'),
+          assessmentDeadline: null,
+          managerDeadline: null,
+          equalizationDeadline: null,
         },
       });
       expect(result).toEqual(newCycle);
@@ -154,6 +157,9 @@ describe('CyclesService', () => {
           status: 'UPCOMING',
           startDate: null,
           endDate: null,
+          assessmentDeadline: null,
+          managerDeadline: null,
+          equalizationDeadline: null,
         },
       });
       expect(result).toEqual(newCycle);

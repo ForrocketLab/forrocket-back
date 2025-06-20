@@ -16,7 +16,7 @@ import { ProjectsModule } from '../projects/projects.module';
 // Submódulos
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, CyclesModule],
+  imports: [DatabaseModule, ProjectsModule, CyclesModule, CommitteeModule],
   controllers: [
     EvaluationsController,
     ManagerController,
