@@ -25,13 +25,13 @@ import {
 } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
-import { ManagerDashboardDto } from './manager/manager-dashboard.dto';
 import {
   ISelfAssessment,
   ISelfAssessmentAnswer,
   EvaluationStatus,
   CollaboratorEvaluationType,
 } from '../models/evaluations/collaborator';
+import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -752,68 +752,166 @@ export class EvaluationsService {
     };
   }
 
-  async getManagerDashboard(managerId: string, cycle: string): Promise<ManagerDashboardDto[]> {
-    // projetos com todos os liderados
-    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+  private async calculateManagerOverallScore(
+    managerId: string,
+    cycle: string,
+  ): Promise<number | null> {
+    const assessments = await this.prisma.assessment360.findMany({
+      where: { evaluatedUserId: managerId, cycle, status: 'SUBMITTED' },
+      select: { overallScore: true },
+    });
 
-    // se não houver liderados, retorna array vazio.
-    if (projectsWithSubordinates.length === 0) {
-      return [];
-    }
+    if (assessments.length === 0) return null;
 
-    // ids de todos os liderados de todos os projetos
+    const totalScore = assessments.reduce((sum, assessment) => sum + assessment.overallScore, 0);
+    return parseFloat((totalScore / assessments.length).toFixed(1));
+  }
+
+  private async calculateTeamCompletionPercentage(
+    subordinateIds: string[],
+    cycle: string,
+  ): Promise<number> {
+    if (subordinateIds.length === 0) return 100;
+
+    // Para simplificar, consideramos "concluído" quando a autoavaliação é submetida.
+    const completedCount = await this.prisma.selfAssessment.count({
+      where: { authorId: { in: subordinateIds }, cycle, status: 'SUBMITTED' },
+    });
+
+    const percentage = (completedCount / subordinateIds.length) * 100;
+    return Math.round(percentage);
+  }
+
+  private async calculateManagerIncompleteReviews(
+    managerId: string,
+    subordinateIds: string[],
+    cycle: string,
+  ): Promise<number> {
+    const totalSubordinates = subordinateIds.length;
+
+    const completedCount = await this.prisma.managerAssessment.count({
+      where: {
+        authorId: managerId,
+        evaluatedUserId: { in: subordinateIds },
+        cycle,
+        status: 'SUBMITTED',
+      },
+    });
+
+    return totalSubordinates - completedCount;
+  }
+
+  private async getFormattedCollaboratorsInfo(
+    projectsWithSubordinates: any[],
+    managerId: string,
+    cycle: string,
+  ): Promise<any[]> {
     const allSubordinateIds = projectsWithSubordinates.flatMap((p) =>
       p.subordinates.map((s) => s.id),
     );
 
-    // busca todos os dados de avaliação de todos os liderados de uma só vez.
     const subordinatesProgress = await this.prisma.user.findMany({
-      where: {
-        id: { in: allSubordinateIds },
-      },
+      where: { id: { in: allSubordinateIds } },
       select: {
-        id: true, // id será utilizado para fazer o Map
+        id: true,
+        name: true,
         selfAssessments: {
           where: { cycle },
-          select: { status: true },
+          select: { status: true, answers: { select: { score: true } } },
         },
         managerAssessmentsReceived: {
           where: { authorId: managerId, cycle },
-          select: { status: true },
-        },
-        _count: {
-          select: {
-            assessments360Created: { where: { cycle } },
-          },
+          select: { status: true, answers: { select: { score: true } } },
         },
       },
     });
 
-    // acesso rápido aos dados de progresso (Map para amis performance).
     const progressMap = new Map(
-      subordinatesProgress.map((p) => [
-        p.id,
-        {
-          selfAssessmentStatus: p.selfAssessments[0]?.status || 'PENDENTE',
-          managerAssessmentStatus: p.managerAssessmentsReceived[0]?.status || 'PENDENTE',
-          peerAssessmentsCompleted: p._count.assessments360Created,
-        },
-      ]),
+      subordinatesProgress.map((p) => {
+        const calculateAverageScore = (answers: { score: number }[]) => {
+          if (!answers || answers.length === 0) return null;
+          const total = answers.reduce((sum, ans) => sum + ans.score, 0);
+          return parseFloat((total / answers.length).toFixed(1));
+        };
+
+        const selfAssessment = p.selfAssessments[0];
+        let status: 'PENDING' | 'DRAFT' | 'SUBMITTED' = 'PENDING';
+        if (selfAssessment?.status === 'SUBMITTED') status = 'SUBMITTED';
+        else if (selfAssessment?.status === 'DRAFT') status = 'PENDING';
+
+        return [
+          p.id,
+          {
+            initials: p.name
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase(),
+            status: status,
+            selfAssessmentScore: calculateAverageScore(selfAssessment?.answers),
+            managerScore: calculateAverageScore(p.managerAssessmentsReceived[0]?.answers),
+          },
+        ];
+      }),
     );
 
-    // mapeia a estrutura original de projetos com os dados do map
-    const dashboardData = projectsWithSubordinates.map((project) => ({
+    return projectsWithSubordinates.map((project) => ({
       ...project,
       subordinates: project.subordinates.map((subordinate) => ({
-        ...subordinate,
+        id: subordinate.id,
+        name: subordinate.name,
+        jobTitle: subordinate.jobTitle,
         ...(progressMap.get(subordinate.id) || {
-          selfAssessmentStatus: 'PENDENTE',
-          managerAssessmentStatus: 'PENDENTE',
-          peerAssessmentsCompleted: 0,
+          initials: '',
+          status: 'Pendente',
+          selfAssessmentScore: null,
+          managerScore: null,
         }),
       })),
     }));
+  }
 
-    return dashboardData;
+  async getManagerDashboard(
+    managerId: string,
+    cycle: string,
+  ): Promise<ManagerDashboardResponseDto> {
+    // Busca a estrutura de projetos e a lista de todos os liderados.
+    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+
+    // Se não há liderados, retorna uma resposta padrão.
+    if (projectsWithSubordinates.length === 0) {
+      return {
+        summary: { overallScore: null, completionPercentage: 100, incompleteReviews: 0 },
+        collaboratorsInfo: [],
+      };
+    }
+
+    const allSubordinateIds = projectsWithSubordinates.flatMap((p) =>
+      p.subordinates.map((s) => s.id),
+    );
+
+    // Executa todos os cálculos de resumo em paralelo para melhor performance.
+    const [overallScore, completionPercentage, incompleteReviews] = await Promise.all([
+      this.calculateManagerOverallScore(managerId, cycle),
+      this.calculateTeamCompletionPercentage(allSubordinateIds, cycle),
+      this.calculateManagerIncompleteReviews(managerId, allSubordinateIds, cycle),
+    ]);
+
+    // Busca e formata os dados detalhados para a tabela de colaboradores.
+    const collaboratorsInfo = await this.getFormattedCollaboratorsInfo(
+      projectsWithSubordinates,
+      managerId,
+      cycle,
+    );
+
+    return {
+      summary: {
+        overallScore,
+        completionPercentage,
+        incompleteReviews,
+      },
+      collaboratorsInfo,
+    };
   }
 }
