@@ -1,161 +1,313 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../src/database/prisma.service';
 
-const prisma = new PrismaClient();
-
-async function cleanupTestData() {
-  console.log('🧹 Iniciando limpeza de dados de teste...\n');
+async function main() {
+  const prisma = new PrismaService();
 
   try {
-    // Padrões que indicam dados de teste
-    const testPatterns = ['Test', 'test', 'TESTE', 'Mock', 'Example', 'E2E', 'Fake'];
-    let totalDeleted = 0;
+    console.log('🧹 Iniciando limpeza de dados de teste...');
 
-    // 1. Limpar ciclos de teste
-    console.log('🔄 Limpando ciclos de teste...');
-    for (const pattern of testPatterns) {
+    // ==========================================
+    // LIMPEZA DE CICLOS DE TESTE
+    // ==========================================
+    console.log('\n🔄 Limpando ciclos de teste...');
+    
+    // Manter apenas os 3 ciclos principais da seed
+    const mainCycles = ['2024.2', '2025.1', '2025.2'];
+    
+    // Buscar todos os ciclos
+    const allCycles = await prisma.evaluationCycle.findMany();
+    console.log(`   📊 Total de ciclos encontrados: ${allCycles.length}`);
+    
+    // Identificar ciclos de teste (que não são os principais)
+    const testCycles = allCycles.filter(cycle => !mainCycles.includes(cycle.id));
+    
+    if (testCycles.length > 0) {
+      console.log(`   🗑️ Removendo ${testCycles.length} ciclos de teste:`);
+      for (const cycle of testCycles) {
+        console.log(`      - ${cycle.name} (${cycle.id})`);
+      }
+      
+      // Remover ciclos de teste
       const deletedCycles = await prisma.evaluationCycle.deleteMany({
         where: {
-          name: { contains: pattern },
-        },
+          id: {
+            notIn: mainCycles
+          }
+        }
       });
-      if (deletedCycles.count > 0) {
-        console.log(`   ✅ Removidos ${deletedCycles.count} ciclos com padrão "${pattern}"`);
-        totalDeleted += deletedCycles.count;
-      }
+      
+      console.log(`   ✅ ${deletedCycles.count} ciclos de teste removidos`);
+    } else {
+      console.log('   ✅ Nenhum ciclo de teste encontrado');
     }
 
-    // 2. Limpar usuários de teste
-    console.log('👥 Limpando usuários de teste...');
-    for (const pattern of testPatterns) {
+    // ==========================================
+    // LIMPEZA DE USUÁRIOS DE TESTE
+    // ==========================================
+    console.log('\n👥 Limpando usuários de teste...');
+    
+    // Manter apenas os 6 usuários principais da seed
+    const mainUsers = [
+      'eduardo.tech@rocketcorp.com',
+      'diana.costa@rocketcorp.com', 
+      'carla.dias@rocketcorp.com',
+      'bruno.mendes@rocketcorp.com',
+      'ana.oliveira@rocketcorp.com',
+      'felipe.silva@rocketcorp.com'
+    ];
+
+    // Buscar usuários de teste
+    const testUsers = await prisma.user.findMany({
+      where: {
+        email: {
+          notIn: mainUsers
+        }
+      }
+    });
+
+    if (testUsers.length > 0) {
+      console.log(`   🗑️ Removendo ${testUsers.length} usuários de teste:`);
+      for (const user of testUsers) {
+        console.log(`      - ${user.name} (${user.email})`);
+      }
+
+      // Limpar relacionamentos primeiro
+      await prisma.userProjectRole.deleteMany({
+        where: {
+          userId: {
+            in: testUsers.map(u => u.id)
+          }
+        }
+      });
+
+      await prisma.userProjectAssignment.deleteMany({
+        where: {
+          userId: {
+            in: testUsers.map(u => u.id)
+          }
+        }
+      });
+
+      await prisma.userRoleAssignment.deleteMany({
+        where: {
+          userId: {
+            in: testUsers.map(u => u.id)
+          }
+        }
+      });
+
+      // Remover usuários de teste
       const deletedUsers = await prisma.user.deleteMany({
         where: {
-          OR: [
-            { name: { contains: pattern } },
-            { email: { contains: pattern } },
-          ],
-        },
+          email: {
+            notIn: mainUsers
+          }
+        }
       });
-      if (deletedUsers.count > 0) {
-        console.log(`   ✅ Removidos ${deletedUsers.count} usuários com padrão "${pattern}"`);
-        totalDeleted += deletedUsers.count;
-      }
+
+      console.log(`   ✅ ${deletedUsers.count} usuários de teste removidos`);
+    } else {
+      console.log('   ✅ Nenhum usuário de teste encontrado');
     }
 
-    // 3. Limpar projetos de teste
-    console.log('🏗️ Limpando projetos de teste...');
-    for (const pattern of testPatterns) {
+    // ==========================================
+    // LIMPEZA DE PROJETOS DE TESTE
+    // ==========================================
+    console.log('\n🏗️ Limpando projetos de teste...');
+    
+    // Manter apenas os 6 projetos principais da seed
+    const mainProjects = [
+      'projeto-alpha',
+      'projeto-beta', 
+      'projeto-gamma',
+      'projeto-delta',
+      'projeto-mobile-app',
+      'projeto-api-core'
+    ];
+
+    const testProjects = await prisma.project.findMany({
+      where: {
+        id: {
+          notIn: mainProjects
+        }
+      }
+    });
+
+    if (testProjects.length > 0) {
+      console.log(`   🗑️ Removendo ${testProjects.length} projetos de teste:`);
+      for (const project of testProjects) {
+        console.log(`      - ${project.name} (${project.id})`);
+      }
+
+      // Limpar relacionamentos primeiro
+      await prisma.userProjectRole.deleteMany({
+        where: {
+          projectId: {
+            in: testProjects.map(p => p.id)
+          }
+        }
+      });
+
+      await prisma.userProjectAssignment.deleteMany({
+        where: {
+          projectId: {
+            in: testProjects.map(p => p.id)
+          }
+        }
+      });
+
+      // Remover projetos de teste
       const deletedProjects = await prisma.project.deleteMany({
         where: {
-          OR: [
-            { name: { contains: pattern } },
-            { description: { contains: pattern } },
-          ],
-        },
+          id: {
+            notIn: mainProjects
+          }
+        }
       });
-      if (deletedProjects.count > 0) {
-        console.log(`   ✅ Removidos ${deletedProjects.count} projetos com padrão "${pattern}"`);
-        totalDeleted += deletedProjects.count;
-      }
-    }
 
-    // 4. Limpar avaliações órfãs (sem ciclo ou usuário válido)
-    console.log('📝 Limpando avaliações órfãs...');
-    
-    // Buscar IDs de usuários e ciclos válidos
-    const validUserIds = (await prisma.user.findMany({ select: { id: true } })).map(u => u.id);
-    const validCycleNames = (await prisma.evaluationCycle.findMany({ select: { name: true } })).map(c => c.name);
-
-    // Limpar autoavaliações órfãs
-    const orphanedSelfAssessments = await prisma.selfAssessment.deleteMany({
-      where: {
-        OR: [
-          { authorId: { notIn: validUserIds } },
-          { cycle: { notIn: validCycleNames } },
-        ],
-      },
-    });
-    if (orphanedSelfAssessments.count > 0) {
-      console.log(`   ✅ Removidas ${orphanedSelfAssessments.count} autoavaliações órfãs`);
-      totalDeleted += orphanedSelfAssessments.count;
-    }
-
-    // Limpar avaliações 360 órfãs
-    const orphanedAssessment360 = await prisma.assessment360.deleteMany({
-      where: {
-        OR: [
-          { evaluatedUserId: { notIn: validUserIds } },
-          { authorId: { notIn: validUserIds } },
-          { cycle: { notIn: validCycleNames } },
-        ],
-      },
-    });
-    if (orphanedAssessment360.count > 0) {
-      console.log(`   ✅ Removidas ${orphanedAssessment360.count} avaliações 360 órfãs`);
-      totalDeleted += orphanedAssessment360.count;
-    }
-
-    // Limpar avaliações de gestor órfãs
-    const orphanedManagerAssessments = await prisma.managerAssessment.deleteMany({
-      where: {
-        OR: [
-          { evaluatedUserId: { notIn: validUserIds } },
-          { authorId: { notIn: validUserIds } },
-          { cycle: { notIn: validCycleNames } },
-        ],
-      },
-    });
-    if (orphanedManagerAssessments.count > 0) {
-      console.log(`   ✅ Removidas ${orphanedManagerAssessments.count} avaliações de gestor órfãs`);
-      totalDeleted += orphanedManagerAssessments.count;
-    }
-
-    // Limpar avaliações de comitê órfãs
-    const orphanedCommitteeAssessments = await prisma.committeeAssessment.deleteMany({
-      where: {
-        OR: [
-          { evaluatedUserId: { notIn: validUserIds } },
-          { authorId: { notIn: validUserIds } },
-          { cycle: { notIn: validCycleNames } },
-        ],
-      },
-    });
-    if (orphanedCommitteeAssessments.count > 0) {
-      console.log(`   ✅ Removidas ${orphanedCommitteeAssessments.count} avaliações de comitê órfãs`);
-      totalDeleted += orphanedCommitteeAssessments.count;
-    }
-
-    // 5. Verificar estado final
-    console.log('\n📊 Estado final do banco:');
-    const finalUserCount = await prisma.user.count();
-    const finalCycleCount = await prisma.evaluationCycle.count();
-    const finalProjectCount = await prisma.project.count();
-    
-    console.log(`👥 Usuários restantes: ${finalUserCount}`);
-    console.log(`📅 Ciclos restantes: ${finalCycleCount}`);
-    console.log(`🏗️ Projetos restantes: ${finalProjectCount}`);
-
-    if (totalDeleted > 0) {
-      console.log(`\n✅ Limpeza concluída! Total de registros removidos: ${totalDeleted}`);
+      console.log(`   ✅ ${deletedProjects.count} projetos de teste removidos`);
     } else {
-      console.log('\n✅ Nenhum dado de teste encontrado para remover');
+      console.log('   ✅ Nenhum projeto de teste encontrado');
     }
 
-    // Listar usuários finais
-    const finalUsers = await prisma.user.findMany({
+    // ==========================================
+    // LIMPEZA DE AVALIAÇÕES ÓRFÃS
+    // ==========================================
+    console.log('\n📝 Limpando avaliações órfãs...');
+    
+    // Buscar usuários válidos
+    const validUsers = await prisma.user.findMany({
+      where: {
+        email: {
+          in: mainUsers
+        }
+      }
+    });
+    
+    const validUserIds = validUsers.map(u => u.id);
+
+    // Limpar avaliações de usuários que não existem mais
+    const deletedSelfAssessments = await prisma.selfAssessment.deleteMany({
+      where: {
+        authorId: {
+          notIn: validUserIds
+        }
+      }
+    });
+
+    const deletedAssessments360 = await prisma.assessment360.deleteMany({
+      where: {
+        OR: [
+          { authorId: { notIn: validUserIds } },
+          { evaluatedUserId: { notIn: validUserIds } }
+        ]
+      }
+    });
+
+    const deletedManagerAssessments = await prisma.managerAssessment.deleteMany({
+      where: {
+        OR: [
+          { authorId: { notIn: validUserIds } },
+          { evaluatedUserId: { notIn: validUserIds } }
+        ]
+      }
+    });
+
+    const deletedMentoringAssessments = await prisma.mentoringAssessment.deleteMany({
+      where: {
+        OR: [
+          { authorId: { notIn: validUserIds } },
+          { mentorId: { notIn: validUserIds } }
+        ]
+      }
+    });
+
+    const deletedReferenceFeedbacks = await prisma.referenceFeedback.deleteMany({
+      where: {
+        OR: [
+          { authorId: { notIn: validUserIds } },
+          { referencedUserId: { notIn: validUserIds } }
+        ]
+      }
+    });
+
+    const totalDeletedAssessments = 
+      deletedSelfAssessments.count + 
+      deletedAssessments360.count + 
+      deletedManagerAssessments.count + 
+      deletedMentoringAssessments.count + 
+      deletedReferenceFeedbacks.count;
+
+    if (totalDeletedAssessments > 0) {
+      console.log(`   ✅ ${totalDeletedAssessments} avaliações órfãs removidas`);
+    } else {
+      console.log('   ✅ Nenhuma avaliação órfã encontrada');
+    }
+
+    // ==========================================
+    // VERIFICAÇÃO FINAL
+    // ==========================================
+    console.log('\n📊 Estado final do banco:');
+    
+    const finalUsers = await prisma.user.count();
+    const finalCycles = await prisma.evaluationCycle.count();
+    const finalProjects = await prisma.project.count();
+    
+    console.log(`👥 Usuários restantes: ${finalUsers}`);
+    console.log(`📅 Ciclos restantes: ${finalCycles}`);
+    console.log(`🏗️ Projetos restantes: ${finalProjects}`);
+
+    // Verificar se há dados de teste restantes
+    const remainingTestUsers = await prisma.user.count({
+      where: {
+        email: {
+          notIn: mainUsers
+        }
+      }
+    });
+
+    const remainingTestCycles = await prisma.evaluationCycle.count({
+      where: {
+        id: {
+          notIn: mainCycles
+        }
+      }
+    });
+
+    if (remainingTestUsers === 0 && remainingTestCycles === 0) {
+      console.log('\n✅ Nenhum dado de teste encontrado para remover');
+    } else {
+      console.log(`\n⚠️ Ainda há ${remainingTestUsers} usuários e ${remainingTestCycles} ciclos de teste restantes`);
+    }
+
+    // Mostrar usuários finais
+    const finalUsersList = await prisma.user.findMany({
       select: { name: true, email: true },
-      orderBy: { name: 'asc' },
+      orderBy: { name: 'asc' }
     });
 
     console.log('\n👥 Usuários finais no banco:');
-    finalUsers.forEach((user, index) => {
+    finalUsersList.forEach((user, index) => {
       console.log(`  ${index + 1}. ${user.name} (${user.email})`);
+    });
+
+    // Mostrar ciclos finais
+    const finalCyclesList = await prisma.evaluationCycle.findMany({
+      select: { id: true, name: true, status: true, phase: true },
+      orderBy: { name: 'asc' }
+    });
+
+    console.log('\n📅 Ciclos finais no banco:');
+    finalCyclesList.forEach((cycle, index) => {
+      console.log(`  ${index + 1}. ${cycle.name} (${cycle.id}) - ${cycle.status}/${cycle.phase}`);
     });
 
   } catch (error) {
     console.error('❌ Erro durante a limpeza:', error);
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-cleanupTestData(); 
+main(); 

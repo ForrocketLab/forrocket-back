@@ -15,7 +15,7 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:unit": "jest --testPathPattern=\"src/.*\\.spec\\.ts$\"",
-    "test:e2e": "jest --testPathPattern=\"\\.e2e-spec\\.ts$\"",
+    "test:e2e": "jest --testPathPattern=\"\\.e2e-spec\\.ts$\" --runInBand",
     "test:e2e:flows": "jest --testPathPattern=\"evaluations-flow\\.e2e-spec\\.ts$\"",
     "test:e2e:security": "jest --testPathPattern=\"security-integration\\.e2e-spec\\.ts$\"",
     "test:e2e:integration": "jest --testPathPattern=\"evaluations-flow-simple\\.e2e-spec\\.ts$\"",

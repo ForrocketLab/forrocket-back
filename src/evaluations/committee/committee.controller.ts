@@ -31,6 +31,7 @@ export class CommitteeController {
   constructor(private readonly committeeService: CommitteeService) {}
 
   @Get('collaborators')
+  @UseGuards(CommitteeRoleGuard)
   @ApiOperation({
     summary: 'Listar colaboradores para equalização',
     description:

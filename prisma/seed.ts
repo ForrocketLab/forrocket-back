@@ -17,27 +17,33 @@ async function main() {
       name: '2024.2',
       status: 'CLOSED' as const,
       phase: 'EQUALIZATION' as const,
-      startDate: new Date('2024-07-01'),
-      endDate: new Date('2024-12-31'),
+      startDate: new Date('2024-07-01T00:00:00.000Z'),
+      endDate: new Date('2024-12-31T23:59:59.999Z'),
+      assessmentDeadline: new Date('2024-09-15T23:59:59.999Z'),
+      managerDeadline: new Date('2024-10-15T23:59:59.999Z'),
+      equalizationDeadline: new Date('2024-11-15T23:59:59.999Z'),
     },
     {
       id: '2025.1',
       name: '2025.1',
       status: 'OPEN' as const,
       phase: 'EQUALIZATION' as const,
-      startDate: new Date('2025-01-01'),
-      endDate: new Date('2025-06-30'),
+      startDate: new Date('2025-01-01T00:00:00.000Z'),
+      endDate: new Date('2025-07-19T23:59:59.999Z'),
       assessmentDeadline: new Date('2025-03-15T23:59:59.999Z'),
       managerDeadline: new Date('2025-04-15T23:59:59.999Z'),
-      equalizationDeadline: new Date('2025-05-31T23:59:59.999Z'),
+      equalizationDeadline: new Date('2025-07-19T23:59:59.999Z'),
     },
     {
       id: '2025.2',
       name: '2025.2',
       status: 'UPCOMING' as const,
       phase: 'ASSESSMENTS' as const,
-      startDate: new Date('2025-07-01'),
-      endDate: new Date('2025-12-31'),
+      startDate: new Date('2025-07-01T00:00:00.000Z'),
+      endDate: new Date('2025-12-31T23:59:59.999Z'),
+      assessmentDeadline: new Date('2025-09-15T23:59:59.999Z'),
+      managerDeadline: new Date('2025-10-15T23:59:59.999Z'),
+      equalizationDeadline: new Date('2025-11-30T23:59:59.999Z'),
     },
   ];
 
@@ -487,9 +493,9 @@ async function main() {
   }
 
   // ==========================================
-  // SEED - DADOS COMPLETOS DE AVALIAÇÃO CICLO 2025.1
+  // SEED - AVALIAÇÕES COMPLETAS CICLO 2025.1
   // ==========================================
-  console.log('📝 Criando dados completos de avaliação para o ciclo 2025.1...');
+  console.log('📝 Criando avaliações completas para o ciclo 2025.1...');
 
   // ===== AUTOAVALIAÇÕES COMPLETAS =====
   console.log('📝 Criando autoavaliações...');
@@ -597,7 +603,7 @@ async function main() {
       cycle: '2025.1',
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-11T11:00:00Z'),
-      overallScore: 4,
+      overallScore: 3,
       strengths: 'Muito proativo, grande vontade de aprender, colaborativo e receptivo a feedbacks',
       improvements: 'Pode melhorar a organização pessoal e planejamento de tarefas'
     }
@@ -611,7 +617,7 @@ async function main() {
       cycle: '2025.1',
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-13T14:15:00Z'),
-      overallScore: 5,
+      overallScore: 4,
       strengths: 'Excelente qualidade técnica, muito organizada, grande senso de responsabilidade',
       improvements: 'Poderia assumir mais iniciativas de liderança técnica em projetos'
     }
@@ -811,15 +817,6 @@ async function main() {
     }
   });
 
-  console.log('✅ Dados completos de avaliação criados para ciclo 2025.1!');
-  console.log('📊 Avaliações criadas:');
-  console.log('   📝 3 Autoavaliações (Ana, Bruno, Felipe)');
-  console.log('   🔄 6 Avaliações 360° (todas as combinações)');
-  console.log('   🎓 1 Mentoring Assessment (Felipe → Ana)');
-  console.log('   💭 6 Reference Feedbacks (todos os pares)');
-  console.log('   👔 2 Avaliações de Gestor (Bruno → Ana, Felipe)');
-  console.log('   ⚖️ Equalização: PENDENTE (Carla deve fazer)');
-
   console.log('✅ Estruturas de relacionamento configuradas!');
 
   // ==========================================
@@ -827,7 +824,7 @@ async function main() {
   // ==========================================
   console.log('✅ Seed concluído com sucesso!');
   console.log('📊 Estruturas criadas:');
-  console.log(`   - ${cycles.length} ciclos de avaliação com sistema de fases`);
+  console.log(`   - ${cycles.length} ciclos de avaliação`);
   console.log(
     `   - ${criteria.length} critérios (${criteria.filter((c) => c.pillar === 'BEHAVIOR').length} comportamentais, ${criteria.filter((c) => c.pillar === 'EXECUTION').length} execução, ${criteria.filter((c) => c.pillar === 'MANAGEMENT').length} gestão)`,
   );
@@ -841,7 +838,7 @@ async function main() {
   // ==========================================
   // RESUMO DOS CICLOS E FASES
   // ==========================================
-  console.log('🔄 Sistema de Fases dos Ciclos:');
+  console.log('🔄 Estado dos Ciclos:');
   console.log('');
   cycles.forEach((cycle) => {
     const statusIcon = cycle.status === 'OPEN' ? '🟢' : cycle.status === 'CLOSED' ? '🔴' : '🟡';
@@ -855,47 +852,35 @@ async function main() {
   });
 
   console.log('');
-  console.log('📋 Descrição das Fases:');
-  console.log('  📝 ASSESSMENTS (Fase 1): Autoavaliação, 360, Mentoring, Reference');
-  console.log('  👔 MANAGER_REVIEWS (Fase 2): Avaliações de Gestor');
-  console.log('  ⚖️ EQUALIZATION (Fase 3): Equalização final');
-  console.log('');
   console.log('🎯 Ciclo Ativo: 2025.1 na fase EQUALIZATION');
-  console.log('  ✅ Todas as avaliações completas (Autoavaliação, 360, Mentoring, Reference, Gestor)');
-  console.log('  ⚖️ Aguardando: Equalização pelo Comitê (Carla)');
+  console.log('  ✅ Todas as avaliações completas para Bruno, Ana e Felipe');
+  console.log('  📝 3 Autoavaliações (Ana, Bruno, Felipe)');
+  console.log('  🔄 6 Avaliações 360° (todas as combinações)');
+  console.log('  🎓 1 Mentoring Assessment (Felipe → Ana)');
+  console.log('  💭 6 Reference Feedbacks (todos os pares)');
+  console.log('  👔 2 Avaliações de Gestor (Bruno → Ana, Felipe)');
+  console.log('  ⚖️ Pronto para Equalização pelo Comitê (Carla)');
   console.log('');
 
   console.log('👥 Usuários disponíveis para teste:');
   console.log('');
+  console.log('  📧 carla.dias@rocketcorp.com - Senha: password123');
+  console.log('     👤 Carla Dias | 🎯 Comitê | 💼 Head of Engineering Principal | ⚖️ Pode fazer equalização');
+  console.log('');
   console.log('  📧 ana.oliveira@rocketcorp.com - Senha: password123');
-  console.log('     👤 Ana Oliveira | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | 🏢 Tech/Digital Products');
+  console.log('     👤 Ana Oliveira | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | ✅ Avaliações completas');
   console.log('');
   console.log('  📧 bruno.mendes@rocketcorp.com - Senha: password123');
-  console.log('     👤 Bruno Mendes | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | 🏢 Tech/Digital Products');
-  console.log('');
-  console.log('  📧 carla.dias@rocketcorp.com - Senha: password123');
-  console.log('     👤 Carla Dias | 🎯 Comitê + Colaboradora | 💼 Head of Engineering Principal | 🏢 Tech/Digital Products');
-  console.log('');
-  console.log('  📧 diana.costa@rocketcorp.com - Senha: password123');
-  console.log('     👤 Diana Costa | 🎯 RH + Colaboradora | 💼 People & Culture Manager Sênior | 🏢 Business/Operations');
+  console.log('     👤 Bruno Mendes | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | ✅ Avaliações completas');
   console.log('');
   console.log('  📧 felipe.silva@rocketcorp.com - Senha: password123');
-  console.log('     👤 Felipe Silva | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | 🏢 Tech/Digital Products');
+  console.log('     👤 Felipe Silva | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | ✅ Avaliações completas');
+  console.log('');
+  console.log('  📧 diana.costa@rocketcorp.com - Senha: password123');
+  console.log('     👤 Diana Costa | 🎯 RH | 💼 People & Culture Manager Sênior');
   console.log('');
   console.log('  📧 eduardo.tech@rocketcorp.com - Senha: password123');
-  console.log('     👤 Eduardo Tech | 🎯 Admin | 💼 DevOps Engineer Sênior | 🏢 Tech/Operations');
-  console.log('');
-  console.log('🏢 Estrutura Organizacional:');
-  console.log('  👑 Carla Dias (Head) → Bruno Mendes (Tech Lead) → Ana Oliveira & Felipe Silva');
-  console.log('  👑 Carla Dias (Head) → Diana Costa (RH)');
-  console.log('  🔧 Eduardo Tech (Admin - Independente)');
-  console.log('');
-  console.log('🎯 Tipos de Usuário:');
-  console.log('  • Colaborador: Participa como avaliado');
-  console.log('  • Gestor: Avalia liderados + é avaliado');
-  console.log('  • Comitê: Equalização final + é avaliado');
-  console.log('  • RH: Configuração e acompanhamento');
-  console.log('  • Admin: Gerenciamento total do sistema');
+  console.log('     👤 Eduardo Tech | 🎯 Admin | 💼 DevOps Engineer Sênior');
   console.log('');
   console.log('🔄 Estado dos Ciclos de Avaliação:');
   console.log('  🔴 2024.2 | CLOSED | ⚖️ EQUALIZATION (Finalizado)');
@@ -903,21 +888,15 @@ async function main() {
   console.log('  🟢 2025.1 | OPEN | ⚖️ EQUALIZATION (Ativo - Pronto para Comitê)');
   console.log('    📅 2025-01-01 a 2025-06-30 | ⏰ Equalização até 2025-05-31');
   console.log('  🟡 2025.2 | UPCOMING | 📝 ASSESSMENTS (Futuro)');
-  console.log('    📅 2025-07-01 a 2025-12-31 | ⏰ Prazos sequenciais configurados');
+  console.log('    📅 2025-07-01 a 2025-12-31 | ⏰ Prazos configurados');
   console.log('');
   console.log('📋 Cronograma de Fases 2025.1:');
-  console.log('  📝 Fase 1 - Avaliações: até 15/03/2025');
-  console.log('  👔 Fase 2 - Gestores: até 15/04/2025');
-  console.log('  ⚖️ Fase 3 - Equalização: até 31/05/2025');
+  console.log('  📝 Fase 1 - Avaliações: até 15/03/2025 ✅ COMPLETA');
+  console.log('  👔 Fase 2 - Gestores: até 15/04/2025 ✅ COMPLETA');
+  console.log('  ⚖️ Fase 3 - Equalização: até 31/05/2025 🔄 ATUAL');
   console.log('');
-  console.log('✅ Ciclo 2025.1 - Avaliações Completas:');
-  console.log('  📝 Autoavaliações: Ana, Bruno, Felipe (3/3)');
-  console.log('  🔄 Avaliações 360°: Todas as combinações (6/6)');
-  console.log('  🎓 Mentoring: Felipe → Ana (1/1)');
-  console.log('  💭 Reference Feedbacks: Todos os pares (6/6)');
-  console.log('  👔 Avaliações de Gestor: Bruno → Ana, Felipe (2/2)');
-  console.log('  ⚖️ Fase atual: Equalização');
-  console.log('  ⚖️ Equalização: Aguardando Carla (Comitê)');
+  console.log('✅ Sistema pronto para equalização!');
+  console.log('   Carla pode fazer login e equalizar as avaliações de Bruno, Ana e Felipe');
 }
 
 main()

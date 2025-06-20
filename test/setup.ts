@@ -38,9 +38,10 @@ beforeEach(() => {
   // Configurações que devem ser executadas antes de cada teste
 });
 
-afterEach(() => {
+afterEach(async () => {
   // Limpeza após cada teste
   jest.clearAllMocks();
+  await cleanupTestData();
 });
 
 // Função de limpeza de dados de teste
@@ -51,36 +52,128 @@ async function cleanupTestData() {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     
-    // Padrões que indicam dados de teste
-    const testPatterns = ['Test', 'test', 'TESTE', 'Mock', 'Example', 'E2E', 'Fake'];
-    
+    // Manter apenas os dados principais da seed
+    const mainCycles = ['2024.2', '2025.1', '2025.2'];
+    const mainUsers = [
+      'eduardo.tech@rocketcorp.com',
+      'diana.costa@rocketcorp.com', 
+      'carla.dias@rocketcorp.com',
+      'bruno.mendes@rocketcorp.com',
+      'ana.oliveira@rocketcorp.com',
+      'felipe.silva@rocketcorp.com'
+    ];
+    const mainProjects = [
+      'projeto-alpha',
+      'projeto-beta', 
+      'projeto-gamma',
+      'projeto-delta',
+      'projeto-mobile-app',
+      'projeto-api-core'
+    ];
+
     // Limpar ciclos de teste
-    for (const pattern of testPatterns) {
-      await prisma.evaluationCycle.deleteMany({
-        where: { name: { contains: pattern } },
-      });
-    }
+    await prisma.evaluationCycle.deleteMany({
+      where: {
+        id: { notIn: mainCycles }
+      }
+    });
     
-    // Limpar usuários de teste
-    for (const pattern of testPatterns) {
+    // Buscar usuários de teste para limpar relacionamentos
+    const testUsers = await prisma.user.findMany({
+      where: {
+        email: { notIn: mainUsers }
+      }
+    });
+
+    if (testUsers.length > 0) {
+      const testUserIds = testUsers.map(u => u.id);
+
+      // Limpar relacionamentos de usuários de teste
+      await prisma.userProjectRole.deleteMany({
+        where: { userId: { in: testUserIds } }
+      });
+
+      await prisma.userProjectAssignment.deleteMany({
+        where: { userId: { in: testUserIds } }
+      });
+
+      await prisma.userRoleAssignment.deleteMany({
+        where: { userId: { in: testUserIds } }
+      });
+
+      // Limpar avaliações de usuários de teste
+      await prisma.selfAssessment.deleteMany({
+        where: { authorId: { in: testUserIds } }
+      });
+
+      await prisma.assessment360.deleteMany({
+        where: {
+          OR: [
+            { authorId: { in: testUserIds } },
+            { evaluatedUserId: { in: testUserIds } }
+          ]
+        }
+      });
+
+      await prisma.managerAssessment.deleteMany({
+        where: {
+          OR: [
+            { authorId: { in: testUserIds } },
+            { evaluatedUserId: { in: testUserIds } }
+          ]
+        }
+      });
+
+      await prisma.mentoringAssessment.deleteMany({
+        where: {
+          OR: [
+            { authorId: { in: testUserIds } },
+            { mentorId: { in: testUserIds } }
+          ]
+        }
+      });
+
+      await prisma.referenceFeedback.deleteMany({
+        where: {
+          OR: [
+            { authorId: { in: testUserIds } },
+            { referencedUserId: { in: testUserIds } }
+          ]
+        }
+      });
+
+      // Remover usuários de teste
       await prisma.user.deleteMany({
         where: {
-          OR: [
-            { name: { contains: pattern } },
-            { email: { contains: pattern } },
-          ],
-        },
+          email: { notIn: mainUsers }
+        }
       });
     }
     
-    // Limpar projetos de teste
-    for (const pattern of testPatterns) {
+    // Buscar projetos de teste para limpar relacionamentos
+    const testProjects = await prisma.project.findMany({
+      where: {
+        id: { notIn: mainProjects }
+      }
+    });
+
+    if (testProjects.length > 0) {
+      const testProjectIds = testProjects.map(p => p.id);
+
+      // Limpar relacionamentos de projetos de teste
+      await prisma.userProjectRole.deleteMany({
+        where: { projectId: { in: testProjectIds } }
+      });
+
+      await prisma.userProjectAssignment.deleteMany({
+        where: { projectId: { in: testProjectIds } }
+      });
+
+      // Remover projetos de teste
       await prisma.project.deleteMany({
         where: {
-          OR: [
-            { name: { contains: pattern } },
-          ],
-        },
+          id: { notIn: mainProjects }
+        }
       });
     }
     

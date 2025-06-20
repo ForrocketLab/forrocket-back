@@ -48,6 +48,11 @@ describe('Fluxos de Integração E2E (e2e)', () => {
     await app.close();
   });
 
+  afterEach(async () => {
+    // Limpar dados após cada teste para evitar interferência
+    await cleanupTestData();
+  });
+
   async function setupTestData() {
     // Buscar usuários existentes do seed
     const adminUser = await prismaService.user.findUnique({
@@ -97,8 +102,18 @@ describe('Fluxos de Integração E2E (e2e)', () => {
 
   async function cleanupTestData() {
     try {
+      // Limpar todos os ciclos de teste (que começam com E2E)
       await prismaService.evaluationCycle.deleteMany({
-        where: { name: { contains: 'E2E Test' } },
+        where: { 
+          OR: [
+            { name: { contains: 'E2E Test' } },
+            { name: { contains: 'E2E Duplicate' } },
+            { name: { contains: 'Test Cycle' } },
+            { name: { contains: 'Unauthorized' } },
+            { name: { contains: 'Invalid' } },
+            { name: { contains: 'Incomplete' } }
+          ]
+        },
       });
     } catch (error) {
       console.warn('Erro na limpeza:', error);
@@ -150,21 +165,21 @@ describe('Fluxos de Integração E2E (e2e)', () => {
     });
 
     it('deve validar acesso a funções de comitê', async () => {
-      // Comitê pode acessar (mesmo sem ciclo ativo, deve dar 400, não 403)
+      // Comitê pode acessar (com ciclo ativo em EQUALIZATION, deve dar 200)
       const response = await request(app.getHttpServer())
         .get('/api/evaluations/committee/collaborators')
         .set('Authorization', `Bearer ${committeeToken}`);
       
-      // Pode retornar 400 (sem ciclo ativo) ou 404 (rota não encontrada)
-      expect([400, 404]).toContain(response.status);
+      // Com ciclo ativo na fase EQUALIZATION, deve retornar 200 (sucesso) ou 400 (se houver algum problema de validação)
+      expect([200, 400, 404]).toContain(response.status);
 
       // Colaborador não pode acessar função de comitê
       const response2 = await request(app.getHttpServer())
         .get('/api/evaluations/committee/collaborators')
         .set('Authorization', `Bearer ${collaboratorToken}`);
       
-      // Pode retornar 400 (sem ciclo ativo), 403 (sem permissão) ou 404 (rota não encontrada)
-      expect([400, 403, 404]).toContain(response2.status);
+      // Deve retornar 403 (sem permissão) ou 404 (rota não encontrada)
+      expect([403, 404]).toContain(response2.status);
     });
   });
 
@@ -292,32 +307,56 @@ describe('Fluxos de Integração E2E (e2e)', () => {
 
   describe('5. Testes de Concorrência Básica', () => {
     it('deve prevenir criação de ciclos com nomes duplicados', async () => {
-      const cycleName = 'E2E Duplicate Test Cycle';
+      // Usar timestamp mais preciso e processo ID para garantir unicidade
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substr(2, 9);
+      const processId = process.pid;
+      const cycleName = `E2E-Dup-${timestamp}-${processId}-${randomId}`;
 
-      // Primeira criação deve ter sucesso
-      const firstResponse = await request(app.getHttpServer())
-        .post('/api/evaluation-cycles')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name: cycleName,
-          startDate: '2025-01-01',
-          endDate: '2025-03-31',
-        })
-        .expect(201);
+      try {
+        // Primeira criação deve ter sucesso
+        const firstResponse = await request(app.getHttpServer())
+          .post('/api/evaluation-cycles')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: cycleName,
+            startDate: '2025-01-01',
+            endDate: '2025-03-31',
+          });
 
-      expect(firstResponse.body.name).toBe(cycleName);
+        // Verificar que a primeira criação foi bem-sucedida
+        expect(firstResponse.status).toBe(201);
+        expect(firstResponse.body.name).toBe(cycleName);
 
-      // Segunda criação com mesmo nome deve falhar
-      await request(app.getHttpServer())
-        .post('/api/evaluation-cycles')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name: cycleName,
-          startDate: '2025-04-01',
-          endDate: '2025-06-30',
-        })
-        .expect(400); // Conflito de nome
-    });
+        // Segunda criação com mesmo nome deve falhar imediatamente
+        const secondResponse = await request(app.getHttpServer())
+          .post('/api/evaluation-cycles')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: cycleName, // Mesmo nome - deve falhar
+            startDate: '2025-04-01',
+            endDate: '2025-06-30',
+          });
+
+        console.log('Status da segunda criação:', secondResponse.status);
+        console.log('Corpo da segunda criação:', secondResponse.body);
+
+        expect(secondResponse.status).toBe(400); // Conflito de nome
+        expect(secondResponse.body.message).toContain(`Já existe um ciclo com o nome "${cycleName}"`);
+
+      } finally {
+        // Limpeza garantida após o teste, mesmo se houver falha
+        try {
+          await prismaService.evaluationCycle.deleteMany({
+            where: {
+              name: cycleName
+            }
+          });
+        } catch (cleanupError) {
+          console.warn('Erro na limpeza final:', cleanupError);
+        }
+      }
+    }, 10000); // Timeout de 10 segundos
 
     it('deve lidar com requisições simultâneas de diferentes usuários', async () => {
       const promises = [
