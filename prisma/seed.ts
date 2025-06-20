@@ -483,6 +483,75 @@ async function main() {
     });
   }
 
+  // ==========================================
+  // SEED - DADOS DE AVALIAÇÃO DE EXEMPLO (NOVO)
+  // ==========================================
+  console.log('📝 Criando dados de avaliação de exemplo para o ciclo 2025.1...');
+
+  // Cenário 1: Ana já submeteu sua autoavaliação.
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: ana.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      answers: {
+        create: {
+          criterionId: 'sentimento-de-dono',
+          score: 5,
+          justification: 'Sempre assumo a responsabilidade pelos projetos.',
+        },
+      },
+    },
+  });
+
+  // Cenário 2: Felipe apenas começou a sua autoavaliação (está em rascunho).
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: felipe.id,
+      cycle: '2025.1',
+      status: 'DRAFT',
+      answers: {
+        create: {
+          criterionId: 'team-player',
+          score: 4,
+          justification: 'Colaboro bem com a equipe.',
+        },
+      },
+    },
+  });
+
+  // Cenário 3: Bruno (o gestor) já avaliou a Ana.
+  await prisma.managerAssessment.create({
+    data: {
+      authorId: bruno.id,
+      evaluatedUserId: ana.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      answers: {
+        create: {
+          criterionId: 'entregar-qualidade',
+          score: 5,
+          justification: 'As entregas da Ana são sempre de alta qualidade.',
+        },
+      },
+    },
+  });
+
+  // Cenário 4: Ana (colega) já fez uma avaliação 360 do Felipe.
+  await prisma.assessment360.create({
+    data: {
+      authorId: ana.id,
+      evaluatedUserId: felipe.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      overallScore: 4,
+      strengths: 'Muito proativo.',
+      improvements: 'Pode melhorar a organização das tarefas.',
+    },
+  });
+
+  console.log('✅ Dados de avaliação de exemplo criados.');
+
   console.log('✅ Estruturas de relacionamento configuradas!');
 
   // ==========================================

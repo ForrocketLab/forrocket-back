@@ -11,13 +11,27 @@ import {
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
   CreateManagerAssessmentDto,
+  SelfAssessmentCompletionByPillarDto,
+  OverallCompletionDto,
+  PillarProgressDto,
 } from './assessments/dto';
 import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
-import { isValidCriterionId } from '../models/criteria';
+import {
+  ALL_CRITERIA,
+  getCriteriaByPillar,
+  getAllPillars,
+  isValidCriterionId,
+} from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
-import { CollaboratorEvaluationType } from '../models/evaluations/collaborator';
+import { ManagerDashboardDto } from './manager/manager-dashboard.dto';
+import {
+  ISelfAssessment,
+  ISelfAssessmentAnswer,
+  EvaluationStatus,
+  CollaboratorEvaluationType,
+} from '../models/evaluations/collaborator';
 
 @Injectable()
 export class EvaluationsService {
@@ -35,7 +49,7 @@ export class EvaluationsService {
   async submitAssessment(
     evaluationId: string,
     authorId: string,
-    evaluationType: 'self' | '360' | 'mentoring' | 'reference',
+    evaluationType: 'self' | '360' | 'mentoring' | 'reference' | 'manager' | 'committee',
   ) {
     let model: any;
     let updateWhere: any;
@@ -56,6 +70,14 @@ export class EvaluationsService {
         break;
       case 'reference':
         model = this.prisma.referenceFeedback;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case 'manager':
+        model = this.prisma.managerAssessment;
+        updateWhere = { id: evaluationId, authorId: authorId };
+        break;
+      case 'committee': // <-- NOVO CASO ADICIONADO
+        model = this.prisma.committeeAssessment;
         updateWhere = { id: evaluationId, authorId: authorId };
         break;
       default:
@@ -469,117 +491,329 @@ export class EvaluationsService {
   }
 
   /**
+   * Calcula o status de preenchimento de uma autoavaliação por pilar.
+   * Retorna um objeto com { completed: número de critérios completos, total: número total de critérios }
+   * para cada pilar.
+   */
+  private calculateSelfAssessmentCompletionByPillar(
+    selfAssessment: ISelfAssessment,
+  ): SelfAssessmentCompletionByPillarDto {
+    const pillarCompletion: SelfAssessmentCompletionByPillarDto =
+      {} as SelfAssessmentCompletionByPillarDto; 
+    const allPillars = getAllPillars();
+
+    // 1. Inicializa a contagem para cada pilar
+    for (const pillar of allPillars) {
+      const criteriaInPillar = getCriteriaByPillar(pillar);
+      pillarCompletion[pillar] = {
+        completed: 0,
+        total: criteriaInPillar.length,
+      };
+    }
+
+    if (!selfAssessment || !selfAssessment.answers) {
+      return pillarCompletion;
+    }
+
+    // 2. Conta os critérios preenchidos por pilar
+    for (const answer of selfAssessment.answers) {
+      const criterion = ALL_CRITERIA.find((c) => c.id === answer.criterionId);
+
+      if (criterion) {
+        const isCompleted =
+          answer.score >= 1 &&
+          answer.score <= 5 &&
+          answer.justification &&
+          answer.justification.trim() !== '';
+
+        if (isCompleted) {
+          // Incrementa o contador 'completed' para o pilar do critério
+          // Garante que o pilar exista antes de incrementar (já inicializamos acima)
+          if (pillarCompletion[criterion.pillar]) {
+            pillarCompletion[criterion.pillar].completed++;
+          }
+        }
+      }
+    }
+
+    return pillarCompletion;
+  }
+
+  /**
    * Busca todas as avaliações RECEBIDAS por um usuário para um ciclo específico
    */
   async getReceivedEvaluationsByCycle(userId: string, cycle: string) {
-    const [assessments360Received, mentoringAssessmentsReceived, referenceFeedbacksReceived] =
-      await Promise.all([
-        // Avaliações 360 recebidas (onde o usuário é o avaliado)
-        this.prisma.assessment360.findMany({
-          where: { evaluatedUserId: userId, cycle },
-          include: {
-            author: {
-              select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
-            },
+    const [
+      assessments360Received,
+      mentoringAssessmentsReceived,
+      referenceFeedbacksReceived,
+      managerAssessmentsReceived,
+      committeeAssessmentsReceived,
+    ] = await Promise.all([
+      // Avaliações 360 recebidas (onde o usuário é o avaliado)
+      this.prisma.assessment360.findMany({
+        where: { evaluatedUserId: userId, cycle },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
 
-        // Avaliações de mentoring recebidas (onde o usuário é o mentor)
-        this.prisma.mentoringAssessment.findMany({
-          where: { mentorId: userId, cycle },
-          include: {
-            author: {
-              select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
-            },
+      // Avaliações de mentoring recebidas (onde o usuário é o mentor)
+      this.prisma.mentoringAssessment.findMany({
+        where: { mentorId: userId, cycle },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
 
-        // Feedbacks de referência recebidos (onde o usuário é o referenciado)
-        this.prisma.referenceFeedback.findMany({
-          where: { referencedUserId: userId, cycle },
-          include: {
-            author: {
-              select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
-            },
+      // Feedbacks de referência recebidos (onde o usuário é o referenciado)
+      this.prisma.referenceFeedback.findMany({
+        where: { referencedUserId: userId, cycle },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]);
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações de gestor recebidas (onde o usuário é o avaliado)
+      this.prisma.managerAssessment.findMany({
+        where: { evaluatedUserId: userId, cycle },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
+          },
+          answers: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações de comitê recebidas (onde o usuário é o avaliado)
+      this.prisma.committeeAssessment.findMany({
+        where: { evaluatedUserId: userId, cycle },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
     return {
       cycle,
       assessments360Received,
       mentoringAssessmentsReceived,
       referenceFeedbacksReceived,
+      managerAssessmentsReceived,
+      committeeAssessmentsReceived,
       summary: {
         assessments360ReceivedCount: assessments360Received.length,
         mentoringAssessmentsReceivedCount: mentoringAssessmentsReceived.length,
         referenceFeedbacksReceivedCount: referenceFeedbacksReceived.length,
+        managerAssessmentsReceivedCount: managerAssessmentsReceived.length,
+        committeeAssessmentsReceivedCount: committeeAssessmentsReceived.length,
         totalReceivedCount:
           assessments360Received.length +
           mentoringAssessmentsReceived.length +
-          referenceFeedbacksReceived.length,
+          referenceFeedbacksReceived.length +
+          managerAssessmentsReceived.length +
+          committeeAssessmentsReceived.length,
       },
     };
   }
 
   /**
    * Busca todas as avaliações de um usuário para um ciclo específico
+   * Incluirá o status de preenchimento por pilar para autoavaliação
    */
   async getUserEvaluationsByCycle(userId: string, cycle: string) {
-    const [selfAssessment, assessments360, mentoringAssessments, referenceFeedbacks] =
-      await Promise.all([
-        // Autoavaliação
-        this.prisma.selfAssessment.findFirst({
-          where: { authorId: userId, cycle },
-          include: { answers: true },
-        }),
-
-        // Avaliações 360
-        this.prisma.assessment360.findMany({
-          where: { authorId: userId, cycle },
-          include: {
-            evaluatedUser: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        }),
-
-        // Avaliações de mentoring
-        this.prisma.mentoringAssessment.findMany({
-          where: { authorId: userId, cycle },
-          include: {
-            mentor: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        }),
-
-        // Feedbacks de referência
-        this.prisma.referenceFeedback.findMany({
-          where: { authorId: userId, cycle },
-          include: {
-            referencedUser: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        }),
-      ]);
-
-    return {
-      cycle,
-      selfAssessment,
+    const [
+      selfAssessmentFromDb,
       assessments360,
       mentoringAssessments,
       referenceFeedbacks,
+      managerAssessments,
+    ] = await Promise.all([
+      // Autoavaliação
+      this.prisma.selfAssessment.findFirst({
+        where: { authorId: userId, cycle },
+        include: { answers: true },
+      }),
+
+      // Avaliações 360
+      this.prisma.assessment360.findMany({
+        where: { authorId: userId, cycle },
+        include: {
+          evaluatedUser: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      }),
+
+      // Avaliações de mentoring
+      this.prisma.mentoringAssessment.findMany({
+        where: { authorId: userId, cycle },
+        include: {
+          mentor: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      }),
+
+      // Feedbacks de referência
+      this.prisma.referenceFeedback.findMany({
+        where: { authorId: userId, cycle },
+        include: {
+          referencedUser: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      }),
+
+      // Avaliações de gestor feitas pelo usuário
+      this.prisma.managerAssessment.findMany({
+        where: { authorId: userId, cycle },
+        include: {
+          evaluatedUser: {
+            select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
+          },
+          answers: true,
+        },
+      }),
+    ]);
+
+    // **IMPORTANTE**: Converter o objeto retornado pelo Prisma para o tipo ISelfAssessment
+    // A asserção `as EvaluationStatus` corrige o problema de tipagem do 'status'.
+    let selfAssessment: ISelfAssessment | null = null;
+    if (selfAssessmentFromDb) {
+      selfAssessment = {
+        ...selfAssessmentFromDb,
+        status: selfAssessmentFromDb.status as EvaluationStatus, 
+        createdAt: new Date(selfAssessmentFromDb.createdAt),
+        updatedAt: new Date(selfAssessmentFromDb.updatedAt), 
+        submittedAt: selfAssessmentFromDb.submittedAt
+          ? new Date(selfAssessmentFromDb.submittedAt)
+          : undefined, 
+      } as ISelfAssessment; 
+    }
+
+    // Calcular o status de preenchimento por pilar para a autoavaliação
+    let selfAssessmentCompletionByPillar: SelfAssessmentCompletionByPillarDto =
+      {} as SelfAssessmentCompletionByPillarDto; // <-- Use o DTO aqui
+    if (selfAssessment) {
+      selfAssessmentCompletionByPillar =
+        this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
+    }
+
+    // Calcular o progresso geral da autoavaliação (soma dos pilares)
+    const totalCompleted = Object.values(selfAssessmentCompletionByPillar).reduce(
+      (acc, p) => acc + p.completed,
+      0,
+    );
+    const totalOverall = ALL_CRITERIA.length;
+
+    return {
+      cycle,
+      selfAssessment: selfAssessment
+        ? {
+            ...selfAssessment,
+            completionStatus: selfAssessmentCompletionByPillar, 
+            overallCompletion: {
+              // Progresso geral (X/12)
+              completed: totalCompleted,
+              total: totalOverall,
+            },
+          }
+        : null,
+      assessments360,
+      mentoringAssessments,
+      referenceFeedbacks,
+      managerAssessments,
       summary: {
-        selfAssessmentCompleted: !!selfAssessment,
+        selfAssessmentCompleted: !!selfAssessment && selfAssessment.status === 'SUBMITTED',
+        selfAssessmentOverallProgress: {
+          // No summary, a visão geral (X/12)
+          completed: totalCompleted,
+          total: totalOverall,
+        },
         assessments360Count: assessments360.length,
         mentoringAssessmentsCount: mentoringAssessments.length,
         referenceFeedbacksCount: referenceFeedbacks.length,
+        managerAssessmentsCount: managerAssessments.length,
       },
     };
+  }
+
+  async getManagerDashboard(managerId: string, cycle: string): Promise<ManagerDashboardDto[]> {
+    // projetos com todos os liderados
+    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+
+    // se não houver liderados, retorna array vazio.
+    if (projectsWithSubordinates.length === 0) {
+      return [];
+    }
+
+    // ids de todos os liderados de todos os projetos
+    const allSubordinateIds = projectsWithSubordinates.flatMap((p) =>
+      p.subordinates.map((s) => s.id),
+    );
+
+    // busca todos os dados de avaliação de todos os liderados de uma só vez.
+    const subordinatesProgress = await this.prisma.user.findMany({
+      where: {
+        id: { in: allSubordinateIds },
+      },
+      select: {
+        id: true, // id será utilizado para fazer o Map
+        selfAssessments: {
+          where: { cycle },
+          select: { status: true },
+        },
+        managerAssessmentsReceived: {
+          where: { authorId: managerId, cycle },
+          select: { status: true },
+        },
+        _count: {
+          select: {
+            assessments360Created: { where: { cycle } },
+          },
+        },
+      },
+    });
+
+    // acesso rápido aos dados de progresso (Map para amis performance).
+    const progressMap = new Map(
+      subordinatesProgress.map((p) => [
+        p.id,
+        {
+          selfAssessmentStatus: p.selfAssessments[0]?.status || 'PENDENTE',
+          managerAssessmentStatus: p.managerAssessmentsReceived[0]?.status || 'PENDENTE',
+          peerAssessmentsCompleted: p._count.assessments360Created,
+        },
+      ]),
+    );
+
+    // mapeia a estrutura original de projetos com os dados do map
+    const dashboardData = projectsWithSubordinates.map((project) => ({
+      ...project,
+      subordinates: project.subordinates.map((subordinate) => ({
+        ...subordinate,
+        ...(progressMap.get(subordinate.id) || {
+          selfAssessmentStatus: 'PENDENTE',
+          managerAssessmentStatus: 'PENDENTE',
+          peerAssessmentsCompleted: 0,
+        }),
+      })),
+    }));
+
+    return dashboardData;
   }
 }

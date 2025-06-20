@@ -7,6 +7,8 @@ import {
   HttpStatus,
   HttpCode,
   ForbiddenException,
+  BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -164,4 +166,25 @@ export class ManagerController {
 
     return this.projectsService.getEvaluableSubordinates(user.id);
   }
-} 
+
+  @Get('dashboard')
+  @ApiOperation({
+    summary: 'Obter dados do painel de acompanhamento do gestor',
+    description:
+      'Retorna uma lista de projetos e seus respectivos liderados com o status de preenchimento das avaliações para um ciclo específico.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados do dashboard retornados com sucesso.',
+    // A resposta seguiria a estrutura do ManagerDashboardDto que definimos anteriormente
+  })
+  @ApiResponse({ status: 403, description: 'Apenas gestores podem acessar esta funcionalidade' })
+  async getDashboard(@CurrentUser() user: User, @Query('cycle') cycle: string) {
+    if (!cycle) {
+      throw new BadRequestException('O parâmetro "cycle" é obrigatório.');
+    }
+
+    // A lógica de negócio principal é delegada ao serviço de avaliações
+    return this.evaluationsService.getManagerDashboard(user.id, cycle);
+  }
+}

@@ -73,6 +73,12 @@ model User {
   // Avaliações de gestor recebidas pelo usuário (como liderado)
   managerAssessmentsReceived ManagerAssessment[] @relation("ManagerAssessmentEvaluated")
 
+  // Avaliações de comitê criadas pelo usuário (como membro do comitê)
+  committeeAssessmentsCreated CommitteeAssessment[] @relation("CommitteeAssessmentAuthor")
+  
+  // Avaliações de comitê recebidas pelo usuário (como avaliado)
+  committeeAssessmentsReceived CommitteeAssessment[] @relation("CommitteeAssessmentEvaluated")
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
@@ -211,6 +217,27 @@ model ManagerAssessmentAnswer {
 
   @@unique([managerAssessmentId, criterionId]) // Uma resposta por critério por avaliação de gestor
   @@map("manager_assessment_answers")
+}
+
+model CommitteeAssessment {
+  id               String   @id @default(cuid())
+  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId         String   // ID do membro do comitê que criou a avaliação
+  evaluatedUserId  String   // ID do colaborador sendo avaliado
+  finalScore       Int      // Nota final de equalização (1 a 5)
+  justification    String   // Justificativa da equalização
+  observations     String?  // Observações adicionais
+  status           String   @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  submittedAt      DateTime?
+
+  // Relacionamentos
+  author        User @relation("CommitteeAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  evaluatedUser User @relation("CommitteeAssessmentEvaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, evaluatedUserId, cycle]) // Um membro do comitê só pode avaliar um colaborador uma vez por ciclo
+  @@map("committee_assessments")
 }
 
 // ==========================================

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { CommitteeModule } from './committee/committee.module';
 import { CyclesModule } from './cycles/cycles.module';
 import { CyclesService } from './cycles/cycles.service';
 import { EvaluationsController } from './evaluations.controller';
