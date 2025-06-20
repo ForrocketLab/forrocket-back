@@ -26,13 +26,13 @@ export enum UserRole {
   GESTOR = 'gestor',
 
   /**
-   * COMITE - Membro do comitê de equalização (sócios)
+   * COMMITTEE - Membro do comitê de equalização (sócios)
    * - Participa do comitê de equalização final
    * - Tem visão ampla das avaliações da empresa
    * - Pode ajustar notas finais no processo de calibração
    * - Também é avaliado (possui role COLABORADOR)
    */
-  COMITE = 'comite',
+  COMMITTEE = 'comite',
 
   /**
    * RH - Acesso para parametrização e acompanhamento geral

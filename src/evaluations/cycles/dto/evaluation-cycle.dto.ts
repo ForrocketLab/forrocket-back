@@ -50,6 +50,33 @@ export class EvaluationCycleDto {
   endDate: Date | null;
 
   @ApiProperty({
+    description: 'Prazo para autoavaliações e avaliações 360',
+    example: '2025-03-15T23:59:59.999Z',
+    type: 'string',
+    format: 'date-time',
+    nullable: true,
+  })
+  assessmentDeadline: Date | null;
+
+  @ApiProperty({
+    description: 'Prazo para avaliações de gestor',
+    example: '2025-04-15T23:59:59.999Z',
+    type: 'string',
+    format: 'date-time',
+    nullable: true,
+  })
+  managerDeadline: Date | null;
+
+  @ApiProperty({
+    description: 'Prazo para equalização do comitê',
+    example: '2025-05-15T23:59:59.999Z',
+    type: 'string',
+    format: 'date-time',
+    nullable: true,
+  })
+  equalizationDeadline: Date | null;
+
+  @ApiProperty({
     description: 'Data de criação do registro',
     example: '2024-12-01T10:00:00.000Z',
     type: 'string',
@@ -95,6 +122,33 @@ export class CreateEvaluationCycleDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @ApiProperty({
+    description: 'Prazo para autoavaliações e avaliações 360',
+    example: '2025-03-15T23:59:59.999Z',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  assessmentDeadline?: string;
+
+  @ApiProperty({
+    description: 'Prazo para avaliações de gestor',
+    example: '2025-04-15T23:59:59.999Z',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  managerDeadline?: string;
+
+  @ApiProperty({
+    description: 'Prazo para equalização do comitê',
+    example: '2025-05-15T23:59:59.999Z',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  equalizationDeadline?: string;
 }
 
 /**

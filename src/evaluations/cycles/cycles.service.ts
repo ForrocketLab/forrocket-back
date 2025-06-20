@@ -52,6 +52,9 @@ export class CyclesService {
         status: 'UPCOMING',
         startDate: dto.startDate ? new Date(dto.startDate) : null,
         endDate: dto.endDate ? new Date(dto.endDate) : null,
+        assessmentDeadline: dto.assessmentDeadline ? new Date(dto.assessmentDeadline) : null,
+        managerDeadline: dto.managerDeadline ? new Date(dto.managerDeadline) : null,
+        equalizationDeadline: dto.equalizationDeadline ? new Date(dto.equalizationDeadline) : null,
       },
     });
   }
@@ -245,6 +248,9 @@ export class CyclesService {
       phase: activeCycle.phase,
       startDate: activeCycle.startDate,
       endDate: activeCycle.endDate,
+      assessmentDeadline: activeCycle.assessmentDeadline,
+      managerDeadline: activeCycle.managerDeadline,
+      equalizationDeadline: activeCycle.equalizationDeadline,
     };
   }
 }

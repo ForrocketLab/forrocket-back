@@ -251,6 +251,12 @@ model EvaluationCycle {
   phase     EvaluationPhase  @default(ASSESSMENTS) // Nova fase do ciclo
   startDate DateTime?
   endDate   DateTime?
+  
+  // NOVOS CAMPOS PARA DEADLINES
+  assessmentDeadline    DateTime? // Prazo para autoavaliações e 360
+  managerDeadline       DateTime? // Prazo para avaliações de gestor  
+  equalizationDeadline  DateTime? // Prazo para equalização do comitê
+  
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
