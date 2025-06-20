@@ -236,9 +236,65 @@ export class CommitteeService {
       mentoringAssessmentsReceived.length +
       referenceFeedbacksReceived.length;
 
+    // Calcular médias das avaliações
+    const calculateSelfAssessmentAverage = (assessment: any) => {
+      if (!assessment?.answers?.length) return null;
+      const total = assessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0);
+      return Math.round((total / assessment.answers.length) * 10) / 10; // 1 casa decimal
+    };
+
+    const calculateAverage = (assessments: any[], scoreField: string) => {
+      if (!assessments.length) return null;
+      const total = assessments.reduce((sum, assessment) => sum + (assessment[scoreField] || 0), 0);
+      return Math.round((total / assessments.length) * 10) / 10; // 1 casa decimal
+    };
+
+    const calculateManagerAssessmentAverage = (assessments: any[]) => {
+      if (!assessments.length) return null;
+      const allScores: number[] = [];
+      
+      assessments.forEach(assessment => {
+        if (assessment.answers?.length) {
+          assessment.answers.forEach((answer: any) => {
+            allScores.push(answer.score);
+          });
+        }
+      });
+      
+      if (allScores.length === 0) return null;
+      const total = allScores.reduce((sum, score) => sum + score, 0);
+      return Math.round((total / allScores.length) * 10) / 10; // 1 casa decimal
+    };
+
+    // Calcular médias
+    const selfAssessmentAverage = calculateSelfAssessmentAverage(selfAssessment);
+    const assessment360Average = calculateAverage(assessments360Received, 'overallScore');
+    const managerAssessmentAverage = calculateManagerAssessmentAverage(managerAssessmentsReceived);
+    const mentoringAverage = calculateAverage(mentoringAssessmentsReceived, 'score');
+
+    // Gerar resumo personalizado
+    const generateSummary = () => {
+      const parts: string[] = [];
+      if (selfAssessmentAverage) parts.push(`Autoavaliação: ${selfAssessmentAverage}`);
+      if (assessment360Average) parts.push(`Avaliação 360: ${assessment360Average}`);
+      if (managerAssessmentAverage) parts.push(`Avaliação Gestor: ${managerAssessmentAverage}`);
+      if (mentoringAverage) parts.push(`Mentoring: ${mentoringAverage}`);
+      
+      if (parts.length === 0) return 'Aguardando avaliações para análise de equalização';
+      
+      return `Médias recebidas - ${parts.join(', ')}. Total de ${totalAssessmentsReceived} avaliações para análise.`;
+    };
+
     return {
       cycle: activeCycle.name,
       collaborator,
+      evaluationScores: {
+        selfAssessment: selfAssessmentAverage,
+        assessment360: assessment360Average,
+        managerAssessment: managerAssessmentAverage,
+        mentoring: mentoringAverage
+      },
+      customSummary: generateSummary(),
       selfAssessment,
       assessments360Received,
       managerAssessmentsReceived,
@@ -462,6 +518,84 @@ export class CommitteeService {
   }
 
   /**
+   * Obtém métricas detalhadas do comitê
+   */
+  async getCommitteeMetrics() {
+    const activeCycle = await this.cyclesService.getActiveCycleWithPhase();
+    
+    if (!activeCycle) {
+      throw new BadRequestException('Não há ciclo ativo');
+    }
+
+    // Buscar todos os colaboradores ativos
+    const totalCollaborators = await this.prisma.user.count({
+      where: { 
+        isActive: true, 
+        roles: { contains: 'colaborador' } 
+      }
+    });
+
+    // Métricas de autoavaliação
+    const selfAssessmentCount = await this.prisma.selfAssessment.count({
+      where: { 
+        cycle: activeCycle.name, 
+        status: 'SUBMITTED' 
+      }
+    });
+
+    // Métricas de avaliação 360
+    const assessment360Count = await this.prisma.assessment360.count({
+      where: { 
+        cycle: activeCycle.name, 
+        status: 'SUBMITTED' 
+      }
+    });
+
+    // Métricas de avaliação de gestor
+    const managerAssessmentCount = await this.prisma.managerAssessment.count({
+      where: { 
+        cycle: activeCycle.name, 
+        status: 'SUBMITTED' 
+      }
+    });
+
+    // Métricas de comitê
+    const committeeAssessmentCount = await this.prisma.committeeAssessment.count({
+      where: { cycle: activeCycle.name }
+    });
+
+    // Calcular dias restantes
+    const today = new Date();
+    const daysRemaining = activeCycle.equalizationDeadline 
+      ? Math.ceil((activeCycle.equalizationDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    return {
+      cycle: activeCycle.name,
+      phase: activeCycle.phase,
+      deadlines: {
+        assessment: activeCycle.assessmentDeadline,
+        manager: activeCycle.managerDeadline,
+        equalization: activeCycle.equalizationDeadline,
+        daysRemaining
+      },
+      metrics: {
+        totalCollaborators,
+        selfAssessmentCompletion: totalCollaborators > 0 ? Math.round((selfAssessmentCount / totalCollaborators) * 100) : 0,
+        assessment360Completion: totalCollaborators > 0 ? Math.round((assessment360Count / totalCollaborators) * 100) : 0,
+        managerAssessmentCompletion: totalCollaborators > 0 ? Math.round((managerAssessmentCount / totalCollaborators) * 100) : 0,
+        committeeAssessmentCompletion: totalCollaborators > 0 ? Math.round((committeeAssessmentCount / totalCollaborators) * 100) : 0,
+        counts: {
+          selfAssessments: selfAssessmentCount,
+          assessments360: assessment360Count,
+          managerAssessments: managerAssessmentCount,
+          committeeAssessments: committeeAssessmentCount
+        }
+      }
+    };
+  }
+
+  /**
    * Busca todas as avaliações de comitê do ciclo ativo
    */
   async getCommitteeAssessmentsByCycle() {
@@ -511,5 +645,120 @@ export class CommitteeService {
         submitted: assessments.filter((a) => a.status === 'SUBMITTED').length,
       },
     };
+  }
+
+  /**
+   * Export structured evaluation data for a collaborator (post-equalization)
+   */
+  async exportCollaboratorEvaluationData(collaboratorId: string) {
+    const activeCycle = await this.cyclesService.getActiveCycle();
+    if (!activeCycle) {
+      throw new NotFoundException('No active evaluation cycle found');
+    }
+
+    // Get complete collaborator summary
+    const summary = await this.getCollaboratorEvaluationSummary(collaboratorId);
+    
+    // Check if equalization is complete (has committee assessment)
+    if (!summary.committeeAssessment) {
+      throw new ForbiddenException('Equalization not completed yet - no committee assessment found');
+    }
+
+    // Build structured export data
+    const exportData = {
+      collaborator: {
+        id: summary.collaborator.id,
+        name: summary.collaborator.name,
+        email: summary.collaborator.email,
+        jobTitle: summary.collaborator.jobTitle,
+        seniority: summary.collaborator.seniority
+      },
+      cycle: summary.cycle,
+      exportDate: new Date().toISOString(),
+      evaluationData: {
+        selfAssessment: summary.selfAssessment ? {
+          id: summary.selfAssessment.id,
+          submittedAt: summary.selfAssessment.submittedAt,
+          answers: summary.selfAssessment.answers,
+          totalCriteria: summary.selfAssessment.answers?.length || 0
+        } : null,
+        assessments360: summary.assessments360Received.map(assessment => ({
+          id: assessment.id,
+          author: {
+            name: assessment.author.name,
+            email: assessment.author.email,
+            jobTitle: assessment.author.jobTitle
+          },
+          overallScore: assessment.overallScore,
+          strengths: assessment.strengths,
+          improvements: assessment.improvements,
+          submittedAt: assessment.submittedAt
+        })),
+        managerAssessments: summary.managerAssessmentsReceived.map(assessment => ({
+          id: assessment.id,
+          author: {
+            name: assessment.author.name,
+            email: assessment.author.email,
+            jobTitle: assessment.author.jobTitle
+          },
+          answers: assessment.answers,
+          submittedAt: assessment.submittedAt,
+          totalCriteria: assessment.answers?.length || 0
+        })),
+        mentoringAssessments: summary.mentoringAssessmentsReceived.map(assessment => ({
+          id: assessment.id,
+          author: {
+            name: assessment.author.name,
+            email: assessment.author.email,
+            jobTitle: assessment.author.jobTitle
+          },
+          score: assessment.score,
+          justification: assessment.justification,
+          submittedAt: assessment.submittedAt
+        })),
+        referenceFeedbacks: summary.referenceFeedbacksReceived.map(feedback => ({
+          id: feedback.id,
+          author: {
+            name: feedback.author.name,
+            email: feedback.author.email,
+            jobTitle: feedback.author.jobTitle
+          },
+          justification: feedback.justification,
+          topic: feedback.topic,
+          submittedAt: feedback.submittedAt
+        })),
+        committeeAssessment: {
+          id: summary.committeeAssessment.id,
+          author: {
+            name: summary.committeeAssessment.author.name,
+            email: summary.committeeAssessment.author.email
+          },
+          finalScore: summary.committeeAssessment.finalScore,
+          justification: summary.committeeAssessment.justification,
+          observations: summary.committeeAssessment.observations,
+          submittedAt: summary.committeeAssessment.submittedAt
+        }
+      },
+      consolidatedScores: {
+        selfAssessment: summary.evaluationScores.selfAssessment,
+        assessment360: summary.evaluationScores.assessment360,
+        managerAssessment: summary.evaluationScores.managerAssessment,
+        mentoring: summary.evaluationScores.mentoring,
+        finalScore: summary.committeeAssessment.finalScore
+      },
+      summary: {
+        totalAssessments: summary.summary.totalAssessmentsReceived,
+        isEqualizationComplete: summary.summary.isEqualizationComplete,
+        hasCommitteeAssessment: summary.summary.hasCommitteeAssessment,
+        customSummary: summary.customSummary
+      },
+      metadata: {
+        exportedBy: 'Committee Member', // Could be enhanced to include actual user info
+        exportFormat: 'JSON',
+        dataVersion: '1.0'
+      }
+    };
+
+    return exportData;
   }
 }

@@ -27,6 +27,9 @@ async function main() {
       phase: 'ASSESSMENTS' as const,
       startDate: new Date('2025-01-01'),
       endDate: new Date('2025-06-30'),
+      assessmentDeadline: new Date('2025-03-15T23:59:59.999Z'),
+      managerDeadline: new Date('2025-04-15T23:59:59.999Z'),
+      equalizationDeadline: new Date('2025-05-15T23:59:59.999Z'),
     },
     {
       id: '2025.2',
