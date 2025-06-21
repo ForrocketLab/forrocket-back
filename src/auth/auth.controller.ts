@@ -25,6 +25,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { Public } from './public.decorator';
 import { User } from './entities/user.entity';
+import { HRRoleGuard } from './guards/hr-role.guard';
 
 /**
  * Controlador responsável pelos endpoints de autenticação
@@ -515,5 +516,144 @@ export class AuthController {
       timestamp: new Date().toISOString(),
       version: '1.0.0'
     };
+  }
+
+  /**
+   * Endpoint para listar todos os usuários (apenas RH/Admin)
+   * @returns Lista de todos os usuários do sistema
+   */
+  @Get('users')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Listar todos os usuários (apenas RH/Admin)',
+    description: `
+      Retorna uma lista de todos os usuários do sistema com informações básicas.
+      Disponível apenas para usuários com role 'rh' ou 'admin'.
+      
+      **Permissões:** Apenas RH ou Admin
+      **Uso:** Gestão de colaboradores, relatórios, administração
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'cmbyavwvd0000tzsgo55812qo' },
+          name: { type: 'string', example: 'Ana Oliveira' },
+          email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
+          roles: { type: 'array', items: { type: 'string' }, example: ['colaborador'] },
+          jobTitle: { type: 'string', example: 'Desenvolvedora Frontend' },
+          seniority: { type: 'string', example: 'Pleno' },
+          careerTrack: { type: 'string', example: 'Tech' },
+          businessUnit: { type: 'string', example: 'Digital Products' },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          managerName: { type: 'string', example: 'Bruno Mendes', nullable: true },
+          directReportsCount: { type: 'number', example: 2 }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado. Apenas usuários do RH podem acessar esta funcionalidade.',
+    type: ErrorResponseDto
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+    type: ErrorResponseDto
+  })
+  async getAllUsers(@CurrentUser() currentUser: User) {
+    return this.userService.getAllUsers();
+  }
+
+  /**
+   * Endpoint para listar todos os usuários com progresso de avaliações (apenas RH/Admin)
+   * @returns Lista de todos os usuários do sistema com progresso detalhado das avaliações
+   */
+  @Get('users/with-evaluation-progress')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Listar todos os usuários com progresso de avaliações (apenas RH/Admin)',
+    description: `
+      Retorna uma lista de todos os usuários do sistema com informações básicas e progresso detalhado das avaliações no ciclo ativo.
+      Disponível apenas para usuários com role 'rh' ou 'admin'.
+      
+      **Permissões:** Apenas RH ou Admin
+      **Uso:** Dashboard RH, acompanhamento de progresso, relatórios detalhados
+      **Dados incluídos:** Autoavaliação, 360, Gestor, Mentoring, Referências
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários com progresso de avaliações retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'cmbyavwvd0000tzsgo55812qo' },
+          name: { type: 'string', example: 'Ana Oliveira' },
+          email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
+          roles: { type: 'array', items: { type: 'string' }, example: ['colaborador'] },
+          jobTitle: { type: 'string', example: 'Desenvolvedora Frontend' },
+          seniority: { type: 'string', example: 'Pleno' },
+          careerTrack: { type: 'string', example: 'Tech' },
+          businessUnit: { type: 'string', example: 'Digital Products' },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          managerName: { type: 'string', example: 'Bruno Mendes', nullable: true },
+          directReportsCount: { type: 'number', example: 2 },
+          evaluationProgress: {
+            type: 'object',
+            properties: {
+              selfAssessment: {
+                type: 'object',
+                properties: {
+                  status: { type: 'string', example: 'SUBMITTED' },
+                  submittedAt: { type: 'string', format: 'date-time', nullable: true }
+                }
+              },
+              assessments360Received: { type: 'number', example: 3 },
+              managerAssessment: {
+                type: 'object',
+                properties: {
+                  status: { type: 'string', example: 'SUBMITTED' },
+                  submittedAt: { type: 'string', format: 'date-time', nullable: true }
+                }
+              },
+              mentoringAssessmentsReceived: { type: 'number', example: 1 },
+              referenceFeedbacksReceived: { type: 'number', example: 2 }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado. Apenas usuários do RH podem acessar esta funcionalidade.',
+    type: ErrorResponseDto
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+    type: ErrorResponseDto
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum ciclo ativo encontrado',
+    type: ErrorResponseDto
+  })
+  async getAllUsersWithEvaluationProgress(@CurrentUser() currentUser: User) {
+    return this.userService.getAllUsersWithEvaluationProgress();
   }
 } 
