@@ -743,11 +743,33 @@ describe('EvaluationsService', () => {
   describe('getUserEvaluationsByCycle', () => {
     it('deve buscar todas as avaliações feitas por um usuário', async () => {
       const mockUserData = {
-        selfAssessment: { id: 'self-1', authorId: 'user-1' },
+        selfAssessment: { 
+          id: 'self-1', 
+          authorId: 'user-1',
+          cycle: '2024-Q1',
+          status: 'SUBMITTED',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-02'),
+          submittedAt: new Date('2024-01-02'),
+          answers: []
+        },
         assessments360: [{ id: '360-1', authorId: 'user-1' }],
         mentoringAssessments: [{ id: 'mentoring-1', authorId: 'user-1' }],
         referenceFeedbacks: [{ id: 'reference-1', authorId: 'user-1' }],
         managerAssessments: [{ id: 'manager-1', authorId: 'user-1' }],
+      };
+
+      const expectedSelfAssessment = {
+        ...mockUserData.selfAssessment,
+        completionStatus: {
+          comportamento: { completed: 0, total: 5 },
+          execucao: { completed: 0, total: 4 },
+          gestao: { completed: 0, total: 3 },
+        },
+        overallCompletion: {
+          completed: 0,
+          total: 12,
+        },
       };
 
       prismaService.selfAssessment.findFirst.mockResolvedValue(mockUserData.selfAssessment);
@@ -761,7 +783,7 @@ describe('EvaluationsService', () => {
       const result = await service.getUserEvaluationsByCycle('user-1', '2024-Q1');
 
       expect(result.cycle).toBe('2024-Q1');
-      expect(result.selfAssessment).toEqual(mockUserData.selfAssessment);
+      expect(result.selfAssessment).toEqual(expectedSelfAssessment);
       expect(result.assessments360).toEqual(mockUserData.assessments360);
       expect(result.mentoringAssessments).toEqual(mockUserData.mentoringAssessments);
       expect(result.referenceFeedbacks).toEqual(mockUserData.referenceFeedbacks);

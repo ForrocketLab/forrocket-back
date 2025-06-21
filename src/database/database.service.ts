@@ -12,7 +12,11 @@ export class DatabaseService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
-    await this.initializeDatabase();
+    // Não inicializar automaticamente em ambiente de teste
+    // Os testes devem usar dados controlados via seed ou setup específico
+    if (process.env.NODE_ENV !== 'test') {
+      await this.initializeDatabase();
+    }
   }
 
   /**

@@ -37,6 +37,7 @@ describe('CyclesController', () => {
       activateCycle: jest.fn(),
       updateCycleStatus: jest.fn(),
       updateCyclePhase: jest.fn(),
+      getCycleDeadlinesInfo: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -126,6 +127,10 @@ describe('CyclesController', () => {
     const activateDto = {
       startDate: '2024-01-01',
       endDate: '2024-03-31',
+      assessmentDeadline: '2024-02-15',
+      managerDeadline: '2024-03-01',
+      equalizationDeadline: '2024-03-15',
+      autoSetEndDate: true,
     };
 
     it('deve ativar um ciclo com sucesso', async () => {
@@ -135,6 +140,20 @@ describe('CyclesController', () => {
       const result = await controller.activateCycle(mockUser as any, 'cycle-1', activateDto as any);
 
       expect(cyclesService.activateCycle).toHaveBeenCalledWith('cycle-1', activateDto);
+      expect(result).toEqual(activatedCycle);
+    });
+
+    it('deve ativar ciclo com deadlines mínimas', async () => {
+      const minimalDto = {
+        startDate: '2024-01-01',
+        endDate: '2024-03-31',
+      };
+      const activatedCycle = { ...mockCycle, status: 'OPEN' };
+      (cyclesService.activateCycle as jest.Mock).mockResolvedValue(activatedCycle);
+
+      const result = await controller.activateCycle(mockUser as any, 'cycle-1', minimalDto as any);
+
+      expect(cyclesService.activateCycle).toHaveBeenCalledWith('cycle-1', minimalDto);
       expect(result).toEqual(activatedCycle);
     });
 
@@ -159,6 +178,55 @@ describe('CyclesController', () => {
       ).rejects.toThrow('Apenas administradores podem ativar ciclos de avaliação');
 
       expect(cyclesService.activateCycle).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getCycleDeadlines', () => {
+    const mockDeadlinesInfo = {
+      cycle: {
+        id: 'cycle-1',
+        name: 'Q1 2024',
+        status: 'OPEN',
+        phase: 'ASSESSMENTS',
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-03-31'),
+      },
+      deadlines: [
+        {
+          phase: 'ASSESSMENTS',
+          name: 'Avaliações (Autoavaliação, 360°, Mentoring, Reference)',
+          deadline: new Date('2024-02-15'),
+          daysUntil: 10,
+          status: 'OK',
+        },
+      ],
+      summary: {
+        totalDeadlines: 1,
+        overdueCount: 0,
+        urgentCount: 0,
+        okCount: 1,
+      },
+      inconsistencies: [],
+      hasInconsistencies: false,
+    };
+
+    beforeEach(() => {
+      (cyclesService.getCycleDeadlinesInfo as jest.Mock).mockResolvedValue(mockDeadlinesInfo);
+    });
+
+    it('deve retornar informações de deadlines com sucesso', async () => {
+      const result = await controller.getCycleDeadlines('cycle-1');
+
+      expect(cyclesService.getCycleDeadlinesInfo).toHaveBeenCalledWith('cycle-1');
+      expect(result).toEqual(mockDeadlinesInfo);
+    });
+
+    it('deve propagar erro do service', async () => {
+      (cyclesService.getCycleDeadlinesInfo as jest.Mock).mockRejectedValue(
+        new NotFoundException('Ciclo não encontrado'),
+      );
+
+      await expect(controller.getCycleDeadlines('cycle-1')).rejects.toThrow(NotFoundException);
     });
   });
 
