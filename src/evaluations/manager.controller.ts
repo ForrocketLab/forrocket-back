@@ -1,3 +1,4 @@
+// src/evaluations/manager.controller.ts
 import {
   Controller,
   Post,
@@ -9,8 +10,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Query,
+  Param, // Importar Param para pegar o ID do subordinado da URL
+  NotFoundException, // Importar NotFoundException
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger'; // Importar ApiParam
 
 import { CreateManagerAssessmentDto } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
@@ -18,6 +21,9 @@ import { ProjectsService } from '../projects/projects.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto'; // Adicionado para tipo de retorno do dashboard
+// import { ISelfAssessment } from '../models/evaluations/collaborator'; // REMOVIDO/COMENTADO - Substituído por DTO
+import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto'; // Importe o DTO da resposta
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -186,5 +192,60 @@ export class ManagerController {
 
     // A lógica de negócio principal é delegada ao serviço de avaliações
     return this.evaluationsService.getManagerDashboard(user.id, cycle);
+  }
+
+  // NOVO ENDPOINT: Visualizar autoavaliação de subordinado
+  @Get('subordinate/:subordinateId/self-assessment')
+  @ApiOperation({
+    summary: 'Visualizar autoavaliação detalhada de um subordinado',
+    description: `
+      Permite que um gestor visualize a autoavaliação completa e detalhada de um de seus subordinados
+      para o ciclo de avaliação ativo. Inclui as notas por critério e justificativas.
+      
+      **Regras de Negócio:**
+      - Apenas usuários com role de MANAGER podem acessar.
+      - O gestor logado DEVE ser o gestor direto do subordinado.
+      - A autoavaliação do subordinado deve estar disponível (status SUBMITTED).
+      - Deve haver um ciclo de avaliação ativo e na fase MANAGER_REVIEWS ou EQUALIZATION.
+    `,
+  })
+  @ApiParam({
+    name: 'subordinateId',
+    description: 'ID do subordinado cuja autoavaliação será visualizada',
+    example: 'cluid123456789',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Autoavaliação do subordinado retornada com sucesso',
+    type: SelfAssessmentResponseDto, // Usando a classe DTO aqui
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Não há ciclo ativo ou não está na fase correta.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Acesso negado: Você não é gestor deste subordinado ou não tem permissão.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Subordinado não encontrado ou autoavaliação não encontrada.',
+  })
+  async getSubordinateSelfAssessment(
+    @CurrentUser() user: User,
+    @Param('subordinateId') subordinateId: string,
+  ) {
+    // 1. Verificar se o usuário logado é gestor
+    const isManager = await this.projectsService.isManager(user.id);
+    if (!isManager) {
+      throw new ForbiddenException('Apenas gestores podem visualizar autoavaliações de subordinados.');
+    }
+
+    // 2. Chamar o serviço para buscar e validar a autoavaliação
+    // A validação de relacionamento gestor-subordinado e ciclo ativo será feita no service.
+    return this.evaluationsService.getSubordinateSelfAssessment(
+      user.id,
+      subordinateId,
+    );
   }
 }
