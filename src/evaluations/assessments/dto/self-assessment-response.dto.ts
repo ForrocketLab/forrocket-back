@@ -1,4 +1,3 @@
-// src/evaluations/assessments/dto/self-assessment-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { ISelfAssessment, ISelfAssessmentAnswer } from '../../../models/evaluations/collaborator/ISelfAssessment'; // Mantém ISelfAssessment e ISelfAssessmentAnswer daqui
 import { EvaluationStatus } from '../../../models/evaluations/collaborator'; // Importa EvaluationStatus do index

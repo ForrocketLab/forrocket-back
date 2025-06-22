@@ -21,15 +21,15 @@ import {
   ALL_CRITERIA,
   getCriteriaByPillar,
   getAllPillars,
-  isValidCriterionId, // Não usado diretamente aqui, mas útil
+  isValidCriterionId,
 } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
 import {
   ISelfAssessment,
   ISelfAssessmentAnswer,
-  EvaluationStatus, // AGORA IMPORTADO COMO UM ENUM real
-  CollaboratorEvaluationType, // Não usado diretamente aqui
+  EvaluationStatus,
+  CollaboratorEvaluationType,
 } from '../models/evaluations/collaborator';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 

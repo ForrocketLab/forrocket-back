@@ -1,5 +1,3 @@
-// forrocketlab/forrocket-back/forrocket-back-feat-gestor/src/models/evaluations/collaborator/index.ts
-
 /**
  * Arquivo de índice para as interfaces de avaliação do colaborador
  * Facilita a importação das interfaces em outros módulos

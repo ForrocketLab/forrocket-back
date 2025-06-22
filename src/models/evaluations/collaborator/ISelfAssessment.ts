@@ -1,4 +1,3 @@
-// src/models/evaluations/collaborator/ISelfAssessment.ts
 import { IBaseEvaluation } from './IBaseEvaluation';
 import { ALL_CRITERIA } from '../../criteria';
 

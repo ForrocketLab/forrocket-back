@@ -1,4 +1,3 @@
-// src/evaluations/manager.controller.ts
 import {
   Controller,
   Post,
@@ -10,10 +9,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Query,
-  Param, // Importar Param para pegar o ID do subordinado da URL
-  NotFoundException, // Importar NotFoundException
+  Param, 
+  NotFoundException, 
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger'; // Importar ApiParam
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger'; 
 
 import { CreateManagerAssessmentDto } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
@@ -21,9 +20,8 @@ import { ProjectsService } from '../projects/projects.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto'; // Adicionado para tipo de retorno do dashboard
-// import { ISelfAssessment } from '../models/evaluations/collaborator'; // REMOVIDO/COMENTADO - Substituído por DTO
-import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto'; // Importe o DTO da resposta
+import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
+import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto'; 
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()

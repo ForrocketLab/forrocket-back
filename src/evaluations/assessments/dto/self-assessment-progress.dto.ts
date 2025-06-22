@@ -1,4 +1,3 @@
-// src/evaluations/assessments/dto/self-assessment-progress.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 
 // Define os pilares de avaliação com suas descrições
