@@ -32,6 +32,7 @@ import {
   CollaboratorEvaluationType,
 } from '../models/evaluations/collaborator';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
+import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -95,7 +96,8 @@ export class EvaluationsService {
       );
     }
 
-    if (existingAssessment.status === 'SUBMITTED') {
+    if (existingAssessment.status === EvaluationStatus.SUBMITTED) {
+      // Usando o enum aqui
       throw new BadRequestException('Esta avaliação já foi submetida.');
     }
 
@@ -103,7 +105,7 @@ export class EvaluationsService {
     const updatedAssessment = await model.update({
       where: { id: evaluationId },
       data: {
-        status: 'SUBMITTED',
+        status: EvaluationStatus.SUBMITTED, // Usando o enum aqui
         submittedAt: new Date(),
       },
     });
@@ -206,7 +208,7 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: activeCycle.name,
-        status: 'DRAFT',
+        status: EvaluationStatus.DRAFT, // Usando o enum aqui
         answers: {
           create: answers,
         },
@@ -271,7 +273,7 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: activeCycle.name,
-        status: 'DRAFT',
+        status: EvaluationStatus.DRAFT, // Usando o enum aqui
         evaluatedUserId: dto.evaluatedUserId,
         overallScore: dto.overallScore,
         strengths: dto.strengths,
@@ -332,7 +334,7 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: activeCycle.name,
-        status: 'DRAFT',
+        status: EvaluationStatus.DRAFT, // Usando o enum aqui
         mentorId: dto.mentorId,
         score: dto.score,
         justification: dto.justification,
@@ -383,7 +385,7 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: activeCycle.name,
-        status: 'DRAFT',
+        status: EvaluationStatus.DRAFT, // Usando o enum aqui
         referencedUserId: dto.referencedUserId,
         topic: dto.topic, // Campo opcional
         justification: dto.justification,
@@ -468,7 +470,7 @@ export class EvaluationsService {
         authorId: managerId,
         evaluatedUserId: dto.evaluatedUserId,
         cycle: activeCycle.name,
-        status: 'DRAFT',
+        status: EvaluationStatus.DRAFT, // Usando o enum aqui
         answers: {
           create: answers,
         },
@@ -499,7 +501,7 @@ export class EvaluationsService {
     selfAssessment: ISelfAssessment,
   ): SelfAssessmentCompletionByPillarDto {
     const pillarCompletion: SelfAssessmentCompletionByPillarDto =
-      {} as SelfAssessmentCompletionByPillarDto; 
+      {} as SelfAssessmentCompletionByPillarDto;
     const allPillars = getAllPillars();
 
     // 1. Inicializa a contagem para cada pilar
@@ -696,13 +698,13 @@ export class EvaluationsService {
     if (selfAssessmentFromDb) {
       selfAssessment = {
         ...selfAssessmentFromDb,
-        status: selfAssessmentFromDb.status as EvaluationStatus, 
+        status: selfAssessmentFromDb.status as EvaluationStatus,
         createdAt: new Date(selfAssessmentFromDb.createdAt),
-        updatedAt: new Date(selfAssessmentFromDb.updatedAt), 
+        updatedAt: new Date(selfAssessmentFromDb.updatedAt),
         submittedAt: selfAssessmentFromDb.submittedAt
           ? new Date(selfAssessmentFromDb.submittedAt)
-          : undefined, 
-      } as ISelfAssessment; 
+          : undefined,
+      } as ISelfAssessment;
     }
 
     // Calcular o status de preenchimento por pilar para a autoavaliação
@@ -725,7 +727,7 @@ export class EvaluationsService {
       selfAssessment: selfAssessment
         ? {
             ...selfAssessment,
-            completionStatus: selfAssessmentCompletionByPillar, 
+            completionStatus: selfAssessmentCompletionByPillar,
             overallCompletion: {
               // Progresso geral (X/12)
               completed: totalCompleted,
@@ -738,7 +740,8 @@ export class EvaluationsService {
       referenceFeedbacks,
       managerAssessments,
       summary: {
-        selfAssessmentCompleted: !!selfAssessment && selfAssessment.status === 'SUBMITTED',
+        selfAssessmentCompleted:
+          !!selfAssessment && selfAssessment.status === EvaluationStatus.SUBMITTED, // Usando o enum aqui
         selfAssessmentOverallProgress: {
           // No summary, a visão geral (X/12)
           completed: totalCompleted,
@@ -757,7 +760,7 @@ export class EvaluationsService {
     cycle: string,
   ): Promise<number | null> {
     const assessments = await this.prisma.assessment360.findMany({
-      where: { evaluatedUserId: managerId, cycle, status: 'SUBMITTED' },
+      where: { evaluatedUserId: managerId, cycle, status: EvaluationStatus.SUBMITTED }, // Usando o enum aqui
       select: { overallScore: true },
     });
 
@@ -775,7 +778,7 @@ export class EvaluationsService {
 
     // Para simplificar, consideramos "concluído" quando a autoavaliação é submetida.
     const completedCount = await this.prisma.selfAssessment.count({
-      where: { authorId: { in: subordinateIds }, cycle, status: 'SUBMITTED' },
+      where: { authorId: { in: subordinateIds }, cycle, status: EvaluationStatus.SUBMITTED }, // Usando o enum aqui
     });
 
     const percentage = (completedCount / subordinateIds.length) * 100;
@@ -794,7 +797,7 @@ export class EvaluationsService {
         authorId: managerId,
         evaluatedUserId: { in: subordinateIds },
         cycle,
-        status: 'SUBMITTED',
+        status: EvaluationStatus.SUBMITTED, // Usando o enum aqui
       },
     });
 
@@ -836,8 +839,9 @@ export class EvaluationsService {
 
         const selfAssessment = p.selfAssessments[0];
         let status: 'PENDING' | 'DRAFT' | 'SUBMITTED' = 'PENDING';
-        if (selfAssessment?.status === 'SUBMITTED') status = 'SUBMITTED';
-        else if (selfAssessment?.status === 'DRAFT') status = 'PENDING';
+        if (selfAssessment?.status === EvaluationStatus.SUBMITTED)
+          status = EvaluationStatus.SUBMITTED; // Usando o enum aqui
+        else if (selfAssessment?.status === EvaluationStatus.DRAFT) status = EvaluationStatus.DRAFT; // Usando o enum aqui
 
         return [
           p.id,
@@ -913,5 +917,121 @@ export class EvaluationsService {
       },
       collaboratorsInfo,
     };
+  }
+
+  // NOVA FUNÇÃO: Obter autoavaliação de subordinado para gestor
+  async getSubordinateSelfAssessment(
+    managerId: string,
+    subordinateId: string,
+  ): Promise<ISelfAssessment> {
+    // 1. Validar a fase do ciclo ativo (deve ser MANAGER_REVIEWS ou EQUALIZATION)
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS'); // Ou 'EQUALIZATION'
+
+    // 2. Verificar se o subordinateId existe e está ativo
+    const subordinate = await this.prisma.user.findUnique({
+      where: { id: subordinateId, isActive: true },
+      select: { id: true, name: true, email: true, managerId: true }, // Incluir managerId do subordinado
+    });
+
+    if (!subordinate) {
+      throw new NotFoundException('Subordinado não encontrado.');
+    }
+
+    // 3. Validar se o gestor logado é realmente o gestor direto do subordinado
+    if (subordinate.managerId !== managerId) {
+      throw new ForbiddenException(
+        'Você não tem permissão para visualizar a autoavaliação deste usuário. Ele não é seu subordinado direto.',
+      );
+    }
+
+    // 4. Buscar a autoavaliação do subordinado para o ciclo ativo
+    const selfAssessmentFromDb = await this.prisma.selfAssessment.findFirst({
+      where: {
+        authorId: subordinateId,
+        cycle: activeCycle.name,
+        status: EvaluationStatus.SUBMITTED, // Apenas autoavaliações submetidas devem ser visíveis para o gestor
+      },
+      include: {
+        answers: true, // Inclui as respostas detalhadas
+      },
+    });
+
+    if (!selfAssessmentFromDb) {
+      throw new NotFoundException(
+        `Autoavaliação do subordinado ${subordinate.name} para o ciclo ${activeCycle.name} não encontrada ou não submetida.`,
+      );
+    }
+
+    // 5. Mapear e retornar a autoavaliação para o tipo ISelfAssessment
+    const selfAssessment: ISelfAssessment = {
+      ...selfAssessmentFromDb,
+      status: selfAssessmentFromDb.status as EvaluationStatus,
+      createdAt: new Date(selfAssessmentFromDb.createdAt),
+      updatedAt: new Date(selfAssessmentFromDb.updatedAt),
+      submittedAt: selfAssessmentFromDb.submittedAt
+        ? new Date(selfAssessmentFromDb.submittedAt)
+        : undefined,
+    } as ISelfAssessment;
+
+    // Adicionar o progresso de preenchimento (já que já temos a função)
+    const completionStatus = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
+    const totalCompleted = Object.values(completionStatus).reduce((acc, p) => acc + p.completed, 0);
+    const totalOverall = ALL_CRITERIA.length;
+
+    return {
+      ...selfAssessment,
+      completionStatus,
+      overallCompletion: {
+        completed: totalCompleted,
+        total: totalOverall,
+      },
+    };
+  }
+
+  async getSubordinateReceived360s(
+    managerId: string,
+    subordinateId: string,
+    cycle: string,
+  ): Promise<Received360AssessmentDto[]> {
+    // valida se o gestor pode ver os dados deste subordinado
+    const subordinate = await this.prisma.user.findUnique({
+      where: { id: subordinateId, isActive: true },
+    });
+    if (!subordinate) {
+      throw new NotFoundException('Subordinado não encontrado.');
+    }
+    if (subordinate.managerId !== managerId) {
+      throw new ForbiddenException(
+        'Você não tem permissão para visualizar os dados deste usuário.',
+      );
+    }
+
+    // busca no banco todas as avaliações 360 que o subordinado RECEBEU
+    const receivedAssessments = await this.prisma.assessment360.findMany({
+      where: {
+        evaluatedUserId: subordinateId,
+        cycle: cycle,
+        status: 'SUBMITTED',
+      },
+      include: {
+        author: {
+          select: {
+            name: true,
+            jobTitle: true,
+          },
+        },
+      },
+    });
+
+    // map dos dados do banco para o DTO
+    const formattedAssessments = receivedAssessments.map((assessment) => ({
+      evaluatorName: assessment.author.name,
+      evaluatorJobTitle: assessment.author.jobTitle,
+      rating: assessment.overallScore,
+      strengths: assessment.strengths,
+      weaknesses: assessment.improvements,
+    }));
+
+    return formattedAssessments;
   }
 }

@@ -1,31 +1,38 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-// DTO para o progresso de um pilar específico
+// Define os pilares de avaliação com suas descrições
+export enum EvaluationPillar {
+  BEHAVIOR = 'Comportamento',
+  EXECUTION = 'Execução',
+  LEADERSHIP = 'Gestão e Liderança',
+}
+
+// Representa o progresso de preenchimento para um pilar específico
 export class PillarProgressDto {
-  @ApiProperty({ description: 'Número de critérios preenchidos validamente neste pilar', example: 4 })
+  @ApiProperty({ description: 'Número de critérios completos no pilar', example: 3 })
   completed: number;
 
-  @ApiProperty({ description: 'Número total de critérios neste pilar', example: 5 })
+  @ApiProperty({ description: 'Número total de critérios no pilar', example: 5 })
   total: number;
 }
 
-// DTO para o progresso de preenchimento da autoavaliação por pilar
+// Representa o status de preenchimento da autoavaliação por pilar
 export class SelfAssessmentCompletionByPillarDto {
-  @ApiProperty({ description: 'Progresso do pilar Comportamento', type: PillarProgressDto, example: { completed: 4, total: 5 } })
-  comportamento: PillarProgressDto;
+  @ApiProperty({ type: PillarProgressDto, description: 'Progresso do pilar de Comportamento' })
+  [EvaluationPillar.BEHAVIOR]: PillarProgressDto;
 
-  @ApiProperty({ description: 'Progresso do pilar Execução', type: PillarProgressDto, example: { completed: 2, total: 4 } })
-  execucao: PillarProgressDto;
+  @ApiProperty({ type: PillarProgressDto, description: 'Progresso do pilar de Execução' })
+  [EvaluationPillar.EXECUTION]: PillarProgressDto;
 
-  @ApiProperty({ description: 'Progresso do pilar Gestão e Liderança', type: PillarProgressDto, example: { completed: 1, total: 3 } })
-  gestao: PillarProgressDto;
+  @ApiProperty({ type: PillarProgressDto, description: 'Progresso do pilar de Gestão e Liderança' })
+  [EvaluationPillar.LEADERSHIP]: PillarProgressDto;
 }
 
-// DTO para o progresso geral da autoavaliação
+// Representa o progresso geral da autoavaliação
 export class OverallCompletionDto {
-  @ApiProperty({ description: 'Total de critérios preenchidos em toda a autoavaliação', example: 7 })
+  @ApiProperty({ description: 'Número total de critérios completos', example: 10 })
   completed: number;
 
-  @ApiProperty({ description: 'Total de critérios na autoavaliação (sempre 12)', example: 12 })
+  @ApiProperty({ description: 'Número total de critérios na autoavaliação', example: 12 })
   total: number;
 }
