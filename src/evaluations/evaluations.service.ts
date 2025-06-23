@@ -32,6 +32,7 @@ import {
   CollaboratorEvaluationType,
 } from '../models/evaluations/collaborator';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
+import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -95,7 +96,8 @@ export class EvaluationsService {
       );
     }
 
-    if (existingAssessment.status === EvaluationStatus.SUBMITTED) { // Usando o enum aqui
+    if (existingAssessment.status === EvaluationStatus.SUBMITTED) {
+      // Usando o enum aqui
       throw new BadRequestException('Esta avaliação já foi submetida.');
     }
 
@@ -499,7 +501,7 @@ export class EvaluationsService {
     selfAssessment: ISelfAssessment,
   ): SelfAssessmentCompletionByPillarDto {
     const pillarCompletion: SelfAssessmentCompletionByPillarDto =
-      {} as SelfAssessmentCompletionByPillarDto; 
+      {} as SelfAssessmentCompletionByPillarDto;
     const allPillars = getAllPillars();
 
     // 1. Inicializa a contagem para cada pilar
@@ -696,13 +698,13 @@ export class EvaluationsService {
     if (selfAssessmentFromDb) {
       selfAssessment = {
         ...selfAssessmentFromDb,
-        status: selfAssessmentFromDb.status as EvaluationStatus, 
+        status: selfAssessmentFromDb.status as EvaluationStatus,
         createdAt: new Date(selfAssessmentFromDb.createdAt),
-        updatedAt: new Date(selfAssessmentFromDb.updatedAt), 
+        updatedAt: new Date(selfAssessmentFromDb.updatedAt),
         submittedAt: selfAssessmentFromDb.submittedAt
           ? new Date(selfAssessmentFromDb.submittedAt)
-          : undefined, 
-      } as ISelfAssessment; 
+          : undefined,
+      } as ISelfAssessment;
     }
 
     // Calcular o status de preenchimento por pilar para a autoavaliação
@@ -725,7 +727,7 @@ export class EvaluationsService {
       selfAssessment: selfAssessment
         ? {
             ...selfAssessment,
-            completionStatus: selfAssessmentCompletionByPillar, 
+            completionStatus: selfAssessmentCompletionByPillar,
             overallCompletion: {
               // Progresso geral (X/12)
               completed: totalCompleted,
@@ -738,7 +740,8 @@ export class EvaluationsService {
       referenceFeedbacks,
       managerAssessments,
       summary: {
-        selfAssessmentCompleted: !!selfAssessment && selfAssessment.status === EvaluationStatus.SUBMITTED, // Usando o enum aqui
+        selfAssessmentCompleted:
+          !!selfAssessment && selfAssessment.status === EvaluationStatus.SUBMITTED, // Usando o enum aqui
         selfAssessmentOverallProgress: {
           // No summary, a visão geral (X/12)
           completed: totalCompleted,
@@ -836,7 +839,8 @@ export class EvaluationsService {
 
         const selfAssessment = p.selfAssessments[0];
         let status: 'PENDING' | 'DRAFT' | 'SUBMITTED' = 'PENDING';
-        if (selfAssessment?.status === EvaluationStatus.SUBMITTED) status = EvaluationStatus.SUBMITTED; // Usando o enum aqui
+        if (selfAssessment?.status === EvaluationStatus.SUBMITTED)
+          status = EvaluationStatus.SUBMITTED; // Usando o enum aqui
         else if (selfAssessment?.status === EvaluationStatus.DRAFT) status = EvaluationStatus.DRAFT; // Usando o enum aqui
 
         return [
@@ -971,10 +975,7 @@ export class EvaluationsService {
 
     // Adicionar o progresso de preenchimento (já que já temos a função)
     const completionStatus = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
-    const totalCompleted = Object.values(completionStatus).reduce(
-      (acc, p) => acc + p.completed,
-      0,
-    );
+    const totalCompleted = Object.values(completionStatus).reduce((acc, p) => acc + p.completed, 0);
     const totalOverall = ALL_CRITERIA.length;
 
     return {
@@ -985,5 +986,52 @@ export class EvaluationsService {
         total: totalOverall,
       },
     };
+  }
+
+  async getSubordinateReceived360s(
+    managerId: string,
+    subordinateId: string,
+    cycle: string,
+  ): Promise<Received360AssessmentDto[]> {
+    // valida se o gestor pode ver os dados deste subordinado
+    const subordinate = await this.prisma.user.findUnique({
+      where: { id: subordinateId, isActive: true },
+    });
+    if (!subordinate) {
+      throw new NotFoundException('Subordinado não encontrado.');
+    }
+    if (subordinate.managerId !== managerId) {
+      throw new ForbiddenException(
+        'Você não tem permissão para visualizar os dados deste usuário.',
+      );
+    }
+
+    // busca no banco todas as avaliações 360 que o subordinado RECEBEU
+    const receivedAssessments = await this.prisma.assessment360.findMany({
+      where: {
+        evaluatedUserId: subordinateId,
+        cycle: cycle,
+        status: 'SUBMITTED',
+      },
+      include: {
+        author: {
+          select: {
+            name: true,
+            jobTitle: true,
+          },
+        },
+      },
+    });
+
+    // map dos dados do banco para o DTO
+    const formattedAssessments = receivedAssessments.map((assessment) => ({
+      evaluatorName: assessment.author.name,
+      evaluatorJobTitle: assessment.author.jobTitle,
+      rating: assessment.overallScore,
+      strengths: assessment.strengths,
+      weaknesses: assessment.improvements,
+    }));
+
+    return formattedAssessments;
   }
 }

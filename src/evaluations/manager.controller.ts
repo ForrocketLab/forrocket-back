@@ -9,10 +9,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Query,
-  Param, 
-  NotFoundException, 
+  Param,
+  NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger'; 
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 
 import { CreateManagerAssessmentDto } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
@@ -21,7 +21,8 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
-import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto'; 
+import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto';
+import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -236,14 +237,42 @@ export class ManagerController {
     // 1. Verificar se o usuário logado é gestor
     const isManager = await this.projectsService.isManager(user.id);
     if (!isManager) {
-      throw new ForbiddenException('Apenas gestores podem visualizar autoavaliações de subordinados.');
+      throw new ForbiddenException(
+        'Apenas gestores podem visualizar autoavaliações de subordinados.',
+      );
     }
 
     // 2. Chamar o serviço para buscar e validar a autoavaliação
     // A validação de relacionamento gestor-subordinado e ciclo ativo será feita no service.
-    return this.evaluationsService.getSubordinateSelfAssessment(
-      user.id,
-      subordinateId,
-    );
+    return this.evaluationsService.getSubordinateSelfAssessment(user.id, subordinateId);
+  }
+
+  // Visualiza avaliações 360 recebidas por um subordinado
+  @Get('subordinate/:subordinateId/360-assessments')
+  @ApiOperation({
+    summary: 'Visualizar avaliações 360 recebidas por um subordinado',
+    description: `Permite que um gestor visualize as avaliações 360 que um de seus liderados recebeu de outros colaboradores no ciclo especificado.`,
+  })
+  @ApiParam({
+    name: 'subordinateId',
+    description: 'ID do subordinado',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Lista de avaliações 360 recebidas retornada com sucesso.',
+    type: [Received360AssessmentDto],
+  })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Acesso negado.' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Subordinado não encontrado.' })
+  async getSubordinateReceived360s(
+    @CurrentUser() user: User,
+    @Param('subordinateId') subordinateId: string,
+    @Query('cycle') cycle: string,
+  ) {
+    if (!cycle) {
+      throw new BadRequestException('O parâmetro "cycle" é obrigatório.');
+    }
+
+    return this.evaluationsService.getSubordinateReceived360s(user.id, subordinateId, cycle);
   }
 }
