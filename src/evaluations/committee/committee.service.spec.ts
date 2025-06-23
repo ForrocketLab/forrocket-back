@@ -265,7 +265,8 @@ describe('CommitteeService', () => {
           finalScore: 4,
           justification: 'Justificativa detalhada',
           observations: 'Observações adicionais',
-          status: 'DRAFT',
+          status: 'SUBMITTED',
+          submittedAt: expect.any(Date),
         },
         include: expect.any(Object),
       });
@@ -349,6 +350,8 @@ describe('CommitteeService', () => {
         data: {
           finalScore: 5,
           justification: 'Justificativa atualizada',
+          status: 'SUBMITTED',
+          submittedAt: expect.any(Date),
           updatedAt: expect.any(Date),
         },
         include: expect.any(Object),

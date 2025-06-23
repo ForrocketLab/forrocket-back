@@ -221,11 +221,11 @@ export class CommitteeController {
   @ApiOperation({
     summary: 'Criar avaliação de comitê',
     description:
-      'Cria uma nova avaliação de equalização para um colaborador. Apenas membros do comitê podem realizar esta ação na fase EQUALIZATION.',
+      'Cria uma nova avaliação de equalização para um colaborador e a submete automaticamente. Apenas membros do comitê podem realizar esta ação na fase EQUALIZATION.',
   })
   @ApiResponse({
     status: 201,
-    description: 'Avaliação de comitê criada com sucesso',
+    description: 'Avaliação de comitê criada e submetida com sucesso',
     schema: {
       type: 'object',
       properties: {
@@ -234,7 +234,8 @@ export class CommitteeController {
         finalScore: { type: 'number', example: 4 },
         justification: { type: 'string', example: 'Justificativa baseada nas avaliações...' },
         observations: { type: 'string', example: 'Observações adicionais...', nullable: true },
-        status: { type: 'string', example: 'DRAFT' },
+        status: { type: 'string', example: 'SUBMITTED' },
+        submittedAt: { type: 'string', format: 'date-time' },
         createdAt: { type: 'string', format: 'date-time' },
         author: {
           type: 'object',
@@ -281,7 +282,7 @@ export class CommitteeController {
   @ApiOperation({
     summary: 'Atualizar avaliação de comitê',
     description:
-      'Atualiza uma avaliação de comitê existente. Apenas avaliações em status DRAFT podem ser editadas.',
+      'Atualiza uma avaliação de comitê existente e a submete automaticamente. Permite edições mesmo em avaliações já submetidas.',
   })
   @ApiParam({
     name: 'assessmentId',
@@ -290,15 +291,11 @@ export class CommitteeController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Avaliação de comitê atualizada com sucesso',
+    description: 'Avaliação de comitê atualizada e submetida com sucesso',
   })
   @ApiResponse({
     status: 404,
     description: 'Avaliação de comitê não encontrada',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Avaliação já foi submetida e não pode ser editada',
   })
   @ApiResponse({
     status: 403,
