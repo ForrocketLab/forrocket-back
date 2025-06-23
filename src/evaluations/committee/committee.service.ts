@@ -366,7 +366,8 @@ export class CommitteeService {
         finalScore: dto.finalScore,
         justification: dto.justification,
         observations: dto.observations || null,
-        status: 'DRAFT',
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
       },
       include: {
         author: {
@@ -420,9 +421,9 @@ export class CommitteeService {
 
     this.validateCommitteeMember(currentUser.roles);
 
-    // Verificar se a avaliação ainda pode ser editada
+    // Verificar se a avaliação ainda não foi submetida
     if (assessment.status === 'SUBMITTED') {
-      throw new BadRequestException('Não é possível editar uma avaliação já submetida');
+      throw new BadRequestException('Esta avaliação já foi submetida e não pode ser alterada');
     }
 
     // Atualizar a avaliação
@@ -432,6 +433,8 @@ export class CommitteeService {
         ...(dto.finalScore !== undefined && { finalScore: dto.finalScore }),
         ...(dto.justification !== undefined && { justification: dto.justification }),
         ...(dto.observations !== undefined && { observations: dto.observations }),
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
         updatedAt: new Date(),
       },
       include: {
