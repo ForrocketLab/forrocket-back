@@ -111,4 +111,22 @@ export class ProjectsController {
   async getTeammatesWithRoles(@CurrentUser() user: User) {
     return this.projectsService.getTeammatesByProjectsWithRoles(user.id);
   }
+
+  @Get('all')
+  @ApiOperation({
+    summary: 'Listar todos os projetos ativos (Admin)',
+    description: 'Retorna todos os projetos ativos do sistema para administradores',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de todos os projetos ativos retornada com sucesso',
+    type: [ProjectDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getAllProjects() {
+    return this.projectsService.getAllProjects();
+  }
 }

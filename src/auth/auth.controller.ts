@@ -19,7 +19,7 @@ import {
   ApiExtraModels,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { UserService } from './user.service';
+import { UserService, UserSummary } from './user.service';
 import { LoginDto, LoginResponseDto, ErrorResponseDto } from './dto/login.dto';
 import { UserInfoDto, UserProfileDto, CreateUserDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -747,4 +747,42 @@ export class AuthController {
   ) {
     return this.userService.getCollaboratorEvaluationDetails(collaboratorId);
   }
-} 
+
+  @Get('users/potential-mentors')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiOperation({
+    summary: 'Buscar usuários potenciais para serem mentores',
+    description: 'Retorna lista de usuários ativos que não são mentores de ninguém ainda e podem ser designados como mentores',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários potenciais mentores retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'user-123' },
+          name: { type: 'string', example: 'Ana Oliveira' },
+          email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
+          jobTitle: { type: 'string', example: 'Desenvolvedora Frontend Pleno' },
+          seniority: { type: 'string', example: 'Pleno' },
+          businessUnit: { type: 'string', example: 'Tech/Digital Products' }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado. Apenas usuários do RH/Admin podem acessar esta funcionalidade.',
+    type: ErrorResponseDto
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+    type: ErrorResponseDto
+  })
+  async getPotentialMentors(@CurrentUser() currentUser: User): Promise<UserSummary[]> {
+    return this.userService.getPotentialMentors();
+  }
+}
