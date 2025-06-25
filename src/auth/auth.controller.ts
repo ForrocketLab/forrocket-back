@@ -785,4 +785,4 @@ export class AuthController {
   async getPotentialMentors(@CurrentUser() currentUser: User): Promise<UserSummary[]> {
     return this.userService.getPotentialMentors();
   }
-}
+} 

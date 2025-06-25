@@ -1,11 +1,12 @@
-import { Controller, Get, UseGuards, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, UseGuards, HttpStatus, Query, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 
 import { ProjectsService } from './projects.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ProjectDto, ProjectWithUserRolesDto, ProjectTeammatesDto, EvaluableUsersResponseDto } from './dto';
+import { HRRoleGuard } from '../auth/guards/hr-role.guard';
+import { ProjectDto, ProjectWithUserRolesDto, ProjectTeammatesDto, EvaluableUsersResponseDto, UserOverviewDto, AdminUserOverviewDto } from './dto';
 
 @ApiTags('Projetos')
 @ApiBearerAuth()
@@ -13,6 +14,58 @@ import { ProjectDto, ProjectWithUserRolesDto, ProjectTeammatesDto, EvaluableUser
 @Controller('api/projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
+
+  @Get('overview')
+  @ApiOperation({
+    summary: 'Overview completo do usuário',
+    description:
+      'Retorna informações completas sobre projetos do usuário, quem ele gerencia, se tem mentor e a quem mentora',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Overview do usuário retornado com sucesso',
+    type: UserOverviewDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getUserOverview(@CurrentUser() user: User) {
+    return this.projectsService.getUserOverview(user.id);
+  }
+
+  @Get('admin/user-overview/:userId')
+  @UseGuards(HRRoleGuard)
+  @ApiOperation({
+    summary: 'Overview completo de qualquer usuário (Admin/RH)',
+    description:
+      'Retorna informações completas sobre projetos de um usuário específico, incluindo quem ele gerencia, se tem mentor e a quem mentora. Apenas para administradores e RH.',
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'ID do usuário para buscar o overview',
+    example: 'user-123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Overview do usuário retornado com sucesso',
+    type: AdminUserOverviewDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas admin/RH',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuário não encontrado',
+  })
+  async getAdminUserOverview(@Param('userId') userId: string) {
+    return this.projectsService.getAdminUserOverview(userId);
+  }
 
   @Get('teammates')
   @ApiOperation({
