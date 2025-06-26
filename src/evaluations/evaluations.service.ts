@@ -40,6 +40,7 @@ import {
 } from './assessments/dto/performance-data.dto';
 import { CriterionPillar } from '@prisma/client';
 import { PillarScores } from './assessments/dto/pillar-scores.dto';
+import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -1043,23 +1044,31 @@ export class EvaluationsService {
   }
 
   // Histórico de notas por ciclos, pilares (BEHAVIOR, EXECUTION e MANAGEMENT) e inclui a nota final do comitê.
-  async getPerformanceHistory(userId: string): Promise<PerformanceDataDto[]> {
-    const [criteria, selfAssessments, managerAssessments, committeeAssessments] = await Promise.all(
-      [
-        this.prisma.criterion.findMany(),
-        this.prisma.selfAssessment.findMany({
-          where: { authorId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações enviadas
-          include: { answers: true },
-        }),
-        this.prisma.managerAssessment.findMany({
-          where: { evaluatedUserId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações recebidas
-          include: { answers: true },
-        }),
-        this.prisma.committeeAssessment.findMany({
-          where: { evaluatedUserId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações recebidas
-        }),
-      ],
-    );
+  async getPerformanceHistory(userId: string): Promise<PerformanceHistoryDto> {
+    const [
+      criteria,
+      selfAssessments,
+      managerAssessments,
+      committeeAssessments,
+      submitted360Assessments,
+    ] = await Promise.all([
+      this.prisma.criterion.findMany(),
+      this.prisma.selfAssessment.findMany({
+        where: { authorId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações enviadas
+        include: { answers: true },
+      }),
+      this.prisma.managerAssessment.findMany({
+        where: { evaluatedUserId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações recebidas
+        include: { answers: true },
+      }),
+      this.prisma.committeeAssessment.findMany({
+        where: { evaluatedUserId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações recebidas
+      }),
+      this.prisma.assessment360.findMany({
+        // Considerar apenas avaliações enviada
+        where: { authorId: userId, status: 'SUBMITTED' },
+      }),
+    ]);
 
     // Mapeia critérioId para seu pilar
     const criteriaPillarMap = new Map<string, CriterionPillar>(
@@ -1102,7 +1111,12 @@ export class EvaluationsService {
       });
     }
 
-    return performanceData;
+    const totalAssessmentsSubmitted = selfAssessments.length + submitted360Assessments.length;
+
+    return {
+      performanceData,
+      assessmentsSubmittedCount: totalAssessmentsSubmitted, // <-- Usamos a nova soma
+    };
   }
 
   // Função auxiliar para calcular as médias de notas por pilar para um conjunto de avaliações.
