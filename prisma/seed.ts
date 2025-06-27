@@ -27,7 +27,7 @@ async function main() {
       id: '2025.1',
       name: '2025.1',
       status: 'OPEN' as const,
-      phase: 'EQUALIZATION' as const,
+      phase: 'MANAGER_REVIEWS' as const,
       startDate: new Date('2025-01-01T00:00:00.000Z'),
       endDate: new Date('2025-07-19T23:59:59.999Z'),
       assessmentDeadline: new Date('2025-03-15T23:59:59.999Z'),
@@ -499,7 +499,7 @@ async function main() {
 
   // ===== AUTOAVALIAÇÕES COMPLETAS =====
   console.log('📝 Criando autoavaliações...');
-  
+
   // Ana - Autoavaliação
   await prisma.selfAssessment.create({
     data: {
@@ -510,19 +510,55 @@ async function main() {
       answers: {
         createMany: {
           data: [
-            { criterionId: 'sentimento-de-dono', score: 5, justification: 'Sempre assumo total responsabilidade pelos projetos e resultados' },
-            { criterionId: 'resiliencia-adversidades', score: 4, justification: 'Mantenho-me firme diante de desafios, sempre buscando soluções' },
-            { criterionId: 'organizacao-trabalho', score: 5, justification: 'Mantenho alta organização pessoal e estruturação eficiente' },
-            { criterionId: 'capacidade-aprender', score: 5, justification: 'Busco constantemente novos conhecimentos e tecnologias' },
-            { criterionId: 'team-player', score: 5, justification: 'Trabalho muito bem em equipe e contribuo para ambiente colaborativo' },
-            { criterionId: 'entregar-qualidade', score: 4, justification: 'Entrego sempre com alta qualidade e atenção aos detalhes' },
-            { criterionId: 'atender-prazos', score: 4, justification: 'Cumpro prazos estabelecidos de forma consistente' },
-            { criterionId: 'fazer-mais-menos', score: 4, justification: 'Otimizo recursos e maximizo resultados' },
-            { criterionId: 'pensar-fora-caixa', score: 4, justification: 'Demonstro criatividade na resolução de problemas' }
-          ]
-        }
-      }
-    }
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification: 'Sempre assumo total responsabilidade pelos projetos e resultados',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me firme diante de desafios, sempre buscando soluções',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Mantenho alta organização pessoal e estruturação eficiente',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Busco constantemente novos conhecimentos e tecnologias',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Trabalho muito bem em equipe e contribuo para ambiente colaborativo',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Entrego sempre com alta qualidade e atenção aos detalhes',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos estabelecidos de forma consistente',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimizo recursos e maximizo resultados',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Demonstro criatividade na resolução de problemas',
+            },
+          ],
+        },
+      },
+    },
   });
 
   // Bruno - Autoavaliação
@@ -535,22 +571,71 @@ async function main() {
       answers: {
         createMany: {
           data: [
-            { criterionId: 'sentimento-de-dono', score: 5, justification: 'Como Tech Lead, assumo total responsabilidade pela equipe e resultados' },
-            { criterionId: 'resiliencia-adversidades', score: 5, justification: 'Mantenho-me firme e apoio a equipe em situações desafiadoras' },
-            { criterionId: 'organizacao-trabalho', score: 4, justification: 'Mantenho boa organização, sempre buscando melhorar' },
-            { criterionId: 'capacidade-aprender', score: 5, justification: 'Estudo constantemente novas tecnologias e práticas de liderança' },
-            { criterionId: 'team-player', score: 5, justification: 'Trabalho colaborativamente e facilito a colaboração da equipe' },
-            { criterionId: 'entregar-qualidade', score: 5, justification: 'Garanto alta qualidade nas entregas da equipe' },
-            { criterionId: 'atender-prazos', score: 4, justification: 'Gerencio prazos eficientemente para toda a equipe' },
-            { criterionId: 'fazer-mais-menos', score: 5, justification: 'Otimizo recursos e processos da equipe' },
-            { criterionId: 'pensar-fora-caixa', score: 4, justification: 'Busco soluções inovadoras para desafios técnicos' },
-            { criterionId: 'gestao-gente', score: 4, justification: 'Desenvolvo e motivo minha equipe, sempre buscando melhorar' },
-            { criterionId: 'gestao-resultados', score: 5, justification: 'Foco em resultados e entrego valor consistente' },
-            { criterionId: 'evolucao-rocket-corp', score: 4, justification: 'Contribuo estrategicamente para evolução da empresa' }
-          ]
-        }
-      }
-    }
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification:
+                'Como Tech Lead, assumo total responsabilidade pela equipe e resultados',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 5,
+              justification: 'Mantenho-me firme e apoio a equipe em situações desafiadoras',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 4,
+              justification: 'Mantenho boa organização, sempre buscando melhorar',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Estudo constantemente novas tecnologias e práticas de liderança',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Trabalho colaborativamente e facilito a colaboração da equipe',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Garanto alta qualidade nas entregas da equipe',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Gerencio prazos eficientemente para toda a equipe',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 5,
+              justification: 'Otimizo recursos e processos da equipe',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco soluções inovadoras para desafios técnicos',
+            },
+            {
+              criterionId: 'gestao-gente',
+              score: 4,
+              justification: 'Desenvolvo e motivo minha equipe, sempre buscando melhorar',
+            },
+            {
+              criterionId: 'gestao-resultados',
+              score: 5,
+              justification: 'Foco em resultados e entrego valor consistente',
+            },
+            {
+              criterionId: 'evolucao-rocket-corp',
+              score: 4,
+              justification: 'Contribuo estrategicamente para evolução da empresa',
+            },
+          ],
+        },
+      },
+    },
   });
 
   // Felipe - Autoavaliação
@@ -563,19 +648,55 @@ async function main() {
       answers: {
         createMany: {
           data: [
-            { criterionId: 'sentimento-de-dono', score: 4, justification: 'Assumo responsabilidade pelos meus projetos e busco sempre melhorar' },
-            { criterionId: 'resiliencia-adversidades', score: 4, justification: 'Mantenho-me positivo diante de desafios e busco aprender' },
-            { criterionId: 'organizacao-trabalho', score: 3, justification: 'Estou melhorando minha organização pessoal continuamente' },
-            { criterionId: 'capacidade-aprender', score: 5, justification: 'Tenho grande sede de aprender e me desenvolver' },
-            { criterionId: 'team-player', score: 5, justification: 'Colaboro muito bem com a equipe e ajudo colegas' },
-            { criterionId: 'entregar-qualidade', score: 4, justification: 'Entrego com qualidade e atenção aos detalhes' },
-            { criterionId: 'atender-prazos', score: 4, justification: 'Cumpro prazos estabelecidos de forma consistente' },
-            { criterionId: 'fazer-mais-menos', score: 3, justification: 'Estou aprendendo a otimizar recursos e processos' },
-            { criterionId: 'pensar-fora-caixa', score: 4, justification: 'Busco soluções criativas para problemas técnicos' }
-          ]
-        }
-      }
-    }
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Assumo responsabilidade pelos meus projetos e busco sempre melhorar',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me positivo diante de desafios e busco aprender',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 3,
+              justification: 'Estou melhorando minha organização pessoal continuamente',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Tenho grande sede de aprender e me desenvolver',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Colaboro muito bem com a equipe e ajudo colegas',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Entrego com qualidade e atenção aos detalhes',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos estabelecidos de forma consistente',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 3,
+              justification: 'Estou aprendendo a otimizar recursos e processos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco soluções criativas para problemas técnicos',
+            },
+          ],
+        },
+      },
+    },
   });
 
   // ===== AVALIAÇÕES 360° COMPLETAS =====
@@ -590,9 +711,10 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-11T10:30:00Z'),
       overallScore: 5,
-      strengths: 'Excelente liderança técnica, sempre disponível para ajudar a equipe, visão estratégica clara',
-      improvements: 'Poderia delegar mais algumas tarefas para desenvolver ainda mais a equipe'
-    }
+      strengths:
+        'Excelente liderança técnica, sempre disponível para ajudar a equipe, visão estratégica clara',
+      improvements: 'Poderia delegar mais algumas tarefas para desenvolver ainda mais a equipe',
+    },
   });
 
   // Ana avalia Felipe
@@ -605,8 +727,8 @@ async function main() {
       submittedAt: new Date('2025-03-11T11:00:00Z'),
       overallScore: 3,
       strengths: 'Muito proativo, grande vontade de aprender, colaborativo e receptivo a feedbacks',
-      improvements: 'Pode melhorar a organização pessoal e planejamento de tarefas'
-    }
+      improvements: 'Pode melhorar a organização pessoal e planejamento de tarefas',
+    },
   });
 
   // Bruno avalia Ana
@@ -619,8 +741,8 @@ async function main() {
       submittedAt: new Date('2025-03-13T14:15:00Z'),
       overallScore: 4,
       strengths: 'Excelente qualidade técnica, muito organizada, grande senso de responsabilidade',
-      improvements: 'Poderia assumir mais iniciativas de liderança técnica em projetos'
-    }
+      improvements: 'Poderia assumir mais iniciativas de liderança técnica em projetos',
+    },
   });
 
   // Bruno avalia Felipe
@@ -633,8 +755,8 @@ async function main() {
       submittedAt: new Date('2025-03-13T14:45:00Z'),
       overallScore: 4,
       strengths: 'Muito dedicado, aprende rapidamente, boa colaboração em equipe',
-      improvements: 'Pode melhorar organização e autonomia em tarefas complexas'
-    }
+      improvements: 'Pode melhorar organização e autonomia em tarefas complexas',
+    },
   });
 
   // Felipe avalia Ana
@@ -647,8 +769,8 @@ async function main() {
       submittedAt: new Date('2025-03-15T09:20:00Z'),
       overallScore: 5,
       strengths: 'Muito organizada, sempre disposta a ajudar, excelente qualidade técnica',
-      improvements: 'Já está em um nível muito bom, poderia compartilhar mais conhecimento'
-    }
+      improvements: 'Já está em um nível muito bom, poderia compartilhar mais conhecimento',
+    },
   });
 
   // Felipe avalia Bruno
@@ -661,8 +783,8 @@ async function main() {
       submittedAt: new Date('2025-03-15T09:45:00Z'),
       overallScore: 5,
       strengths: 'Excelente líder, sempre disponível, ensina muito bem, visão técnica forte',
-      improvements: 'Está em um nível muito alto, talvez poderia focar mais em estratégia'
-    }
+      improvements: 'Está em um nível muito alto, talvez poderia focar mais em estratégia',
+    },
   });
 
   // ===== MENTORING ASSESSMENT =====
@@ -677,8 +799,9 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-16T16:30:00Z'),
       score: 5,
-      justification: 'Ana tem sido uma mentora excepcional, sempre disponível para tirar dúvidas e me orientar no desenvolvimento técnico'
-    }
+      justification:
+        'Ana tem sido uma mentora excepcional, sempre disponível para tirar dúvidas e me orientar no desenvolvimento técnico',
+    },
   });
 
   // ===== REFERENCE FEEDBACKS =====
@@ -693,8 +816,9 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-17T10:00:00Z'),
       topic: 'Liderança Técnica',
-      justification: 'Bruno demonstra excelente liderança técnica, sempre orientando a equipe com clareza e paciência'
-    }
+      justification:
+        'Bruno demonstra excelente liderança técnica, sempre orientando a equipe com clareza e paciência',
+    },
   });
 
   // Ana dá referência para Felipe
@@ -706,8 +830,9 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-17T10:15:00Z'),
       topic: 'Crescimento e Proatividade',
-      justification: 'Felipe tem mostrado crescimento constante e grande proatividade para aprender'
-    }
+      justification:
+        'Felipe tem mostrado crescimento constante e grande proatividade para aprender',
+    },
   });
 
   // Bruno dá referência para Ana
@@ -719,8 +844,9 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-17T11:00:00Z'),
       topic: 'Qualidade e Organização',
-      justification: 'Ana é referência em qualidade técnica e organização, sempre entrega trabalho impecável'
-    }
+      justification:
+        'Ana é referência em qualidade técnica e organização, sempre entrega trabalho impecável',
+    },
   });
 
   // Bruno dá referência para Felipe
@@ -732,8 +858,9 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-17T11:15:00Z'),
       topic: 'Dedicação e Aprendizado',
-      justification: 'Felipe demonstra grande dedicação e velocidade de aprendizado, sempre busca melhorar'
-    }
+      justification:
+        'Felipe demonstra grande dedicação e velocidade de aprendizado, sempre busca melhorar',
+    },
   });
 
   // Felipe dá referência para Ana
@@ -745,8 +872,8 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-17T14:00:00Z'),
       topic: 'Mentoria e Colaboração',
-      justification: 'Ana é uma excelente colega, sempre disposta a ajudar e ensinar'
-    }
+      justification: 'Ana é uma excelente colega, sempre disposta a ajudar e ensinar',
+    },
   });
 
   // Felipe dá referência para Bruno
@@ -758,8 +885,9 @@ async function main() {
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-17T14:15:00Z'),
       topic: 'Liderança e Desenvolvimento',
-      justification: 'Bruno é um líder excepcional, sempre nos desenvolve e apoia nosso crescimento'
-    }
+      justification:
+        'Bruno é um líder excepcional, sempre nos desenvolve e apoia nosso crescimento',
+    },
   });
 
   // ===== AVALIAÇÕES DE GESTOR COMPLETAS =====
@@ -776,19 +904,55 @@ async function main() {
       answers: {
         createMany: {
           data: [
-            { criterionId: 'sentimento-de-dono', score: 5, justification: 'Ana sempre assume total responsabilidade pelos projetos' },
-            { criterionId: 'resiliencia-adversidades', score: 5, justification: 'Mantém-se firme e positiva diante de qualquer desafio' },
-            { criterionId: 'organizacao-trabalho', score: 5, justification: 'Extremamente organizada, referência para a equipe' },
-            { criterionId: 'capacidade-aprender', score: 5, justification: 'Sempre busca novos conhecimentos e tecnologias' },
-            { criterionId: 'team-player', score: 5, justification: 'Excelente colaboração e sempre ajuda colegas' },
-            { criterionId: 'entregar-qualidade', score: 5, justification: 'Entregas sempre impecáveis e com alta qualidade' },
-            { criterionId: 'atender-prazos', score: 5, justification: 'Sempre cumpre prazos, até antecipa entregas' },
-            { criterionId: 'fazer-mais-menos', score: 4, justification: 'Otimiza recursos e busca eficiência' },
-            { criterionId: 'pensar-fora-caixa', score: 4, justification: 'Apresenta soluções criativas para problemas' }
-          ]
-        }
-      }
-    }
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification: 'Ana sempre assume total responsabilidade pelos projetos',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 5,
+              justification: 'Mantém-se firme e positiva diante de qualquer desafio',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Extremamente organizada, referência para a equipe',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Sempre busca novos conhecimentos e tecnologias',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Excelente colaboração e sempre ajuda colegas',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Entregas sempre impecáveis e com alta qualidade',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 5,
+              justification: 'Sempre cumpre prazos, até antecipa entregas',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimiza recursos e busca eficiência',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Apresenta soluções criativas para problemas',
+            },
+          ],
+        },
+      },
+    },
   });
 
   // Bruno avalia Felipe (como gestor)
@@ -802,19 +966,55 @@ async function main() {
       answers: {
         createMany: {
           data: [
-            { criterionId: 'sentimento-de-dono', score: 4, justification: 'Felipe tem desenvolvido bem o senso de responsabilidade' },
-            { criterionId: 'resiliencia-adversidades', score: 4, justification: 'Mantém-se positivo e busca soluções' },
-            { criterionId: 'organizacao-trabalho', score: 3, justification: 'Está melhorando organização, ainda há espaço para crescer' },
-            { criterionId: 'capacidade-aprender', score: 5, justification: 'Excepcional velocidade de aprendizado' },
-            { criterionId: 'team-player', score: 5, justification: 'Excelente colaboração e espírito de equipe' },
-            { criterionId: 'entregar-qualidade', score: 4, justification: 'Entrega com boa qualidade, sempre melhorando' },
-            { criterionId: 'atender-prazos', score: 4, justification: 'Cumpre prazos de forma consistente' },
-            { criterionId: 'fazer-mais-menos', score: 3, justification: 'Está aprendendo a otimizar recursos' },
-            { criterionId: 'pensar-fora-caixa', score: 4, justification: 'Demonstra criatividade em soluções técnicas' }
-          ]
-        }
-      }
-    }
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Felipe tem desenvolvido bem o senso de responsabilidade',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantém-se positivo e busca soluções',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 3,
+              justification: 'Está melhorando organização, ainda há espaço para crescer',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Excepcional velocidade de aprendizado',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Excelente colaboração e espírito de equipe',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Entrega com boa qualidade, sempre melhorando',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpre prazos de forma consistente',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 3,
+              justification: 'Está aprendendo a otimizar recursos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Demonstra criatividade em soluções técnicas',
+            },
+          ],
+        },
+      },
+    },
   });
 
   console.log('✅ Estruturas de relacionamento configuradas!');
@@ -865,16 +1065,24 @@ async function main() {
   console.log('👥 Usuários disponíveis para teste:');
   console.log('');
   console.log('  📧 carla.dias@rocketcorp.com - Senha: password123');
-  console.log('     👤 Carla Dias | 🎯 Comitê | 💼 Head of Engineering Principal | ⚖️ Pode fazer equalização');
+  console.log(
+    '     👤 Carla Dias | 🎯 Comitê | 💼 Head of Engineering Principal | ⚖️ Pode fazer equalização',
+  );
   console.log('');
   console.log('  📧 ana.oliveira@rocketcorp.com - Senha: password123');
-  console.log('     👤 Ana Oliveira | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | ✅ Avaliações completas');
+  console.log(
+    '     👤 Ana Oliveira | 🎯 Colaboradora | 💼 Desenvolvedora Frontend Pleno | ✅ Avaliações completas',
+  );
   console.log('');
   console.log('  📧 bruno.mendes@rocketcorp.com - Senha: password123');
-  console.log('     👤 Bruno Mendes | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | ✅ Avaliações completas');
+  console.log(
+    '     👤 Bruno Mendes | 🎯 Gestor + Colaborador | 💼 Tech Lead Sênior | ✅ Avaliações completas',
+  );
   console.log('');
   console.log('  📧 felipe.silva@rocketcorp.com - Senha: password123');
-  console.log('     👤 Felipe Silva | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | ✅ Avaliações completas');
+  console.log(
+    '     👤 Felipe Silva | 🎯 Colaborador | 💼 Desenvolvedor Backend Júnior | ✅ Avaliações completas',
+  );
   console.log('');
   console.log('  📧 diana.costa@rocketcorp.com - Senha: password123');
   console.log('     👤 Diana Costa | 🎯 RH | 💼 People & Culture Manager Sênior');

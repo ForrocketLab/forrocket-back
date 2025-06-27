@@ -33,6 +33,14 @@ import {
 } from '../models/evaluations/collaborator';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
+import {
+  AnswerWithCriterion,
+  AssessmentWithAnswers,
+  PerformanceDataDto,
+} from './assessments/dto/performance-data.dto';
+import { CriterionPillar } from '@prisma/client';
+import { PillarScores } from './assessments/dto/pillar-scores.dto';
+import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -1033,5 +1041,130 @@ export class EvaluationsService {
     }));
 
     return formattedAssessments;
+  }
+
+  // Histórico de notas por ciclos, pilares (BEHAVIOR, EXECUTION e MANAGEMENT) e inclui a nota final do comitê.
+  async getPerformanceHistory(userId: string): Promise<PerformanceHistoryDto> {
+    const [
+      criteria,
+      selfAssessments,
+      managerAssessments,
+      committeeAssessments,
+      submitted360Assessments,
+    ] = await Promise.all([
+      this.prisma.criterion.findMany(),
+      this.prisma.selfAssessment.findMany({
+        where: { authorId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações enviadas
+        include: { answers: true },
+      }),
+      this.prisma.managerAssessment.findMany({
+        where: { evaluatedUserId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações recebidas
+        include: { answers: true },
+      }),
+      this.prisma.committeeAssessment.findMany({
+        where: { evaluatedUserId: userId, status: 'SUBMITTED' }, // Considerar apenas avaliações recebidas
+      }),
+      this.prisma.assessment360.findMany({
+        // Considerar apenas avaliações enviada
+        where: { authorId: userId, status: 'SUBMITTED' },
+      }),
+    ]);
+
+    // Mapeia critérioId para seu pilar
+    const criteriaPillarMap = new Map<string, CriterionPillar>(
+      criteria.map((c) => [c.id, c.pillar as CriterionPillar]),
+    );
+
+    const selfScoresByCycle = this.calculatePillarScores(selfAssessments, criteriaPillarMap);
+    const managerScoresByCycle = this.calculatePillarScores(managerAssessments, criteriaPillarMap);
+
+    // Formata as notas finais do comitê
+    const finalScoresByCycle = new Map<string, number>(
+      committeeAssessments.map((assessment) => [
+        assessment.cycle,
+        Number(assessment.finalScore.toFixed(2)),
+      ]),
+    );
+
+    // Consolida os dados por ciclo
+    const allCycles = [
+      ...new Set<string>([
+        ...selfScoresByCycle.keys(),
+        ...managerScoresByCycle.keys(),
+        ...finalScoresByCycle.keys(),
+      ]),
+    ].sort((a, b) => b.localeCompare(a)); // ordena por ciclos mais recentes
+
+    const performanceData: PerformanceDataDto[] = [];
+    const emptyPillarScores: PillarScores = {
+      [CriterionPillar.BEHAVIOR]: null,
+      [CriterionPillar.EXECUTION]: null,
+      [CriterionPillar.MANAGEMENT]: null,
+    };
+
+    for (const cycle of allCycles) {
+      performanceData.push({
+        cycle,
+        selfScore: selfScoresByCycle.get(cycle) ?? { ...emptyPillarScores },
+        managerScore: managerScoresByCycle.get(cycle) ?? { ...emptyPillarScores },
+        finalScore: finalScoresByCycle.get(cycle) ?? null,
+      });
+    }
+
+    const totalAssessmentsSubmitted = selfAssessments.length + submitted360Assessments.length;
+
+    return {
+      performanceData,
+      assessmentsSubmittedCount: totalAssessmentsSubmitted, // <-- Usamos a nova soma
+    };
+  }
+
+  // Função auxiliar para calcular as médias de notas por pilar para um conjunto de avaliações.
+  private calculatePillarScores(
+    assessments: (AssessmentWithAnswers & { answers: AnswerWithCriterion[] })[],
+    criteriaPillarMap: Map<string, CriterionPillar>,
+  ): Map<string, PillarScores> {
+    const scoresByCycle = new Map<string, PillarScores>();
+
+    for (const assessment of assessments) {
+      if (!assessment.answers || assessment.answers.length === 0) {
+        continue;
+      }
+
+      // Agrupa as notas e contagens por pilar
+      const pillarScores = {
+        [CriterionPillar.BEHAVIOR]: { total: 0, count: 0 },
+        [CriterionPillar.EXECUTION]: { total: 0, count: 0 },
+        [CriterionPillar.MANAGEMENT]: { total: 0, count: 0 },
+      };
+
+      for (const answer of assessment.answers) {
+        const pillar = criteriaPillarMap.get(answer.criterionId);
+        if (pillar && pillarScores[pillar]) {
+          pillarScores[pillar].total += answer.score;
+          pillarScores[pillar].count++;
+        }
+      }
+
+      // Calcula a média para cada pilar
+      const averageScores: PillarScores = {
+        [CriterionPillar.BEHAVIOR]:
+          pillarScores.BEHAVIOR.count > 0
+            ? Number((pillarScores.BEHAVIOR.total / pillarScores.BEHAVIOR.count).toFixed(2))
+            : null,
+        [CriterionPillar.EXECUTION]:
+          pillarScores.EXECUTION.count > 0
+            ? Number((pillarScores.EXECUTION.total / pillarScores.EXECUTION.count).toFixed(2))
+            : null,
+        [CriterionPillar.MANAGEMENT]:
+          pillarScores.MANAGEMENT.count > 0
+            ? Number((pillarScores.MANAGEMENT.total / pillarScores.MANAGEMENT.count).toFixed(2))
+            : null,
+      };
+
+      scoresByCycle.set(assessment.cycle, averageScores);
+    }
+
+    return scoresByCycle;
   }
 }
