@@ -1104,4 +1104,420 @@ export class UserService {
       },
     };
   }
+
+  /**
+   * Busca dados para a matriz 9-box de talento (apenas RH)
+   * @param cycle - Ciclo de avaliação (opcional, usa o ativo se não fornecido)
+   * @returns Dados da matriz com posições dos colaboradores
+   */
+  async getTalentMatrixData(cycle?: string): Promise<any> {
+    try {
+      // Buscar ciclo ativo se não fornecido
+      let activeCycle: string;
+      if (cycle) {
+        activeCycle = cycle;
+      } else {
+        const activeCycleData = await this.prisma.evaluationCycle.findFirst({
+          where: { status: 'OPEN' },
+          select: { name: true }
+        });
+        
+        if (!activeCycleData) {
+          // Se não há ciclo ativo, usar um padrão
+          activeCycle = '2025.1';
+        } else {
+          activeCycle = activeCycleData.name;
+        }
+      }
+
+    // Buscar todos os usuários ativos que são colaboradores (incluindo gestores e comitê que também são colaboradores)
+    const collaborators = await this.prisma.user.findMany({
+      where: { 
+        isActive: true,
+        OR: [
+          { roles: { contains: 'colaborador' } },
+          { roles: { contains: 'gestor' } },
+          { roles: { contains: 'comite' } }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+        businessUnit: true,
+        seniority: true,
+        careerTrack: true,
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    // Buscar todas as avaliações do ciclo em paralelo
+    const [
+      selfAssessments,
+      managerAssessments,
+      assessments360,
+      committeeAssessments
+    ] = await Promise.all([
+      // Autoavaliações
+      this.prisma.selfAssessment.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' },
+        include: { answers: true }
+      }),
+
+      // Avaliações de gestor
+      this.prisma.managerAssessment.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' },
+        include: { answers: true }
+      }),
+
+      // Avaliações 360
+      this.prisma.assessment360.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' }
+      }),
+
+      // Avaliações do comitê
+      this.prisma.committeeAssessment.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' }
+      })
+    ]);
+
+    // Verificar se há avaliações suficientes para gerar a matriz
+    const totalEvaluations = selfAssessments.length + managerAssessments.length + assessments360.length + committeeAssessments.length;
+    
+    if (totalEvaluations === 0) {
+      return {
+        cycle: activeCycle,
+        positions: [],
+        stats: {
+          totalCollaborators: 0,
+          categoryDistribution: {},
+          businessUnitDistribution: {},
+          topTalents: 0,
+          lowPerformers: 0
+        },
+        generatedAt: new Date(),
+        hasInsufficientData: true,
+        message: `Não há avaliações disponíveis para o ciclo ${activeCycle}. A matriz será gerada quando houver dados suficientes de avaliações.`
+      };
+    }
+
+    // Processar dados apenas para colaboradores que têm pelo menos uma avaliação
+    const positions = collaborators.filter(collaborator => {
+      const selfAssessment = selfAssessments.find(sa => sa.authorId === collaborator.id);
+      const managerAssessment = managerAssessments.find(ma => ma.evaluatedUserId === collaborator.id);
+      const assessments360ForUser = assessments360.filter(a => a.evaluatedUserId === collaborator.id);
+      const committeeAssessment = committeeAssessments.find(ca => ca.evaluatedUserId === collaborator.id);
+      
+      // Incluir apenas se tiver pelo menos uma avaliação
+      return selfAssessment || managerAssessment || assessments360ForUser.length > 0 || committeeAssessment;
+    }).map(collaborator => {
+      const selfAssessment = selfAssessments.find(sa => sa.authorId === collaborator.id);
+      const managerAssessment = managerAssessments.find(ma => ma.evaluatedUserId === collaborator.id);
+      const assessments360ForUser = assessments360.filter(a => a.evaluatedUserId === collaborator.id);
+      const committeeAssessment = committeeAssessments.find(ca => ca.evaluatedUserId === collaborator.id);
+
+      // Calcular scores (agora sabemos que há pelo menos uma avaliação)
+      const performanceScore = this.calculatePerformanceScore(
+        selfAssessment,
+        managerAssessment,
+        assessments360ForUser
+      );
+
+      const potentialScore = this.calculatePotentialScore(
+        collaborator,
+        selfAssessment,
+        managerAssessment,
+        assessments360ForUser
+      );
+
+      // Determinar posição na matriz
+      const matrixData = this.determineMatrixPosition(performanceScore, potentialScore);
+
+      // Gerar iniciais
+      const initials = collaborator.name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+
+      return {
+        id: collaborator.id,
+        name: collaborator.name,
+        jobTitle: collaborator.jobTitle,
+        businessUnit: collaborator.businessUnit,
+        seniority: collaborator.seniority,
+        performanceScore,
+        potentialScore,
+        matrixPosition: matrixData.position,
+        matrixLabel: matrixData.label,
+        matrixColor: matrixData.color,
+        initials,
+        evaluationDetails: {
+          selfAssessmentScore: selfAssessment ? this.calculateSelfAssessmentAverage(selfAssessment) : null,
+          managerAssessmentScore: managerAssessment ? this.calculateManagerAssessmentAverage([managerAssessment]) : null,
+          assessment360Score: assessments360ForUser.length > 0 ? this.calculateAssessment360Average(assessments360ForUser) : null,
+          committeeScore: committeeAssessment?.finalScore || null,
+          totalEvaluations: [selfAssessment, managerAssessment, ...assessments360ForUser, committeeAssessment].filter(Boolean).length
+        }
+      };
+    });
+
+    // Calcular estatísticas
+    const stats = this.calculateMatrixStats(positions);
+
+    return {
+      cycle: activeCycle,
+      positions,
+      stats,
+      generatedAt: new Date(),
+      hasInsufficientData: false
+    };
+    } catch (error) {
+      console.error('Erro ao gerar matriz de talento:', error);
+      throw error;
+    }
+  }
+
+
+
+  /**
+   * Calcula o score de performance baseado nas avaliações
+   */
+  private calculatePerformanceScore(selfAssessment: any, managerAssessment: any, assessments360: any[]): number {
+    // Calcular scores individuais
+    let selfScore: number | null = null;
+    let managerScore: number | null = null;
+    let score360: number | null = null;
+
+    if (selfAssessment?.answers?.length) {
+      selfScore = selfAssessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0) / selfAssessment.answers.length;
+    }
+
+    if (managerAssessment?.answers?.length) {
+      managerScore = managerAssessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0) / managerAssessment.answers.length;
+    }
+
+    if (assessments360.length > 0) {
+      score360 = assessments360.reduce((sum, a) => sum + a.overallScore, 0) / assessments360.length;
+    }
+
+    // Se não há avaliações, não incluir na matriz (será filtrado)
+    if (!selfScore && !managerScore && !score360) {
+      return 0; // Indica dados insuficientes
+    }
+
+    // Redistribuir pesos dinamicamente baseado nas avaliações disponíveis
+    let totalWeightedScore = 0;
+    let totalWeight = 0;
+
+    // Autoavaliação (peso base 20%)
+    if (selfScore !== null) {
+      const weight = managerScore !== null ? 0.2 : 0.4; // Se não há gestor, aumenta para 40%
+      totalWeightedScore += selfScore * weight;
+      totalWeight += weight;
+    }
+
+    // Avaliação do gestor (peso base 50%)
+    if (managerScore !== null) {
+      totalWeightedScore += managerScore * 0.5;
+      totalWeight += 0.5;
+    }
+
+    // Avaliações 360 (peso base 30%)
+    if (score360 !== null) {
+      const weight = managerScore !== null ? 0.3 : 0.6; // Se não há gestor, aumenta para 60%
+      totalWeightedScore += score360 * weight;
+      totalWeight += weight;
+    }
+
+    // Normalizar pela soma dos pesos (deve ser sempre 1.0)
+    const finalScore = totalWeightedScore / totalWeight;
+    return Math.round(finalScore * 10) / 10;
+  }
+
+  /**
+   * Calcula o score de potencial baseado em critérios específicos e dados do colaborador
+   */
+  private calculatePotentialScore(collaborator: any, selfAssessment: any, managerAssessment: any, assessments360: any[]): number {
+    const potentialFactors: number[] = [];
+
+    // Fator 1: Senioridade (júnior = mais potencial)
+    const seniorityScore = this.getSeniorityPotentialScore(collaborator.seniority);
+    potentialFactors.push(seniorityScore);
+
+    // Fator 2: Critérios específicos de potencial das avaliações
+    const criteriaScore = this.getPotentialCriteriaScore(selfAssessment, managerAssessment, assessments360);
+    if (criteriaScore > 0) {
+      potentialFactors.push(criteriaScore);
+    }
+
+    // Fator 3: Consistência nas avaliações 360 (diversidade de feedback positivo)
+    if (assessments360.length >= 2) {
+      const consistencyScore = this.getConsistencyScore(assessments360);
+      potentialFactors.push(consistencyScore);
+    }
+
+    // Se não há dados suficientes, não incluir na matriz (será filtrado)
+    if (potentialFactors.length === 0) {
+      return 0; // Indica dados insuficientes
+    }
+
+    const avgScore = potentialFactors.reduce((sum, score) => sum + score, 0) / potentialFactors.length;
+    return Math.round(avgScore * 10) / 10;
+  }
+
+  /**
+   * Score de potencial baseado na senioridade
+   */
+  private getSeniorityPotentialScore(seniority: string): number {
+    const seniorityMap: Record<string, number> = {
+      'junior': 4.5,
+      'pleno': 4.0,
+      'senior': 3.5,
+      'especialista': 3.0,
+      'principal': 2.5,
+      'staff': 2.0
+    };
+    
+    return seniorityMap[seniority.toLowerCase()] || 3.0;
+  }
+
+  /**
+   * Score de potencial baseado em critérios específicos
+   */
+  private getPotentialCriteriaScore(selfAssessment: any, managerAssessment: any, assessments360: any[]): number {
+    // Critérios que indicam potencial
+    const potentialCriteria = ['capacidade-aprender', 'team-player', 'resiliencia-adversidades'];
+    const scores: number[] = [];
+
+    // Verificar critérios na avaliação do gestor (mais peso)
+    if (managerAssessment?.answers) {
+      const potentialAnswers = managerAssessment.answers.filter((answer: any) => 
+        potentialCriteria.includes(answer.criterionId)
+      );
+      if (potentialAnswers.length > 0) {
+        const avgScore = potentialAnswers.reduce((sum: number, answer: any) => sum + answer.score, 0) / potentialAnswers.length;
+        scores.push(avgScore * 0.6); // 60% peso
+      }
+    }
+
+    // Verificar critérios na autoavaliação
+    if (selfAssessment?.answers) {
+      const potentialAnswers = selfAssessment.answers.filter((answer: any) => 
+        potentialCriteria.includes(answer.criterionId)
+      );
+      if (potentialAnswers.length > 0) {
+        const avgScore = potentialAnswers.reduce((sum: number, answer: any) => sum + answer.score, 0) / potentialAnswers.length;
+        scores.push(avgScore * 0.4); // 40% peso
+      }
+    }
+
+    return scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) : 0;
+  }
+
+  /**
+   * Score de consistência baseado na variação das avaliações 360
+   */
+  private getConsistencyScore(assessments360: any[]): number {
+    if (assessments360.length < 2) return 3;
+
+    const scores = assessments360.map(a => a.overallScore);
+    const avg = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - avg, 2), 0) / scores.length;
+    
+    // Menor variância = maior consistência = maior potencial
+    if (variance <= 0.5) return 4.5; // Muito consistente
+    if (variance <= 1.0) return 4.0; // Consistente
+    if (variance <= 1.5) return 3.5; // Moderadamente consistente
+    return 3.0; // Inconsistente
+  }
+
+  /**
+   * Determina a posição na matriz 9-box baseado nos scores
+   */
+  private determineMatrixPosition(performance: number, potential: number): { position: number, label: string, color: string } {
+    // Normalizar scores para grid 3x3
+    const perfLevel = performance <= 2.5 ? 1 : performance <= 3.5 ? 2 : 3;
+    const potLevel = potential <= 2.5 ? 1 : potential <= 3.5 ? 2 : 3;
+
+    // Mapeamento da matriz 9-box
+    const matrixMap: Record<string, { position: number, label: string, color: string }> = {
+      '3-3': { position: 1, label: 'Estrelas', color: '#22c55e' },           // Alto Perf, Alto Pot
+      '3-2': { position: 2, label: 'Talentos', color: '#84cc16' },          // Alto Perf, Médio Pot
+      '3-1': { position: 3, label: 'Questionáveis', color: '#eab308' },     // Alto Perf, Baixo Pot
+      '2-3': { position: 4, label: 'Especialistas', color: '#3b82f6' },     // Médio Perf, Alto Pot
+      '2-2': { position: 5, label: 'Consistentes', color: '#6b7280' },      // Médio Perf, Médio Pot
+      '2-1': { position: 6, label: 'Trabalhadores', color: '#f59e0b' },     // Médio Perf, Baixo Pot
+      '1-3': { position: 7, label: 'Potenciais', color: '#8b5cf6' },        // Baixo Perf, Alto Pot
+      '1-2': { position: 8, label: 'Inconsistentes', color: '#ef4444' },    // Baixo Perf, Médio Pot
+      '1-1': { position: 9, label: 'Baixo Desempenho', color: '#dc2626' }   // Baixo Perf, Baixo Pot
+    };
+
+    const key = `${perfLevel}-${potLevel}`;
+    return matrixMap[key] || { position: 5, label: 'Consistentes', color: '#6b7280' };
+  }
+
+  /**
+   * Calcula estatísticas da matriz
+   */
+  private calculateMatrixStats(positions: any[]): any {
+    const totalCollaborators = positions.length;
+    
+    // Distribuição por categoria
+    const categoryDistribution: Record<string, number> = {};
+    positions.forEach(pos => {
+      categoryDistribution[pos.matrixLabel] = (categoryDistribution[pos.matrixLabel] || 0) + 1;
+    });
+
+    // Distribuição por unidade de negócio
+    const businessUnitDistribution: Record<string, number> = {};
+    positions.forEach(pos => {
+      businessUnitDistribution[pos.businessUnit] = (businessUnitDistribution[pos.businessUnit] || 0) + 1;
+    });
+
+    // Top talents (posições 1, 2, 4)
+    const topTalents = positions.filter(pos => [1, 2, 4].includes(pos.matrixPosition)).length;
+
+    // Low performers (posições 8, 9)
+    const lowPerformers = positions.filter(pos => [8, 9].includes(pos.matrixPosition)).length;
+
+    return {
+      totalCollaborators,
+      categoryDistribution,
+      businessUnitDistribution,
+      topTalents,
+      lowPerformers
+    };
+  }
+
+  // Métodos auxiliares existentes (adaptados)
+  private calculateSelfAssessmentAverage(assessment: any): number | null {
+    if (!assessment?.answers?.length) return null;
+    const total = assessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0);
+    return Math.round((total / assessment.answers.length) * 10) / 10;
+  }
+
+  private calculateManagerAssessmentAverage(assessments: any[]): number | null {
+    if (!assessments.length) return null;
+    const allScores: number[] = [];
+    
+    assessments.forEach(assessment => {
+      if (assessment.answers?.length) {
+        assessment.answers.forEach((answer: any) => {
+          allScores.push(answer.score);
+        });
+      }
+    });
+    
+    if (allScores.length === 0) return null;
+    const total = allScores.reduce((sum, score) => sum + score, 0);
+    return Math.round((total / allScores.length) * 10) / 10;
+  }
+
+  private calculateAssessment360Average(assessments: any[]): number | null {
+    if (!assessments.length) return null;
+    const total = assessments.reduce((sum, assessment) => sum + (assessment.overallScore || 0), 0);
+    return Math.round((total / assessments.length) * 10) / 10;
+  }
 } 
