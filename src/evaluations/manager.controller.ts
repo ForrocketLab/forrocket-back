@@ -23,6 +23,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto';
 import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
+import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
+import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -274,5 +276,34 @@ export class ManagerController {
     }
 
     return this.evaluationsService.getSubordinateReceived360s(user.id, subordinateId, cycle);
+  }
+
+  @Get('performance/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Buscar histórico de performance do colaborador',
+    description:
+      'Retorna uma lista consolidada das notas do usuário (autoavaliação, gestor e comitê) agrupadas por ciclo de avaliação.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico de performance retornado com sucesso.',
+    type: [PerformanceHistoryDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente.',
+  })
+  async getCollaboratorPerformanceHistory(
+    @CurrentUser() user: User,
+    @Param('subordinateId') subordinateId: string,
+  ) {
+    const isManager = await this.projectsService.isManager(user.id);
+    if (!isManager) {
+      throw new ForbiddenException(
+        'Apenas gestores podem visualizar autoavaliações de subordinados.',
+      );
+    }
+    return this.evaluationsService.getPerformanceHistory(subordinateId);
   }
 }

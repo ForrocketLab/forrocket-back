@@ -9,7 +9,14 @@ import {
   HttpCode,
   Patch,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiExtraModels, } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiExtraModels,
+} from '@nestjs/swagger';
 
 import {
   CreateSelfAssessmentDto,
@@ -17,14 +24,15 @@ import {
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
   SubmitAssessmentDto,
-  SelfAssessmentCompletionByPillarDto, 
-  OverallCompletionDto, 
+  SelfAssessmentCompletionByPillarDto,
+  OverallCompletionDto,
   PillarProgressDto,
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
 
 @ApiTags('Avaliações')
 @ApiBearerAuth()
@@ -242,11 +250,13 @@ export class EvaluationsController {
               },
             },
             // NOVOS CAMPOS: Referência aos DTOs recém-criados
-            completionStatus: { // Progresso por pilar
+            completionStatus: {
+              // Progresso por pilar
               type: 'object',
               $ref: '#/components/schemas/SelfAssessmentCompletionByPillarDto', // Referência ao DTO
             },
-            overallCompletion: { // Progresso geral
+            overallCompletion: {
+              // Progresso geral
               type: 'object',
               $ref: '#/components/schemas/OverallCompletionDto', // Referência ao DTO
             },
@@ -273,7 +283,8 @@ export class EvaluationsController {
           type: 'object',
           properties: {
             selfAssessmentCompleted: { type: 'boolean' },
-            selfAssessmentOverallProgress: { // No summary, também referencia o DTO
+            selfAssessmentOverallProgress: {
+              // No summary, também referencia o DTO
               type: 'object',
               $ref: '#/components/schemas/OverallCompletionDto',
             },
@@ -479,5 +490,25 @@ export class EvaluationsController {
     @Param('cycleId') cycleId: string,
   ) {
     return this.evaluationsService.getReceivedEvaluationsByCycle(user.id, cycleId);
+  }
+
+  @Get('performance/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Buscar histórico de performance do usuário logado',
+    description:
+      'Retorna uma lista consolidada das notas do usuário (autoavaliação, gestor e comitê) agrupadas por ciclo de avaliação.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico de performance retornado com sucesso.',
+    type: [PerformanceDataDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente.',
+  })
+  async getPerformanceHistory(@CurrentUser() user: User) {
+    return this.evaluationsService.getPerformanceHistory(user.id);
   }
 }
