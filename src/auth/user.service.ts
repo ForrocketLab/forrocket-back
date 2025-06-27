@@ -3,6 +3,15 @@ import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, UserProfileDto, UserType } from './dto';
 import * as bcrypt from 'bcryptjs';
 
+export interface UserSummary {
+  id: string;
+  name: string;
+  email: string;
+  jobTitle: string;
+  seniority: string;
+  businessUnit: string;
+}
+
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
@@ -1519,5 +1528,333 @@ export class UserService {
     if (!assessments.length) return null;
     const total = assessments.reduce((sum, assessment) => sum + (assessment.overallScore || 0), 0);
     return Math.round((total / assessments.length) * 10) / 10;
+  }
+
+  /**
+   * Busca usuários potenciais para serem mentores
+   * Retorna usuários ativos que não são mentores de ninguém ainda
+   */
+  async getPotentialMentors(): Promise<UserSummary[]> {
+    // Buscar todos os usuários ativos
+    const allUsers = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobTitle: true,
+        seniority: true,
+        businessUnit: true,
+      },
+      orderBy: [
+        { businessUnit: 'asc' },
+        { name: 'asc' }
+      ]
+    });
+
+    // Buscar usuários que já são mentores de alguém
+    const existingMentors = await this.prisma.user.findMany({
+      where: {
+        mentorId: { not: null },
+        isActive: true,
+      },
+      select: {
+        mentorId: true,
+      },
+    });
+
+    const mentorIds = new Set(existingMentors.map(user => user.mentorId).filter(id => id !== null));
+
+    // Filtrar usuários que não são mentores de ninguém
+    const potentialMentors = allUsers.filter(user => !mentorIds.has(user.id));
+
+    return potentialMentors.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      jobTitle: user.jobTitle,
+      seniority: user.seniority,
+      businessUnit: user.businessUnit,
+    }));
+  }
+
+  /**
+   * Busca dados detalhados de um colaborador para o modal "Ver Notas"
+   */
+  async getCollaboratorEvaluationDetailsForModal(userId: string): Promise<any> {
+    // Buscar o ciclo ativo
+    const activeCycle = await this.prisma.evaluationCycle.findFirst({
+      where: { status: 'OPEN' },
+      select: { name: true, phase: true }
+    });
+
+    if (!activeCycle) {
+      throw new NotFoundException('Nenhum ciclo ativo encontrado');
+    }
+
+    // Buscar dados do colaborador
+    const collaborator = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobTitle: true,
+        seniority: true,
+        careerTrack: true,
+        businessUnit: true,
+        isActive: true
+      }
+    });
+
+    if (!collaborator) {
+      throw new NotFoundException('Colaborador não encontrado');
+    }
+
+    // Buscar todas as avaliações do ciclo ativo (RECEBIDAS E ENVIADAS)
+    const [
+      selfAssessment,
+      assessments360Received,
+      assessments360Sent,
+      managerAssessmentsReceived,
+      managerAssessmentsSent,
+      mentoringAssessmentsReceived,
+      mentoringAssessmentsSent,
+      referenceFeedbacksReceived,
+      referenceFeedbacksSent,
+      committeeAssessment,
+    ] = await Promise.all([
+      // Autoavaliação
+      this.prisma.selfAssessment.findFirst({
+        where: {
+          authorId: userId,
+          cycle: activeCycle.name,
+        },
+        include: { answers: true },
+      }),
+
+      // Avaliações 360 recebidas
+      this.prisma.assessment360.findMany({
+        where: {
+          evaluatedUserId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações 360 enviadas
+      this.prisma.assessment360.findMany({
+        where: {
+          authorId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          evaluatedUser: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações de gestor recebidas
+      this.prisma.managerAssessment.findMany({
+        where: {
+          evaluatedUserId: userId,
+          cycle: activeCycle.name,
+        },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+          answers: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações de gestor enviadas
+      this.prisma.managerAssessment.findMany({
+        where: {
+          authorId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          evaluatedUser: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+          answers: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações de mentoring recebidas
+      this.prisma.mentoringAssessment.findMany({
+        where: {
+          mentorId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliações de mentoring enviadas
+      this.prisma.mentoringAssessment.findMany({
+        where: {
+          authorId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          mentor: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Feedbacks de referência recebidos
+      this.prisma.referenceFeedback.findMany({
+        where: {
+          referencedUserId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Feedbacks de referência enviados
+      this.prisma.referenceFeedback.findMany({
+        where: {
+          authorId: userId,
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+        },
+        include: {
+          referencedUser: {
+            select: { id: true, name: true, email: true, jobTitle: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+
+      // Avaliação de comitê existente
+      this.prisma.committeeAssessment.findFirst({
+        where: {
+          evaluatedUserId: userId,
+          cycle: activeCycle.name,
+        },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      }),
+    ]);
+
+    // Calcular médias das avaliações
+    const calculateSelfAssessmentAverage = (assessment: any) => {
+      if (!assessment?.answers?.length) return null;
+      const total = assessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0);
+      return Math.round((total / assessment.answers.length) * 10) / 10; // 1 casa decimal
+    };
+
+    const calculateAverage = (assessments: any[], scoreField: string) => {
+      if (!assessments.length) return null;
+      const total = assessments.reduce((sum, assessment) => sum + (assessment[scoreField] || 0), 0);
+      return Math.round((total / assessments.length) * 10) / 10; // 1 casa decimal
+    };
+
+    const calculateManagerAssessmentAverage = (assessments: any[]) => {
+      if (!assessments.length) return null;
+      const allScores: number[] = [];
+      
+      assessments.forEach(assessment => {
+        if (assessment.answers?.length) {
+          assessment.answers.forEach((answer: any) => {
+            allScores.push(answer.score);
+          });
+        }
+      });
+      
+      if (allScores.length === 0) return null;
+      const total = allScores.reduce((sum, score) => sum + score, 0);
+      return Math.round((total / allScores.length) * 10) / 10;
+    };
+
+    // Calcular médias
+    const selfAssessmentAverage = calculateSelfAssessmentAverage(selfAssessment);
+    const assessment360Average = calculateAverage(assessments360Received, 'overallScore');
+    const managerAssessmentAverage = calculateManagerAssessmentAverage(managerAssessmentsReceived);
+    const mentoringAverage = calculateAverage(mentoringAssessmentsReceived, 'score');
+
+    const totalAssessmentsReceived =
+      (selfAssessment ? 1 : 0) +
+      assessments360Received.length +
+      managerAssessmentsReceived.length +
+      mentoringAssessmentsReceived.length +
+      referenceFeedbacksReceived.length;
+
+    // Gerar resumo personalizado
+    const generateSummary = () => {
+      const parts: string[] = [];
+      if (selfAssessmentAverage) parts.push(`Autoavaliação: ${selfAssessmentAverage}`);
+      if (assessment360Average) parts.push(`Avaliação 360: ${assessment360Average}`);
+      if (managerAssessmentAverage) parts.push(`Avaliação Gestor: ${managerAssessmentAverage}`);
+      if (mentoringAverage) parts.push(`Mentoring: ${mentoringAverage}`);
+      
+      if (parts.length === 0) return 'Aguardando avaliações para análise';
+      
+      return `Médias recebidas - ${parts.join(', ')}. Total de ${totalAssessmentsReceived} avaliações.`;
+    };
+
+    return {
+      cycle: activeCycle.name,
+      currentPhase: activeCycle.phase,
+      collaborator,
+      evaluationScores: {
+        selfAssessment: selfAssessmentAverage,
+        assessment360: assessment360Average,
+        managerAssessment: managerAssessmentAverage,
+        mentoring: mentoringAverage
+      },
+      customSummary: generateSummary(),
+      // Avaliações recebidas
+      selfAssessment,
+      assessments360Received,
+      managerAssessmentsReceived,
+      mentoringAssessmentsReceived,
+      referenceFeedbacksReceived,
+      committeeAssessment,
+      // Avaliações enviadas
+      assessments360Sent,
+      managerAssessmentsSent,
+      mentoringAssessmentsSent,
+      referenceFeedbacksSent,
+      summary: {
+        totalAssessmentsReceived,
+        totalAssessmentsSent: assessments360Sent.length + managerAssessmentsSent.length + mentoringAssessmentsSent.length + referenceFeedbacksSent.length,
+        hasCommitteeAssessment: !!committeeAssessment,
+        isEqualizationComplete: !!committeeAssessment, // Se tem avaliação de comitê, a equalização está completa
+      },
+    };
   }
 } 

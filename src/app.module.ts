@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
@@ -17,6 +18,9 @@ import { ProjectsModule } from './projects/projects.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+
+    // Módulo de agendamento de tarefas
+    ScheduleModule.forRoot(),
 
     // Módulo do banco de dados (com configuração TypeORM)
     DatabaseModule,

@@ -21,7 +21,7 @@ async function main() {
       endDate: new Date('2024-12-31T23:59:59.999Z'),
       assessmentDeadline: new Date('2024-09-15T23:59:59.999Z'),
       managerDeadline: new Date('2024-10-15T23:59:59.999Z'),
-      equalizationDeadline: new Date('2024-11-15T23:59:59.999Z'),
+      equalizationDeadline: new Date('2024-11-30T23:59:59.999Z'),
     },
     {
       id: '2025.1',
@@ -29,21 +29,21 @@ async function main() {
       status: 'OPEN' as const,
       phase: 'MANAGER_REVIEWS' as const,
       startDate: new Date('2025-01-01T00:00:00.000Z'),
-      endDate: new Date('2025-07-19T23:59:59.999Z'),
+      endDate: new Date('2025-06-30T23:59:59.999Z'),
       assessmentDeadline: new Date('2025-03-15T23:59:59.999Z'),
       managerDeadline: new Date('2025-04-15T23:59:59.999Z'),
-      equalizationDeadline: new Date('2025-07-19T23:59:59.999Z'),
+      equalizationDeadline: new Date('2025-06-15T23:59:59.999Z'),
     },
     {
       id: '2025.2',
       name: '2025.2',
       status: 'UPCOMING' as const,
       phase: 'ASSESSMENTS' as const,
-      startDate: new Date('2025-07-01T00:00:00.000Z'),
+      startDate: new Date('2025-08-01T00:00:00.000Z'),
       endDate: new Date('2025-12-31T23:59:59.999Z'),
-      assessmentDeadline: new Date('2025-09-15T23:59:59.999Z'),
-      managerDeadline: new Date('2025-10-15T23:59:59.999Z'),
-      equalizationDeadline: new Date('2025-11-30T23:59:59.999Z'),
+      assessmentDeadline: new Date('2025-09-30T23:59:59.999Z'),
+      managerDeadline: new Date('2025-10-31T23:59:59.999Z'),
+      equalizationDeadline: new Date('2025-12-15T23:59:59.999Z'),
     },
   ];
 
@@ -1096,7 +1096,7 @@ async function main() {
   console.log('  🟢 2025.1 | OPEN | ⚖️ EQUALIZATION (Ativo - Pronto para Comitê)');
   console.log('    📅 2025-01-01 a 2025-06-30 | ⏰ Equalização até 2025-05-31');
   console.log('  🟡 2025.2 | UPCOMING | 📝 ASSESSMENTS (Futuro)');
-  console.log('    📅 2025-07-01 a 2025-12-31 | ⏰ Prazos configurados');
+      console.log('    📅 2025-08-01 a 2025-12-31 | ⏰ Prazos configurados');
   console.log('');
   console.log('📋 Cronograma de Fases 2025.1:');
   console.log('  📝 Fase 1 - Avaliações: até 15/03/2025 ✅ COMPLETA');
