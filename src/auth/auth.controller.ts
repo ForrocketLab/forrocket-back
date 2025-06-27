@@ -9,6 +9,7 @@ import {
   ValidationPipe,
   ForbiddenException,
   Param,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -746,5 +747,18 @@ export class AuthController {
     @CurrentUser() currentUser: User
   ) {
     return this.userService.getCollaboratorEvaluationDetails(collaboratorId);
+  }
+
+  /**
+   * Busca dados para a matriz 9-box de talento (apenas RH)
+   */
+  @Get('users/talent-matrix')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Busca dados para matriz 9-box de talento (apenas RH)' })
+  @ApiResponse({ status: 200, description: 'Dados da matriz retornados com sucesso' })
+  @ApiResponse({ status: 403, description: 'Acesso negado - apenas RH' })
+  async getTalentMatrix(@Query('cycle') cycle?: string) {
+    return this.userService.getTalentMatrixData(cycle);
   }
 } 
