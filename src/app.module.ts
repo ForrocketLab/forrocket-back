@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
+import { GenAiModule } from './gen-ai/gen-ai.module';
 import { ProjectsModule } from './projects/projects.module';
 
 /**
@@ -33,6 +34,9 @@ import { ProjectsModule } from './projects/projects.module';
 
     // Módulo de projetos
     ProjectsModule,
+
+    // Módulo de integração com GenAI
+    GenAiModule,
   ],
 })
 export class AppModule {}
