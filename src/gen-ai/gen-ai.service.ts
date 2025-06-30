@@ -4,6 +4,7 @@ import { AxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
 import { BrutalFactsDto, OpenAiChatCompletionResponseDto } from './dto/gen-ai-response.dto';
+import { TeamEvaluationSummaryData, TeamEvaluationSummaryDto } from './dto/team-evaluation.dto';
 
 function isBrutalFactsDto(obj: unknown): obj is BrutalFactsDto {
   return (
@@ -29,15 +30,16 @@ export class GenAiService {
     const prompt = `
     Você é um agente especializado em extrair fatos diretos e honestos de avaliações de desempenho do sistema RPE.
       Baseado no seguinte texto de uma avaliação de desempenho, extraia varios "brutal facts" (fatos diretos e honestos) sobre os pontos a melhorar, em um único texto.
-      Neste caso, você deve extrair dados baseados nas notas dos colaboradores, focando em insights que podem ser extraídos das notas e do texto da autoavaliação, além de avaliação em feedbacks360.
-      Exemplo de output: Nenhum colaborador alcançou o status de alto desempenho (nota 4.5+). Isso indica ou uma evitação de inflação nas notas ou um problema fundamental na aquisição ou desenvolvimento de talentos.
+      Neste caso, você deve extrair dados baseados nas notas dos colaboradores, focando em insights que podem ser extraídos das notas e do texto de avaliação em feedbacks360 e do gestor.
+      Exemplo de Input: Nota geral 4.12, Avaliações; ["avaliação 1", "avaliação 2"]
+      Exemplo de output: Nenhum colaborador alcançou o status de alto desempenho (nota 4.5+). Isso indica ou uma evitação de inflação nas notas ou um problema fundamental na aquisição ou desenvolvimento de talentos. Também é nítido que alguns colaboradores tiveram problemas de atrasos.
 
       IMPORTANTE: Retorne EXATAMENTE no formato JSON abaixo, sem nenhum texto adicional:
       {
         "facts": "Texto aqui, lorem ipsum"
       }
 
-      Texto da avaliação: "${evaluationText}"
+      Nota geral + Avaliações (requer refatoração): "${evaluationText}"
     `;
 
     // Corpo da requisição para a API da OpenAI
@@ -86,5 +88,104 @@ export class GenAiService {
       }
       throw new InternalServerErrorException('Falha ao gerar fatos a partir da avaliação.');
     }
+  }
+
+  /**
+   * Gera análise estratégica de equipe baseada em dados estruturados de avaliações
+   * @param teamData Dados estruturados da equipe com avaliações
+   * @returns Uma promessa que resolve para uma string com insights sobre a equipe
+   */
+  async getTeamEvaluationSummary(teamData: TeamEvaluationSummaryData): Promise<string> {
+    const prompt = `
+    Você é um consultor sênior de RH especializado em análise de performance de equipes.
+    Analise os dados de avaliação da equipe abaixo e forneça insights estratégicos sobre:
+    
+    1. Padrões de performance da equipe
+    2. Identificação de talentos de alto desempenho
+    3. Colaboradores que precisam de atenção/desenvolvimento
+    4. Tendências comportamentais observadas
+    5. Recomendações estratégicas para liderança
+    
+    DADOS DA EQUIPE:
+    - Ciclo: ${teamData.cycle}
+    - Média geral da equipe: ${teamData.teamAverageScore.toFixed(2)}
+    - Total de colaboradores: ${teamData.totalCollaborators}
+    - Alto desempenho (≥4.5): ${teamData.highPerformers} colaboradores
+    - Baixo desempenho (≤2.5): ${teamData.lowPerformers} colaboradores
+    
+    AVALIAÇÕES POR COLABORADOR:
+    ${teamData.collaborators.map(collab => `
+    ${collab.collaboratorName} (${collab.jobTitle} - ${collab.seniority}):
+    - Média: ${collab.averageScore.toFixed(2)}
+    - Avaliações 360: ${collab.assessments360.length} recebidas
+    - Avaliações de Gestor: ${collab.managerAssessments.length} recebidas
+    ${collab.committeeScore ? `- Nota do Comitê: ${collab.committeeScore}` : ''}
+    
+    Principais feedbacks:
+    ${collab.assessments360.slice(0, 3).map(a => `• ${a.improvements || a.strengths}`).join('\n')}
+    ${collab.managerAssessments.slice(0, 2).map(m => 
+      m.answers.slice(0, 2).map(ans => `• ${ans.justification}`).join('\n')
+    ).join('\n')}
+    `).join('\n---\n')}
+    
+    Forneça uma análise profissional e acionável em português, focando em insights que ajudem a liderança a tomar decisões estratégicas sobre desenvolvimento de talentos, retenção e ações de melhoria.
+    
+    IMPORTANTE: Retorne EXATAMENTE no formato JSON abaixo:
+    {
+      "facts": "Sua análise completa aqui..."
+    }
+    `;
+
+    const payload = {
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3, // temperatura baixa para análise mais objetiva
+      response_format: { type: 'json_object' },
+    };
+
+    try {
+      this.logger.log('Enviando dados da equipe para análise pela LLM...');
+
+      const response = await firstValueFrom(
+        this.httpService.post<OpenAiChatCompletionResponseDto>('/chat/completions', payload),
+      );
+
+      this.logger.log('Análise da equipe recebida com sucesso.');
+
+      const responseContent = response.data.choices[0].message.content;
+
+      if (!responseContent) {
+        this.logger.error('A resposta da LLM não contém o conteúdo esperado.');
+        throw new InternalServerErrorException('Resposta inválida da API de IA.');
+      }
+
+      const parsedJson: unknown = JSON.parse(responseContent);
+
+      if (!this.isTeamEvaluationSummaryDto(parsedJson)) {
+        this.logger.error(
+          'O JSON retornado pela LLM não tem o formato esperado { "facts": "string" }',
+          parsedJson,
+        );
+        throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
+      }
+
+      return parsedJson.facts || '';
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        this.logger.error('Erro na chamada para a API da LLM:', error.response?.data);
+      } else {
+        this.logger.error('Erro inesperado na análise da equipe:', error);
+      }
+      throw new InternalServerErrorException('Falha ao gerar análise da equipe.');
+    }
+  }
+
+  private isTeamEvaluationSummaryDto(obj: unknown): obj is TeamEvaluationSummaryDto {
+    return (
+      typeof obj === 'object' &&
+      obj !== null &&
+      'facts' in obj &&
+      typeof (obj as TeamEvaluationSummaryDto).facts === 'string'
+    );
   }
 }

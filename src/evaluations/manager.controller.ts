@@ -12,11 +12,19 @@ import {
   Param,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 
 import { CreateManagerAssessmentDto } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { ProjectsService } from '../projects/projects.service';
+import { GenAiService } from '../gen-ai/gen-ai.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,6 +33,7 @@ import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-res
 import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
+import { TeamEvaluationSummaryResponseDto } from './manager/dto/team-evaluation-summary.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -34,6 +43,7 @@ export class ManagerController {
   constructor(
     private readonly evaluationsService: EvaluationsService,
     private readonly projectsService: ProjectsService,
+    private readonly genAiService: GenAiService,
   ) {}
 
   @Post('subordinate-assessment')
@@ -305,5 +315,77 @@ export class ManagerController {
       );
     }
     return this.evaluationsService.getPerformanceHistory(subordinateId);
+  }
+
+  @Get('team-evaluation-summary')
+  @ApiOperation({
+    summary: 'Obter resumo inteligente da equipe',
+    description: `
+      Gera uma análise estratégica da equipe usando IA baseada em todas as avaliações.
+      
+      **Funcionalidades:**
+      - Coleta médias de todos os colaboradores da equipe
+      - Analisa avaliações 360 e de gestor
+      - Gera insights estratégicos sobre performance da equipe
+      - Identifica padrões e tendências comportamentais
+      - Fornece recomendações para liderança
+      
+      **Regras de negócio:**
+      - Apenas gestores podem acessar esta funcionalidade
+      - Considera apenas avaliações submetidas (status SUBMITTED)
+      - Prioriza notas do comitê quando disponíveis
+    `,
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação para análise (ex: "2025.1")',
+    example: '2025.1',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumo da equipe gerado com sucesso.',
+    type: TeamEvaluationSummaryResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para acessar dados da equipe.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum colaborador encontrado para este gestor.',
+  })
+  async getTeamEvaluationSummary(
+    @CurrentUser() user: User,
+    @Query('cycle') cycle: string,
+  ): Promise<TeamEvaluationSummaryResponseDto> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(user.id);
+    if (!isManager) {
+      throw new ForbiddenException('Apenas gestores podem acessar análises de equipe.');
+    }
+
+    console.log('cicle', cycle, user.id);
+
+    if (!cycle) {
+      throw new BadRequestException('O parâmetro cycle é obrigatório.');
+    }
+
+    // Coletar dados estruturados da equipe
+    const teamData = await this.evaluationsService.getTeamEvaluationData(user.id, cycle);
+
+    // Gerar resumo usando IA
+    const teamSummary = await this.genAiService.getTeamEvaluationSummary(teamData);
+
+    return {
+      cycle: teamData.cycle,
+      teamSummary,
+      teamStats: {
+        totalCollaborators: teamData.totalCollaborators,
+        teamAverageScore: teamData.teamAverageScore,
+        highPerformers: teamData.highPerformers,
+        lowPerformers: teamData.lowPerformers,
+      },
+    };
   }
 }

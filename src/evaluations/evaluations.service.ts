@@ -41,6 +41,7 @@ import {
 import { CriterionPillar } from '@prisma/client';
 import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
+import { CollaboratorEvaluationData, TeamEvaluationSummaryData } from '../gen-ai/dto/team-evaluation.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -1166,5 +1167,146 @@ export class EvaluationsService {
     }
 
     return scoresByCycle;
+  }
+
+  /**
+   * Coleta dados estruturados de todos os colaboradores para análise de equipe
+   * @param managerId ID do gestor
+   * @param cycle Ciclo de avaliação
+   * @returns Dados estruturados da equipe com todas as avaliações
+   */
+  async getTeamEvaluationData(managerId: string, cycle: string): Promise<TeamEvaluationSummaryData> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(managerId);
+    if (!isManager) {
+      throw new ForbiddenException('Usuário não tem permissão para acessar dados da equipe.');
+    }
+
+    // Buscar todos os colaboradores que o gestor pode gerenciar
+    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+    
+    const allSubordinateIds = new Set<string>();
+    projectsWithSubordinates.forEach(project => {
+      project.subordinates.forEach((sub: { id: string }) => allSubordinateIds.add(sub.id));
+    });
+
+    const subordinateIds = Array.from(allSubordinateIds);
+
+    if (subordinateIds.length === 0) {
+      throw new NotFoundException('Nenhum colaborador encontrado para este gestor.');
+    }
+
+    // Buscar dados de todos os colaboradores
+    const collaboratorsData = await Promise.all(
+      subordinateIds.map(async (collaboratorId) => {
+        const [
+          user,
+          assessments360,
+          managerAssessments,
+          committeeAssessments
+        ] = await Promise.all([
+          this.prisma.user.findUnique({
+            where: { id: collaboratorId },
+            select: {
+              id: true,
+              name: true,
+              jobTitle: true,
+              seniority: true,
+            },
+          }),
+          this.prisma.assessment360.findMany({
+            where: { evaluatedUserId: collaboratorId, cycle, status: 'SUBMITTED' },
+            include: {
+              author: {
+                select: { name: true },
+              },
+            },
+          }),
+          this.prisma.managerAssessment.findMany({
+            where: { evaluatedUserId: collaboratorId, cycle, status: 'SUBMITTED' },
+            include: {
+              author: {
+                select: { name: true },
+              },
+              answers: true,
+            },
+          }),
+          this.prisma.committeeAssessment.findMany({
+            where: { evaluatedUserId: collaboratorId, cycle, status: 'SUBMITTED' },
+          }),
+        ]);
+
+        if (!user) return null;
+
+        // Calcular média das avaliações
+        const scores: number[] = [];
+        
+        // Adicionar notas das avaliações 360
+        assessments360.forEach(assessment => {
+          scores.push(assessment.overallScore);
+        });
+
+        // Adicionar médias das avaliações de gestor
+        managerAssessments.forEach(assessment => {
+          if (assessment.answers.length > 0) {
+            const managerAvg = assessment.answers.reduce((sum, ans) => sum + ans.score, 0) / assessment.answers.length;
+            scores.push(managerAvg);
+          }
+        });
+
+        // Usar nota do comitê se disponível, senão calcular média das outras avaliações
+        let averageScore = 0;
+        let committeeScore: number | undefined;
+
+        if (committeeAssessments.length > 0) {
+          committeeScore = committeeAssessments[0].finalScore;
+          averageScore = committeeScore;
+        } else if (scores.length > 0) {
+          averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+        }
+
+        return {
+          collaboratorId: user.id,
+          collaboratorName: user.name,
+          jobTitle: user.jobTitle,
+          seniority: user.seniority,
+          averageScore,
+          committeeScore,
+          assessments360: assessments360.map(assessment => ({
+            authorName: assessment.author.name,
+            overallScore: assessment.overallScore,
+            strengths: assessment.strengths,
+            improvements: assessment.improvements,
+          })),
+          managerAssessments: managerAssessments.map(assessment => ({
+            authorName: assessment.author.name,
+            answers: assessment.answers.map(answer => ({
+              criterionId: answer.criterionId,
+              score: answer.score,
+              justification: answer.justification,
+            })),
+          })),
+        };
+      })
+    );
+
+    // Filtrar colaboradores nulos e calcular estatísticas da equipe
+    const validCollaborators = collaboratorsData.filter(Boolean) as CollaboratorEvaluationData[];
+    
+    const teamAverageScore = validCollaborators.length > 0
+      ? validCollaborators.reduce((sum, collab) => sum + collab.averageScore, 0) / validCollaborators.length
+      : 0;
+
+    const highPerformers = validCollaborators.filter(collab => collab.averageScore >= 4.5).length;
+    const lowPerformers = validCollaborators.filter(collab => collab.averageScore <= 2.5).length;
+
+    return {
+      cycle,
+      teamAverageScore,
+      totalCollaborators: validCollaborators.length,
+      collaborators: validCollaborators,
+      highPerformers,
+      lowPerformers,
+    };
   }
 }
