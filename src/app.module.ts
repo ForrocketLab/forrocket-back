@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { GenAiModule } from './gen-ai/gen-ai.module';
+import { OKRsModule } from './okrs/okrs.module';
 import { ProjectsModule } from './projects/projects.module';
 
 /**
@@ -37,6 +38,8 @@ import { ProjectsModule } from './projects/projects.module';
 
     // Módulo de integração com GenAI
     GenAiModule,
+    // Módulo de OKRs
+    OKRsModule,
   ],
 })
 export class AppModule {}
