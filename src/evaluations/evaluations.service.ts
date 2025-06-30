@@ -41,7 +41,12 @@ import {
 import { CriterionPillar } from '@prisma/client';
 import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
-import { CollaboratorEvaluationData, TeamEvaluationSummaryData } from '../gen-ai/dto/team-evaluation.dto';
+import {
+  CollaboratorEvaluationData,
+  TeamEvaluationSummaryData,
+  TeamScoreAnalysisData,
+  CollaboratorScoreData,
+} from '../gen-ai/dto/team-evaluation.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -1175,7 +1180,10 @@ export class EvaluationsService {
    * @param cycle Ciclo de avaliação
    * @returns Dados estruturados da equipe com todas as avaliações
    */
-  async getTeamEvaluationData(managerId: string, cycle: string): Promise<TeamEvaluationSummaryData> {
+  async getTeamEvaluationData(
+    managerId: string,
+    cycle: string,
+  ): Promise<TeamEvaluationSummaryData> {
     // Verificar se o usuário é gestor
     const isManager = await this.projectsService.isManager(managerId);
     if (!isManager) {
@@ -1184,9 +1192,9 @@ export class EvaluationsService {
 
     // Buscar todos os colaboradores que o gestor pode gerenciar
     const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
-    
+
     const allSubordinateIds = new Set<string>();
-    projectsWithSubordinates.forEach(project => {
+    projectsWithSubordinates.forEach((project) => {
       project.subordinates.forEach((sub: { id: string }) => allSubordinateIds.add(sub.id));
     });
 
@@ -1199,12 +1207,7 @@ export class EvaluationsService {
     // Buscar dados de todos os colaboradores
     const collaboratorsData = await Promise.all(
       subordinateIds.map(async (collaboratorId) => {
-        const [
-          user,
-          assessments360,
-          managerAssessments,
-          committeeAssessments
-        ] = await Promise.all([
+        const [user, assessments360, managerAssessments, committeeAssessments] = await Promise.all([
           this.prisma.user.findUnique({
             where: { id: collaboratorId },
             select: {
@@ -1240,16 +1243,18 @@ export class EvaluationsService {
 
         // Calcular média das avaliações
         const scores: number[] = [];
-        
+
         // Adicionar notas das avaliações 360
-        assessments360.forEach(assessment => {
+        assessments360.forEach((assessment) => {
           scores.push(assessment.overallScore);
         });
 
         // Adicionar médias das avaliações de gestor
-        managerAssessments.forEach(assessment => {
+        managerAssessments.forEach((assessment) => {
           if (assessment.answers.length > 0) {
-            const managerAvg = assessment.answers.reduce((sum, ans) => sum + ans.score, 0) / assessment.answers.length;
+            const managerAvg =
+              assessment.answers.reduce((sum, ans) => sum + ans.score, 0) /
+              assessment.answers.length;
             scores.push(managerAvg);
           }
         });
@@ -1272,33 +1277,35 @@ export class EvaluationsService {
           seniority: user.seniority,
           averageScore,
           committeeScore,
-          assessments360: assessments360.map(assessment => ({
+          assessments360: assessments360.map((assessment) => ({
             authorName: assessment.author.name,
             overallScore: assessment.overallScore,
             strengths: assessment.strengths,
             improvements: assessment.improvements,
           })),
-          managerAssessments: managerAssessments.map(assessment => ({
+          managerAssessments: managerAssessments.map((assessment) => ({
             authorName: assessment.author.name,
-            answers: assessment.answers.map(answer => ({
+            answers: assessment.answers.map((answer) => ({
               criterionId: answer.criterionId,
               score: answer.score,
               justification: answer.justification,
             })),
           })),
         };
-      })
+      }),
     );
 
     // Filtrar colaboradores nulos e calcular estatísticas da equipe
     const validCollaborators = collaboratorsData.filter(Boolean) as CollaboratorEvaluationData[];
-    
-    const teamAverageScore = validCollaborators.length > 0
-      ? validCollaborators.reduce((sum, collab) => sum + collab.averageScore, 0) / validCollaborators.length
-      : 0;
 
-    const highPerformers = validCollaborators.filter(collab => collab.averageScore >= 4.5).length;
-    const lowPerformers = validCollaborators.filter(collab => collab.averageScore <= 2.5).length;
+    const teamAverageScore =
+      validCollaborators.length > 0
+        ? validCollaborators.reduce((sum, collab) => sum + collab.averageScore, 0) /
+          validCollaborators.length
+        : 0;
+
+    const highPerformers = validCollaborators.filter((collab) => collab.averageScore >= 4.5).length;
+    const lowPerformers = validCollaborators.filter((collab) => collab.averageScore <= 2.5).length;
 
     return {
       cycle,
@@ -1307,6 +1314,165 @@ export class EvaluationsService {
       collaborators: validCollaborators,
       highPerformers,
       lowPerformers,
+    };
+  }
+
+  /**
+   * Coleta dados de notas finais dos colaboradores organizados por pilar
+   * @param managerId ID do gestor
+   * @param cycle Ciclo de avaliação
+   * @returns Dados de notas finais da equipe por pilar
+   */
+  async getTeamScoreAnalysisData(managerId: string, cycle: string): Promise<TeamScoreAnalysisData> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(managerId);
+    if (!isManager) {
+      throw new ForbiddenException('Usuário não tem permissão para acessar dados da equipe.');
+    }
+
+    // Buscar todos os colaboradores que o gestor pode gerenciar
+    const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
+
+    const allSubordinateIds = new Set<string>();
+    projectsWithSubordinates.forEach((project) => {
+      project.subordinates.forEach((sub: { id: string }) => allSubordinateIds.add(sub.id));
+    });
+
+    const subordinateIds = Array.from(allSubordinateIds);
+
+    if (subordinateIds.length === 0) {
+      throw new NotFoundException('Nenhum colaborador encontrado para este gestor.');
+    }
+
+    // Buscar critérios para mapear pilares
+    const criteria = await this.prisma.criterion.findMany();
+    const criteriaPillarMap = new Map<string, CriterionPillar>(
+      criteria.map((c) => [c.id, c.pillar as CriterionPillar]),
+    );
+
+    // Buscar dados de todos os colaboradores
+    const collaboratorsData = await Promise.all(
+      subordinateIds.map(async (collaboratorId) => {
+        const [user, managerAssessments, committeeAssessments] = await Promise.all([
+          this.prisma.user.findUnique({
+            where: { id: collaboratorId },
+            select: {
+              id: true,
+              name: true,
+            },
+          }),
+          this.prisma.managerAssessment.findMany({
+            where: { evaluatedUserId: collaboratorId, cycle, status: 'SUBMITTED' },
+            include: {
+              answers: true,
+            },
+          }),
+          this.prisma.committeeAssessment.findMany({
+            where: { evaluatedUserId: collaboratorId, cycle, status: 'SUBMITTED' },
+          }),
+        ]);
+
+        if (!user) return null;
+
+        // Calcular médias por pilar das avaliações de gestor
+        let behaviorScore: number | undefined;
+        let executionScore: number | undefined;
+        let finalScore: number | undefined;
+        let hasCommitteeScore = false;
+
+        // Priorizar nota do comitê
+        if (committeeAssessments.length > 0) {
+          finalScore = committeeAssessments[0].finalScore;
+          hasCommitteeScore = true;
+        } else if (managerAssessments.length > 0) {
+          // Calcular médias por pilar das avaliações de gestor
+          const pillarScores = {
+            [CriterionPillar.BEHAVIOR]: { total: 0, count: 0 },
+            [CriterionPillar.EXECUTION]: { total: 0, count: 0 },
+          };
+
+          managerAssessments.forEach((assessment) => {
+            assessment.answers.forEach((answer) => {
+              const pillar = criteriaPillarMap.get(answer.criterionId);
+              if (pillar && pillarScores[pillar]) {
+                pillarScores[pillar].total += answer.score;
+                pillarScores[pillar].count++;
+              }
+            });
+          });
+
+          behaviorScore =
+            pillarScores.BEHAVIOR.count > 0
+              ? pillarScores.BEHAVIOR.total / pillarScores.BEHAVIOR.count
+              : undefined;
+
+          executionScore =
+            pillarScores.EXECUTION.count > 0
+              ? pillarScores.EXECUTION.total / pillarScores.EXECUTION.count
+              : undefined;
+
+          // Calcular média final se não houver nota do comitê
+          const allScores: number[] = [];
+          if (behaviorScore) allScores.push(behaviorScore);
+          if (executionScore) allScores.push(executionScore);
+
+          if (allScores.length > 0) {
+            finalScore = allScores.reduce((sum, score) => sum + score, 0) / allScores.length;
+          }
+        }
+
+        return {
+          collaboratorId: user.id,
+          collaboratorName: user.name,
+          finalScore,
+          behaviorScore,
+          executionScore,
+          hasCommitteeScore,
+        };
+      }),
+    );
+
+    // Filtrar colaboradores nulos
+    const validCollaborators = collaboratorsData.filter(Boolean) as CollaboratorScoreData[];
+
+    // Calcular estatísticas da equipe
+    const scoresWithFinal = validCollaborators.filter((c) => c.finalScore !== undefined);
+    const teamAverageScore =
+      scoresWithFinal.length > 0
+        ? scoresWithFinal.reduce((sum, collab) => sum + (collab.finalScore || 0), 0) /
+          scoresWithFinal.length
+        : 0;
+
+    const behaviorScores = validCollaborators.filter((c) => c.behaviorScore !== undefined);
+    const behaviorAverage =
+      behaviorScores.length > 0
+        ? behaviorScores.reduce((sum, collab) => sum + (collab.behaviorScore || 0), 0) /
+          behaviorScores.length
+        : undefined;
+
+    const executionScores = validCollaborators.filter((c) => c.executionScore !== undefined);
+    const executionAverage =
+      executionScores.length > 0
+        ? executionScores.reduce((sum, collab) => sum + (collab.executionScore || 0), 0) /
+          executionScores.length
+        : undefined;
+
+    const highPerformers = validCollaborators.filter(
+      (collab) => (collab.finalScore || 0) >= 4.5,
+    ).length;
+    const criticalPerformers = validCollaborators.filter(
+      (collab) => (collab.finalScore || 0) <= 2.5,
+    ).length;
+
+    return {
+      cycle,
+      totalCollaborators: validCollaborators.length,
+      teamAverageScore,
+      behaviorAverage,
+      executionAverage,
+      highPerformers,
+      criticalPerformers,
+      collaborators: validCollaborators,
     };
   }
 }

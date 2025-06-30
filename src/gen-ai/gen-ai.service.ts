@@ -4,7 +4,11 @@ import { AxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
 import { BrutalFactsDto, OpenAiChatCompletionResponseDto } from './dto/gen-ai-response.dto';
-import { TeamEvaluationSummaryData, TeamEvaluationSummaryDto } from './dto/team-evaluation.dto';
+import {
+  TeamEvaluationSummaryData,
+  TeamEvaluationSummaryDto,
+  TeamScoreAnalysisData,
+} from './dto/team-evaluation.dto';
 
 function isBrutalFactsDto(obj: unknown): obj is BrutalFactsDto {
   return (
@@ -114,7 +118,9 @@ export class GenAiService {
     - Baixo desempenho (≤2.5): ${teamData.lowPerformers} colaboradores
     
     AVALIAÇÕES POR COLABORADOR:
-    ${teamData.collaborators.map(collab => `
+    ${teamData.collaborators
+      .map(
+        (collab) => `
     ${collab.collaboratorName} (${collab.jobTitle} - ${collab.seniority}):
     - Média: ${collab.averageScore.toFixed(2)}
     - Avaliações 360: ${collab.assessments360.length} recebidas
@@ -122,11 +128,22 @@ export class GenAiService {
     ${collab.committeeScore ? `- Nota do Comitê: ${collab.committeeScore}` : ''}
     
     Principais feedbacks:
-    ${collab.assessments360.slice(0, 3).map(a => `• ${a.improvements || a.strengths}`).join('\n')}
-    ${collab.managerAssessments.slice(0, 2).map(m => 
-      m.answers.slice(0, 2).map(ans => `• ${ans.justification}`).join('\n')
-    ).join('\n')}
-    `).join('\n---\n')}
+    ${collab.assessments360
+      .slice(0, 3)
+      .map((a) => `• ${a.improvements || a.strengths}`)
+      .join('\n')}
+    ${collab.managerAssessments
+      .slice(0, 2)
+      .map((m) =>
+        m.answers
+          .slice(0, 2)
+          .map((ans) => `• ${ans.justification}`)
+          .join('\n'),
+      )
+      .join('\n')}
+    `,
+      )
+      .join('\n---\n')}
     
     Forneça uma análise profissional e acionável em português, focando em insights que ajudem a liderança a tomar decisões estratégicas sobre desenvolvimento de talentos, retenção e ações de melhoria.
     
@@ -177,6 +194,99 @@ export class GenAiService {
         this.logger.error('Erro inesperado na análise da equipe:', error);
       }
       throw new InternalServerErrorException('Falha ao gerar análise da equipe.');
+    }
+  }
+
+  /**
+   * Gera resumo estratégico baseado nas notas finais dos colaboradores por pilar
+   * @param teamScoreData Dados de notas finais da equipe organizados por pilar
+   * @returns Uma promessa que resolve para uma string com resumo estratégico
+   */
+  async getTeamScoreAnalysis(teamScoreData: TeamScoreAnalysisData): Promise<string> {
+    const prompt = `
+    Você é um consultor sênior de RH especializado em análise quantitativa de performance.
+    Analise as notas finais da equipe por pilar e forneça insights estratégicos concisos.
+    
+    DADOS DA EQUIPE - CICLO ${teamScoreData.cycle}:
+    
+    ESTATÍSTICAS GERAIS:
+    - Total de colaboradores: ${teamScoreData.totalCollaborators}
+    - Média geral da equipe: ${teamScoreData.teamAverageScore.toFixed(2)}
+    - Colaboradores em zona crítica (≤2.5): ${teamScoreData.criticalPerformers}
+    - Colaboradores de alto desempenho (≥4.5): ${teamScoreData.highPerformers}
+    
+    MÉDIAS POR PILAR:
+    - Comportamento: ${teamScoreData.behaviorAverage?.toFixed(2) || 'N/A'}
+    - Execução: ${teamScoreData.executionAverage?.toFixed(2) || 'N/A'}
+    
+    DISTRIBUIÇÃO DE NOTAS FINAIS:
+    ${teamScoreData.collaborators
+      .map(
+        (collab) => `
+    ${collab.collaboratorName}: ${collab.finalScore?.toFixed(2) || 'Sem nota final'}
+    - Comportamento: ${collab.behaviorScore?.toFixed(2) || 'N/A'}
+    - Execução: ${collab.executionScore?.toFixed(2) || 'N/A'}
+    ${collab.hasCommitteeScore ? '(Nota equalizada pelo comitê)' : '(Média das avaliações)'}
+    `,
+      )
+      .join('\n')}
+    
+    Forneça um resumo estratégico em 2-3 frases que:
+    1. Identifique padrões de performance da equipe
+    2. Destaque pontos fortes ou áreas de atenção por pilar
+    3. Sugira recomendações práticas se relevante
+    
+    Exemplos de tom:
+    - "Nenhum colaborador em zona crítica de desempenho. Isso sugere práticas eficazes de contratação e gestão."
+    - "Os colaboradores demonstram evolução consistente nas avaliações, com destaque para o crescimento nas competências comportamentais."
+    
+    IMPORTANTE: Retorne EXATAMENTE no formato JSON abaixo:
+    {
+      "facts": "Seu resumo estratégico aqui..."
+    }
+    `;
+
+    const payload = {
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2, // temperatura muito baixa para análise objetiva
+      response_format: { type: 'json_object' },
+    };
+
+    try {
+      this.logger.log('Enviando dados de notas da equipe para análise pela LLM...');
+
+      const response = await firstValueFrom(
+        this.httpService.post<OpenAiChatCompletionResponseDto>('/chat/completions', payload),
+      );
+
+      this.logger.log('Análise de notas da equipe recebida com sucesso.');
+
+      const responseContent = response.data.choices[0].message.content;
+
+      if (!responseContent) {
+        this.logger.error('A resposta da LLM não contém o conteúdo esperado.');
+        throw new InternalServerErrorException('Resposta inválida da API de IA.');
+      }
+
+      const parsedJson: unknown = JSON.parse(responseContent);
+
+      if (!this.isTeamEvaluationSummaryDto(parsedJson)) {
+        this.logger.error(
+          'O JSON retornado pela LLM não tem o formato esperado { "facts": "string" }',
+          parsedJson,
+        );
+        throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
+      }
+
+      return parsedJson.facts || '';
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        this.logger.error('Erro na chamada para a API da LLM:', error.response?.data);
+      } else {
+        this.logger.error('Erro inesperado na análise de notas da equipe:', error);
+      }
+      throw new InternalServerErrorException('Falha ao gerar análise de notas da equipe.');
     }
   }
 

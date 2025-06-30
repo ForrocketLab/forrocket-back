@@ -35,7 +35,8 @@ export class TeamEvaluationSummaryResponseDto {
 
   @ApiProperty({
     description: 'Resumo inteligente gerado pela IA sobre a equipe',
-    example: 'A equipe apresenta performance variada com média de 3.8. Identificamos 2 colaboradores de alto desempenho que podem servir como mentores...',
+    example:
+      'A equipe apresenta performance variada com média de 3.8. Identificamos 2 colaboradores de alto desempenho que podem servir como mentores...',
   })
   teamSummary: string;
 

@@ -34,6 +34,7 @@ import { Received360AssessmentDto } from './manager/dto/received-assessment360.d
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 import { TeamEvaluationSummaryResponseDto } from './manager/dto/team-evaluation-summary.dto';
+import { TeamScoreAnalysisResponseDto } from './manager/dto/team-score-analysis.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -365,8 +366,6 @@ export class ManagerController {
       throw new ForbiddenException('Apenas gestores podem acessar análises de equipe.');
     }
 
-    console.log('cicle', cycle, user.id);
-
     if (!cycle) {
       throw new BadRequestException('O parâmetro cycle é obrigatório.');
     }
@@ -385,6 +384,79 @@ export class ManagerController {
         teamAverageScore: teamData.teamAverageScore,
         highPerformers: teamData.highPerformers,
         lowPerformers: teamData.lowPerformers,
+      },
+    };
+  }
+
+  @Get('team-score-analysis')
+  @ApiOperation({
+    summary: 'Obter análise quantitativa da equipe por pilar',
+    description: `
+      Gera uma análise estratégica baseada nas notas finais dos colaboradores por pilar e nota do comitê.
+      
+      **Funcionalidades:**
+      - Coleta notas finais de todos os colaboradores (prioriza comitê)
+      - Calcula médias por pilar (Comportamento, Execução)
+      - Gera insights estratégicos sobre distribuição de notas
+      - Identifica colaboradores de alto desempenho e zona crítica
+      - Fornece resumo quantitativo conciso
+      
+      **Regras de negócio:**
+      - Apenas gestores podem acessar esta funcionalidade
+      - Considera apenas avaliações submetidas (status SUBMITTED)
+      - Prioriza notas do comitê quando disponíveis
+      - Excluindo pilar Management conforme solicitado
+    `,
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação para análise (ex: "2025.1")',
+    example: '2025.1',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Análise de notas da equipe gerada com sucesso.',
+    type: TeamScoreAnalysisResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para acessar dados da equipe.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum colaborador encontrado para este gestor.',
+  })
+  async getTeamScoreAnalysis(
+    @CurrentUser() user: User,
+    @Query('cycle') cycle: string,
+  ): Promise<TeamScoreAnalysisResponseDto> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(user.id);
+    if (!isManager) {
+      throw new ForbiddenException('Apenas gestores podem acessar análises de equipe.');
+    }
+
+    if (!cycle) {
+      throw new BadRequestException('O parâmetro cycle é obrigatório.');
+    }
+
+    // Coletar dados de notas por pilar da equipe
+    const teamScoreData = await this.evaluationsService.getTeamScoreAnalysisData(user.id, cycle);
+
+    // Gerar análise usando IA
+    const scoreAnalysis = await this.genAiService.getTeamScoreAnalysis(teamScoreData);
+
+    return {
+      cycle: teamScoreData.cycle,
+      scoreAnalysis,
+      teamStats: {
+        totalCollaborators: teamScoreData.totalCollaborators,
+        teamAverageScore: teamScoreData.teamAverageScore,
+        behaviorAverage: teamScoreData.behaviorAverage,
+        executionAverage: teamScoreData.executionAverage,
+        highPerformers: teamScoreData.highPerformers,
+        criticalPerformers: teamScoreData.criticalPerformers,
       },
     };
   }
