@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import { GenAiController } from './gen-ai.controller';
 import { GenAiService } from './gen-ai.service';
 
 @Module({
@@ -23,6 +24,7 @@ import { GenAiService } from './gen-ai.service';
       inject: [ConfigService],
     }),
   ],
+  controllers: [GenAiController],
   providers: [GenAiService],
   exports: [GenAiService], // Exporta o GenAiService para outros módulos
 })

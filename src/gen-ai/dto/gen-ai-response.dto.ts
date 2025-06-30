@@ -1,5 +1,5 @@
 export class BrutalFactsDto {
-  facts: string[];
+  facts: string;
 }
 
 // Estes DTOs representam a estrutura COMPLETA da resposta da API da OpenAI.

@@ -10,7 +10,7 @@ function isBrutalFactsDto(obj: unknown): obj is BrutalFactsDto {
     typeof obj === 'object' &&
     obj !== null &&
     'facts' in obj &&
-    Array.isArray((obj as BrutalFactsDto).facts)
+    typeof (obj as BrutalFactsDto).facts === 'string'
   );
 }
 
@@ -23,18 +23,21 @@ export class GenAiService {
   /**
    * Gera "brutal facts" a partir de um texto de avaliação usando uma LLM.
    * @param evaluationText O texto completo da avaliação.
-   * @returns Uma promessa que resolve para um array de strings com os fatos.
+   * @returns Uma promessa que resolve para uma string com os fatos.
    */
-  async getBrutalFacts(evaluationText: string): Promise<string[]> {
+  async getSummary(evaluationText: string): Promise<string> {
     const prompt = `
     Você é um agente especializado em extrair fatos diretos e honestos de avaliações de desempenho do sistema RPE.
-      Baseado no seguinte texto de uma avaliação de desempenho, extraia 3 "brutal facts" (fatos diretos e honestos) sobre os pontos a melhorar.
-      Retorne os fatos em um array de strings JSON. Não adicione nenhum texto antes ou depois do array.
-      A resposta DEVE ser apenas o array JSON.
+      Baseado no seguinte texto de uma avaliação de desempenho, extraia varios "brutal facts" (fatos diretos e honestos) sobre os pontos a melhorar, em um único texto.
+      Neste caso, você deve extrair dados baseados nas notas dos colaboradores, focando em insights que podem ser extraídos das notas e do texto da autoavaliação, além de avaliação em feedbacks360.
+      Exemplo de output: Nenhum colaborador alcançou o status de alto desempenho (nota 4.5+). Isso indica ou uma evitação de inflação nas notas ou um problema fundamental na aquisição ou desenvolvimento de talentos.
+
+      IMPORTANTE: Retorne EXATAMENTE no formato JSON abaixo, sem nenhum texto adicional:
+      {
+        "facts": "Texto aqui, lorem ipsum"
+      }
 
       Texto da avaliação: "${evaluationText}"
-
-      JSON_RESPONSE:
     `;
 
     // Corpo da requisição para a API da OpenAI
@@ -68,13 +71,13 @@ export class GenAiService {
       // usa função Type Guard para validar a estrutura
       if (!isBrutalFactsDto(parsedJson)) {
         this.logger.error(
-          'O JSON retornado pela LLM não tem o formato esperado { "facts": [...] }',
+          'O JSON retornado pela LLM não tem o formato esperado { "facts": "string" }',
           parsedJson,
         );
         throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
       }
 
-      return parsedJson.facts || [];
+      return parsedJson.facts || '';
     } catch (error) {
       if (error instanceof AxiosError) {
         this.logger.error('Erro na chamada para a API da LLM:', error.response?.data);
