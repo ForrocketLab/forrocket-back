@@ -12,11 +12,12 @@ import { CriteriaSimpleController } from './criteria-simple.controller';
 import { CriteriaService } from './criteria.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { GenAiModule } from '../gen-ai/gen-ai.module';
 
 // Submódulos
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, CyclesModule, CommitteeModule],
+  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule],
   controllers: [
     EvaluationsController,
     ManagerController,
