@@ -10,7 +10,6 @@ import {
   BadRequestException,
   Query,
   Param,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,20 +20,21 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 
-import { CreateManagerAssessmentDto } from './assessments/dto';
-import { EvaluationsService } from './evaluations.service';
-import { ProjectsService } from '../projects/projects.service';
-import { GenAiService } from '../gen-ai/gen-ai.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
-import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto';
-import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
+import { GenAiService } from '../gen-ai/gen-ai.service';
+import { ProjectsService } from '../projects/projects.service';
+import { CreateManagerAssessmentDto } from './assessments/dto';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
+import { SelfAssessmentResponseDto } from './assessments/dto/self-assessment-response.dto';
+import { EvaluationsService } from './evaluations.service';
+import { BrutalFactsMetricsDto } from './manager/dto/brutal-facts-metrics.dto';
+import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 import { TeamEvaluationSummaryResponseDto } from './manager/dto/team-evaluation-summary.dto';
 import { TeamScoreAnalysisResponseDto } from './manager/dto/team-score-analysis.dto';
+import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -459,5 +459,55 @@ export class ManagerController {
         criticalPerformers: teamScoreData.criticalPerformers,
       },
     };
+  }
+
+  @Get('brutal-facts-metrics')
+  @ApiOperation({
+    summary: 'Obter métricas de brutal facts da equipe',
+    description: `
+      Fornece métricas objetivas e quantitativas sobre a performance da equipe, conhecidas como "brutal facts".
+      
+      **Funcionalidades:**
+      - Nota média geral do time (overallScore das avaliações 360)
+      - Melhoria de desempenho em relação ao ciclo anterior
+      - Número de colaboradores avaliados pelo gestor
+      - Desempenho do time por diferentes tipos de avaliação
+      - Métricas detalhadas de cada colaborador (autoavaliação, 360, gestor, final)
+      
+      **Regras de negócio:**
+      - Apenas gestores podem acessar esta funcionalidade
+      - Considera apenas avaliações submetidas (status SUBMITTED)
+      - Compara automaticamente com o ciclo anterior para calcular melhoria
+      - Inclui breakdown por colaborador para análise detalhada
+    `,
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação para análise (ex: "2025.1")',
+    example: '2025.1',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas de brutal facts geradas com sucesso.',
+    type: BrutalFactsMetricsDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para acessar métricas da equipe.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum colaborador encontrado para este gestor.',
+  })
+  async getBrutalFactsMetrics(
+    @CurrentUser() user: User,
+    @Query('cycle') cycle: string,
+  ): Promise<BrutalFactsMetricsDto> {
+    if (!cycle) {
+      throw new BadRequestException('O parâmetro cycle é obrigatório.');
+    }
+
+    return await this.evaluationsService.getBrutalFactsMetrics(user.id, cycle);
   }
 }
