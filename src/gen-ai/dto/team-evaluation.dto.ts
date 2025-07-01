@@ -1,4 +1,4 @@
-export interface CollaboratorEvaluationData {
+export interface TeamCollaboratorData {
   collaboratorId: string;
   collaboratorName: string;
   jobTitle: string;
@@ -25,7 +25,7 @@ export interface TeamEvaluationSummaryData {
   cycle: string;
   teamAverageScore: number;
   totalCollaborators: number;
-  collaborators: CollaboratorEvaluationData[];
+  collaborators: TeamCollaboratorData[];
   highPerformers: number; // colaboradores com nota >= 4.5
   lowPerformers: number; // colaboradores com nota <= 2.5
 }
