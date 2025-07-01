@@ -405,6 +405,9 @@ export class CommitteeService {
     authorId: string,
     dto: UpdateCommitteeAssessmentDto,
   ) {
+    // Validar que estamos na fase de equalização
+    await this.cyclesService.validateActiveCyclePhase('EQUALIZATION');
+
     // Buscar a avaliação
     const assessment = await this.prisma.committeeAssessment.findUnique({
       where: { id: assessmentId },
@@ -426,10 +429,8 @@ export class CommitteeService {
 
     this.validateCommitteeMember(currentUser.roles);
 
-    // Verificar se a avaliação ainda não foi submetida
-    if (assessment.status === 'SUBMITTED') {
-      throw new BadRequestException('Esta avaliação já foi submetida e não pode ser alterada');
-    }
+    // Permitir edição durante a fase de equalização, mesmo se já foi submetida
+    // A verificação de fase já foi feita acima
 
     // Atualizar a avaliação
     const updatedAssessment = await this.prisma.committeeAssessment.update({
@@ -438,8 +439,6 @@ export class CommitteeService {
         ...(dto.finalScore !== undefined && { finalScore: dto.finalScore }),
         ...(dto.justification !== undefined && { justification: dto.justification }),
         ...(dto.observations !== undefined && { observations: dto.observations }),
-        status: 'SUBMITTED',
-        submittedAt: new Date(),
         updatedAt: new Date(),
       },
       include: {
