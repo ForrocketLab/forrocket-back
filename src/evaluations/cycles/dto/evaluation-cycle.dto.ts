@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, ValidatorConstraint, ValidatorConstraintInterface, Validate, ValidationArguments } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, ValidatorConstraint, ValidatorConstraintInterface, Validate, ValidationArguments, IsBoolean } from 'class-validator'; 
 
 // Validador customizado para garantir que uma data é posterior a outra
 @ValidatorConstraint({ name: 'IsAfterDate', async: false })
@@ -221,6 +221,16 @@ export class CreateEvaluationCycleDto {
   @IsAfterDate('managerDeadline')
   @ValidateDeadlineSequence()
   equalizationDeadline?: string;
+
+  @ApiProperty({
+    description: 'Indica se o ciclo está sendo importado de um sistema externo',
+    example: true,
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isImported?: boolean;
 }
 
 /**

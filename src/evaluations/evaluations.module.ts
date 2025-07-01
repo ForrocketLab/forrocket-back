@@ -12,11 +12,12 @@ import { CriteriaSimpleController } from './criteria-simple.controller';
 import { CriteriaService } from './criteria.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { CriteriaMappingModule } from './criteria-mapping/criteria-mapping.module'; // NOVO: Importar CriteriaMappingModule
 
 // Submódulos
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, CyclesModule, CommitteeModule],
+  imports: [DatabaseModule, ProjectsModule, CyclesModule, CommitteeModule, CriteriaMappingModule],
   controllers: [
     EvaluationsController,
     ManagerController,

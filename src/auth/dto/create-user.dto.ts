@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsNotEmpty, IsArray, ValidateNested, IsEnum, IsOptional, MinLength, Matches, ArrayMinSize } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, IsArray, ValidateNested, IsEnum, IsOptional, MinLength, Matches, ArrayMinSize, IsBoolean } from 'class-validator'; 
 import { Type } from 'class-transformer';
 
 /**
@@ -171,4 +171,14 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   mentorId?: string;
-} 
+
+  @ApiProperty({ // NOVO CAMPO: isImported
+    description: 'Indica se o usuário está sendo importado de um sistema externo',
+    example: true,
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean() // NOVO: IsBoolean
+  isImported?: boolean;
+}

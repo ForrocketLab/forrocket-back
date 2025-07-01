@@ -123,7 +123,7 @@ export class EvaluationsService {
   /**
    * Cria uma autoavaliação com todos os 12 critérios para o ciclo ativo
    */
-  async createSelfAssessment(userId: string, dto: Omit<CreateSelfAssessmentDto, 'cycle'>) {
+  async createSelfAssessment(userId: string, dto: Omit<CreateSelfAssessmentDto, 'cycle'>, isImported: boolean = false) {
     // Validar se existe um ciclo ativo na fase correta
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
 
@@ -216,6 +216,7 @@ export class EvaluationsService {
         authorId: userId,
         cycle: activeCycle.name,
         status: EvaluationStatus.DRAFT, // Usando o enum aqui
+        isImported: isImported,
         answers: {
           create: answers,
         },
@@ -231,7 +232,7 @@ export class EvaluationsService {
   /**
    * Cria uma avaliação 360 para o ciclo ativo
    */
-  async create360Assessment(userId: string, dto: Omit<Create360AssessmentDto, 'cycle'>) {
+  async create360Assessment(userId: string, dto: Omit<Create360AssessmentDto, 'cycle'>, isImported: boolean = false) {
     // Validar se existe um ciclo ativo na fase correta
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
 
@@ -285,6 +286,7 @@ export class EvaluationsService {
         overallScore: dto.overallScore,
         strengths: dto.strengths,
         improvements: dto.improvements,
+        isImported: isImported,
       },
     });
 
@@ -296,7 +298,7 @@ export class EvaluationsService {
    */
   async createMentoringAssessment(
     userId: string,
-    dto: Omit<CreateMentoringAssessmentDto, 'cycle'>,
+    dto: Omit<CreateMentoringAssessmentDto, 'cycle'>, isImported: boolean = false
   ) {
     // Validar se existe um ciclo ativo na fase correta
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
@@ -345,6 +347,7 @@ export class EvaluationsService {
         mentorId: dto.mentorId,
         score: dto.score,
         justification: dto.justification,
+        isImported: isImported,
       },
     });
 
@@ -354,7 +357,7 @@ export class EvaluationsService {
   /**
    * Cria um feedback de referência para o ciclo ativo
    */
-  async createReferenceFeedback(userId: string, dto: Omit<CreateReferenceFeedbackDto, 'cycle'>) {
+  async createReferenceFeedback(userId: string, dto: Omit<CreateReferenceFeedbackDto, 'cycle'>, isImported: boolean = false) {
     // Validar se existe um ciclo ativo na fase correta
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
 
@@ -396,6 +399,7 @@ export class EvaluationsService {
         referencedUserId: dto.referencedUserId,
         topic: dto.topic, // Campo opcional
         justification: dto.justification,
+        isImported: isImported,
       },
     });
 
@@ -405,7 +409,7 @@ export class EvaluationsService {
   /**
    * Cria uma avaliação de gestor para liderado no ciclo ativo
    */
-  async createManagerAssessment(managerId: string, dto: Omit<CreateManagerAssessmentDto, 'cycle'>) {
+  async createManagerAssessment(managerId: string, dto: Omit<CreateManagerAssessmentDto, 'cycle'>, isImported: boolean = false) {
     // Validar se existe um ciclo ativo na fase correta
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS');
 
@@ -500,6 +504,7 @@ export class EvaluationsService {
         evaluatedUserId: dto.evaluatedUserId,
         cycle: activeCycle.name,
         status: EvaluationStatus.DRAFT, // Usando o enum aqui
+        isImported: isImported,
         answers: {
           create: answers,
         },

@@ -19,6 +19,7 @@ model User {
   email        String   @unique
   passwordHash String
   roles        String   // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
+  isImported           Boolean @default(false)
 
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
@@ -102,6 +103,7 @@ model SelfAssessment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   submittedAt DateTime?
+  isImported  Boolean @default(false)
 
   // Relacionamentos
   author  User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -137,6 +139,7 @@ model Assessment360 {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
+  isImported    Boolean @default(false)
 
   // Relacionamentos
   author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
@@ -157,6 +160,7 @@ model MentoringAssessment {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   submittedAt   DateTime?
+  isImported  Boolean @default(false)
 
   // Relacionamentos
   author User @relation("MentoringAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -177,6 +181,7 @@ model ReferenceFeedback {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   submittedAt       DateTime?
+  isImported   Boolean @default(false)
 
   // Relacionamentos
   author         User @relation("ReferenceFeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -195,6 +200,7 @@ model ManagerAssessment {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
+  isImported    Boolean @default(false)
 
   // Relacionamentos
   author        User @relation("ManagerAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -231,6 +237,7 @@ model CommitteeAssessment {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
+  isImported    Boolean @default(false)
 
   // Relacionamentos
   author        User @relation("CommitteeAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -251,6 +258,7 @@ model EvaluationCycle {
   phase     EvaluationPhase  @default(ASSESSMENTS) // Nova fase do ciclo
   startDate DateTime?
   endDate   DateTime?
+  isImported         Boolean @default(false)
   
   // NOVOS CAMPOS PARA DEADLINES
   assessmentDeadline    DateTime? // Prazo para autoavaliações e 360
@@ -375,4 +383,60 @@ enum EvaluationPhase {
   ASSESSMENTS      // Fase 1: Autoavaliação, 360, Mentoring, Reference
   MANAGER_REVIEWS  // Fase 2: Avaliações de Gestor
   EQUALIZATION     // Fase 3: Equalização (ainda não implementada)
+}
+
+
+  // ==========================================
+  // TABELAS DE DADOS IMPORTADOS
+  // ==========================================
+
+model PerfilImportado {
+  id      String @id @default(uuid())
+  nome    String @map("Nome ( nome.sobrenome )")
+  email   String @unique
+  ciclo   String @map("Ciclo (ano.semestre)")
+  unidade String @map("Unidade")
+
+  @@map("perfis_importados")
+}
+
+model AutoAvaliacaoImportada {
+  id                      String   @id @default(uuid())
+  emailColaborador        String   @map("Email do Colaborador")
+  ciclo                   String   @map("Ciclo (ano.semestre)")
+  criterio                String   @map("CRITÉRIO")
+  descricaoGeral          String   @map("DESCRIÇÃO GERAL")
+  autoAvaliacao           Int?     @map("AUTO-AVALIAÇÃO")
+  descricaoNota           String?  @map("DESCRIÇÃO NOTA")
+  dadosFatosAutoAvaliacao String?  @map("DADOS E FATOS DA AUTO-AVALIAÇÃO\nCITE, DE FORMA OBJETIVA, CASOS E SITUAÇÕES REAIS")
+  dataImportacao          DateTime @default(now())
+
+  @@map("auto_avaliacoes_importadas")
+}
+
+model Avaliacao360Importada {
+  id                           String   @id @default(uuid())
+  emailColaborador             String   @map("Email do Colaborador")
+  ciclo                        String   @map("Ciclo (ano.semestre)")
+  emailAvaliado                String   @map("EMAIL DO AVALIADO ( nome.sobrenome )")
+  projetoAtuadoJunto           String?  @map("PROJETO EM QUE ATUARAM JUNTOS - OBRIGATÓRIO TEREM ATUADOS JUNTOS")
+  periodo                      String?  @map("PERÍODO")
+  motivadoEmTrabalharNovamente String?  @map("VOCÊ FICARIA MOTIVADO EM TRABALHAR NOVAMENTE COM ESTE COLABORADOR")
+  notaGeralColaborador         Float?   @map("DÊ UMA NOTA GERAL PARA O COLABORADOR")
+  pontosMelhorar               String?  @map("PONTOS QUE DEVE MELHORAR")
+  pontosExplorar               String?  @map("PONTOS QUE FAZ BEM E DEVE EXPLORAR")
+  dataImportacao               DateTime @default(now())
+
+  @@map("avaliacoes_360_importadas")
+}
+
+model PesquisaReferenciaImportada {
+  id               String   @id @default(uuid())
+  emailColaborador String   @map("Email do Colaborador")
+  ciclo            String   @map("Ciclo (ano.semestre)")
+  emailReferencia  String   @map("EMAIL DA REFERÊNCIA\n( nome.sobrenome )")
+  justificativa    String?  @map("JUSTIFICATIVA")
+  dataImportacao   DateTime @default(now())
+
+  @@map("pesquisas_referencia_importadas")
 }

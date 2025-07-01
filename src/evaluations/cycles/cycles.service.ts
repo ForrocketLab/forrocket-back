@@ -66,6 +66,16 @@ export class CyclesService {
   }
 
   /**
+   * Busca um ciclo de avaliação pelo ano e semestre
+   */
+  async findByYearAndSemester(year: number, semester: number) {
+  const name = `${year}.${semester}`;
+  return this.prisma.evaluationCycle.findUnique({
+    where: { name },
+  });
+  }
+
+  /**
    * Ativa um ciclo (muda status para OPEN) e desativa outros ciclos ativos
    */
   async activateCycle(cycleId: string, dto: ActivateCycleDto) {

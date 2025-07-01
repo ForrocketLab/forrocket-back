@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ImportModule } from './import/import.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -29,6 +30,9 @@ import { ProjectsModule } from './projects/projects.module';
 
     // Módulo de projetos
     ProjectsModule,
+
+    // Módulo de importação de dados
+    ImportModule,
   ],
 })
 export class AppModule {}
