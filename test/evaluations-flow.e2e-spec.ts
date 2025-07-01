@@ -152,7 +152,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Test Cycle 2025.3',
-          startDate: '2025-07-01',
+          startDate: '2025-08-01',
           endDate: '2025-12-31',
         })
         .expect(201);
@@ -164,7 +164,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
       console.log('Ciclo criado com ID:', cycleId);
 
       // Aguardar um pouco para garantir que o ciclo foi persistido
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // 2. Ativar o ciclo criado
       const activateResponse = await request(app.getHttpServer())
@@ -189,9 +189,12 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
           .get('/api/evaluation-cycles')
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(200);
-        
-        console.log('Ciclos existentes:', checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })));
-        
+
+        console.log(
+          'Ciclos existentes:',
+          checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })),
+        );
+
         // Se o ciclo não existe, aceitar o 404
         expect(activateResponse.status).toBe(404);
         return;
@@ -208,7 +211,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Test Cycle Deadlines 2025.4',
-          startDate: '2025-10-01',
+          startDate: '2025-08-01',
           endDate: '2025-12-31',
         })
         .expect(201);
@@ -217,7 +220,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
       console.log('Ciclo criado com ID:', cycleId);
 
       // Aguardar um pouco para garantir que o ciclo foi persistido
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // 2. Ativar com deadlines completas
       const activateResponse = await request(app.getHttpServer())
@@ -243,9 +246,12 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
           .get('/api/evaluation-cycles')
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(200);
-        
-        console.log('Ciclos existentes:', checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })));
-        
+
+        console.log(
+          'Ciclos existentes:',
+          checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })),
+        );
+
         // Se o ciclo não existe, aceitar o 404
         expect(activateResponse.status).toBe(404);
         return;
@@ -597,8 +603,8 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
           .set('Authorization', `Bearer ${adminToken}`)
           .send({
             name: 'Test Phase Cycle',
-            startDate: '2025-01-01',
-            endDate: '2025-03-31',
+            startDate: '2025-08-01',
+            endDate: '2025-12-31',
           })
           .expect(201);
 
