@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { CycleAutomationService } from './cycle-automation.service';
 import { CyclesController } from './cycles.controller';
 import { CyclesService } from './cycles.service';
 
@@ -40,12 +41,21 @@ describe('CyclesController', () => {
       getCycleDeadlinesInfo: jest.fn(),
     };
 
+    const mockCycleAutomationService = {
+      forceAutomationCheck: jest.fn(),
+      checkAndUpdateCyclePhases: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CyclesController],
       providers: [
         {
           provide: CyclesService,
           useValue: mockCyclesService,
+        },
+        {
+          provide: CycleAutomationService,
+          useValue: mockCycleAutomationService,
         },
       ],
     }).compile();

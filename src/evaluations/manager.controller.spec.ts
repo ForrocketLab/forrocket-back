@@ -7,6 +7,7 @@ import { CreateManagerAssessmentDto } from './assessments/dto';
 import { ManagerController } from './manager.controller';
 import { User } from '../auth/entities/user.entity';
 import { UserRole } from '../common/enums/user-role.enum';
+import { GenAiService } from '../gen-ai/gen-ai.service';
 
 describe('ManagerController', () => {
   let controller: ManagerController;
@@ -118,6 +119,11 @@ describe('ManagerController', () => {
       getEvaluableSubordinates: jest.fn(),
     };
 
+    const mockGenAiService = {
+      generateCollaboratorSummary: jest.fn(),
+      generateTeamEvaluationSummary: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ManagerController],
       providers: [
@@ -128,6 +134,10 @@ describe('ManagerController', () => {
         {
           provide: ProjectsService,
           useValue: mockProjectsService,
+        },
+        {
+          provide: GenAiService,
+          useValue: mockGenAiService,
         },
       ],
     }).compile();

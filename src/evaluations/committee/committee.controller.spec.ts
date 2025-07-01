@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { CommitteeDataService } from './committee-data.service';
 import { CommitteeController } from './committee.controller';
 import { CommitteeService } from './committee.service';
 import {
@@ -8,6 +9,7 @@ import {
   SubmitCommitteeAssessmentDto,
 } from './dto/committee-assessment.dto';
 import { User } from '../../auth/entities/user.entity';
+import { GenAiService } from '../../gen-ai/gen-ai.service';
 
 describe('CommitteeController', () => {
   let controller: CommitteeController;
@@ -141,12 +143,31 @@ describe('CommitteeController', () => {
       getCommitteeAssessmentsByCycle: jest.fn(),
     };
 
+    const mockCommitteeDataService = {
+      // Add mock methods as needed
+    };
+
+    const mockGenAiService = {
+      generateCollaboratorSummary: jest.fn(),
+      getCollaboratorSummary: jest.fn(),
+      listCollaboratorSummariesByCycle: jest.fn(),
+      checkCollaboratorSummaryExists: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CommitteeController],
       providers: [
         {
           provide: CommitteeService,
           useValue: mockCommitteeService,
+        },
+        {
+          provide: CommitteeDataService,
+          useValue: mockCommitteeDataService,
+        },
+        {
+          provide: GenAiService,
+          useValue: mockGenAiService,
         },
       ],
     }).compile();
