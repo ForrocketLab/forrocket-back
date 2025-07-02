@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { CriterionPillar, ManagerTeamSummary } from '@prisma/client';
+import { GenAiService } from 'src/gen-ai/gen-ai.service';
 
 import {
   CreateSelfAssessmentDto,
@@ -12,42 +14,32 @@ import {
   CreateReferenceFeedbackDto,
   CreateManagerAssessmentDto,
   SelfAssessmentCompletionByPillarDto,
-  OverallCompletionDto,
-  PillarProgressDto,
 } from './assessments/dto';
-import { User } from '../auth/entities/user.entity';
 import { PrismaService } from '../database/prisma.service';
-import {
-  ALL_CRITERIA,
-  getCriteriaByPillar,
-  getAllPillars,
-  isValidCriterionId,
-} from '../models/criteria';
+import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
-import { CyclesService } from './cycles/cycles.service';
-import {
-  ISelfAssessment,
-  ISelfAssessmentAnswer,
-  EvaluationStatus,
-  CollaboratorEvaluationType,
-} from '../models/evaluations/collaborator';
-import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
-import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 import {
   AnswerWithCriterion,
   AssessmentWithAnswers,
   PerformanceDataDto,
 } from './assessments/dto/performance-data.dto';
-import { CriterionPillar } from '@prisma/client';
-import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
+import { CyclesService } from './cycles/cycles.service';
+import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 import {
   TeamCollaboratorData,
   TeamEvaluationSummaryData,
   TeamScoreAnalysisData,
   CollaboratorScoreData,
 } from '../gen-ai/dto/team-evaluation.dto';
+import {
+  ISelfAssessment,
+  ISelfAssessmentAnswer,
+  EvaluationStatus,
+} from '../models/evaluations/collaborator';
+import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { BrutalFactsMetricsDto } from './manager/dto/brutal-facts-metrics.dto';
+import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 
 @Injectable()
 export class EvaluationsService {
@@ -55,6 +47,7 @@ export class EvaluationsService {
     private prisma: PrismaService,
     private projectsService: ProjectsService,
     private cyclesService: CyclesService,
+    private genAiService: GenAiService,
   ) {}
 
   /**
@@ -854,9 +847,9 @@ export class EvaluationsService {
 
         const selfAssessment = p.selfAssessments[0];
         let status: 'PENDING' | 'DRAFT' | 'SUBMITTED' = 'PENDING';
-        if (selfAssessment?.status === EvaluationStatus.SUBMITTED)
+        if (selfAssessment?.status === 'SUBMITTED')
           status = EvaluationStatus.SUBMITTED; // Usando o enum aqui
-        else if (selfAssessment?.status === EvaluationStatus.DRAFT) status = EvaluationStatus.DRAFT; // Usando o enum aqui
+        else if (selfAssessment?.status === 'DRAFT') status = EvaluationStatus.DRAFT; // Usando o enum aqui
 
         return [
           p.id,
@@ -1348,7 +1341,7 @@ export class EvaluationsService {
     // Buscar critérios para mapear pilares
     const criteria = await this.prisma.criterion.findMany();
     const criteriaPillarMap = new Map<string, CriterionPillar>(
-      criteria.map((c) => [c.id, c.pillar as CriterionPillar]),
+      criteria.map((c) => [c.id, c.pillar]),
     );
 
     // Buscar dados de todos os colaboradores
@@ -1475,6 +1468,57 @@ export class EvaluationsService {
       criticalPerformers,
       collaborators: validCollaborators,
     };
+  }
+
+  async findOrCreateTeamAnalyses(managerId: string, cycle: string): Promise<ManagerTeamSummary> {
+    // Passo 1: Tenta buscar um resumo já existente no banco de dados
+    const existingSummary = await this.prisma.managerTeamSummary.findUnique({
+      where: {
+        managerId_cycle: {
+          managerId,
+          cycle,
+        },
+      },
+    });
+
+    // retorna imediatamente se encontrou(leitura rápida)
+    if (existingSummary) {
+      console.log('Resumo encontrado no cache do banco. Retornando rapidamente.');
+      return existingSummary;
+    }
+
+    console.log('Resumo não encontrado. Gerando uma nova análise...');
+
+    const teamScoreData = await this.getTeamScoreAnalysisData(managerId, cycle);
+    const teamEvaluationData = await this.getTeamEvaluationData(managerId, cycle);
+
+    // Chama a IA para gerar os dois resumos
+    const [scoreAnalysisSummary, feedbackAnalysisSummary] = await Promise.all([
+      this.genAiService.getTeamScoreAnalysis(teamScoreData),
+      this.genAiService.getTeamEvaluationSummary(teamEvaluationData),
+    ]);
+
+    // Monta o objeto completo para salvar no banco de dados
+    const newSummaryData = {
+      managerId,
+      cycle,
+      scoreAnalysisSummary,
+      feedbackAnalysisSummary,
+      totalCollaborators: teamScoreData.totalCollaborators,
+      teamAverageScore: teamScoreData.teamAverageScore,
+      highPerformers: teamScoreData.highPerformers,
+      lowPerformers: teamEvaluationData.lowPerformers,
+      behaviorAverage: teamScoreData.behaviorAverage,
+      executionAverage: teamScoreData.executionAverage,
+      criticalPerformers: teamScoreData.criticalPerformers,
+    };
+
+    // Salva o novo resumo no banco de dados
+    const createdSummary = await this.prisma.managerTeamSummary.create({
+      data: newSummaryData,
+    });
+
+    return createdSummary;
   }
 
   /**
