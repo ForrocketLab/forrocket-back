@@ -105,11 +105,44 @@ describe('User Creation (e2e)', () => {
 
   afterEach(async () => {
     // Limpar usuários criados nos testes (manter apenas os de seed)
+    const seedEmails = [
+      'eduardo.tech@rocketcorp.com',
+      'diana.costa@rocketcorp.com', 
+      'carla.dias@rocketcorp.com',
+      'bruno.mendes@rocketcorp.com',
+      'ana.oliveira@rocketcorp.com',
+      'felipe.silva@rocketcorp.com'
+    ];
+
+    // Limpar relacionamentos primeiro
+    await prismaService.userRoleAssignment.deleteMany({
+      where: {
+        user: {
+          email: { notIn: seedEmails }
+        }
+      }
+    });
+    
+    await prismaService.userProjectRole.deleteMany({
+      where: {
+        user: {
+          email: { notIn: seedEmails }
+        }
+      }
+    });
+    
+    await prismaService.userProjectAssignment.deleteMany({
+      where: {
+        user: {
+          email: { notIn: seedEmails }
+        }
+      }
+    });
+
+    // Remover usuários de teste
     await prismaService.user.deleteMany({
       where: {
-        email: {
-          contains: 'teste'
-        }
+        email: { notIn: seedEmails }
       }
     });
   });
@@ -181,9 +214,10 @@ describe('User Creation (e2e)', () => {
       });
 
       it('deve aceitar usuário admin', async () => {
+        const timestamp = Date.now();
         const testData = {
           ...validAdminData,
-          email: 'teste.admin@rocketcorp.com'
+          email: `teste.admin.${timestamp}@rocketcorp.com`
         };
 
         return request(app.getHttpServer())
@@ -254,13 +288,19 @@ describe('User Creation (e2e)', () => {
     describe('Criação de usuários por tipo', () => {
       describe('Usuário Admin', () => {
         it('deve criar usuário admin sem projectAssignments', async () => {
+          const timestamp = Date.now();
+          const testData = {
+            ...validAdminData,
+            email: `admin.create.${timestamp}@rocketcorp.com`
+          };
+
           return request(app.getHttpServer())
             .post('/api/users')
             .set('Authorization', `Bearer ${adminToken}`)
-            .send(validAdminData)
+            .send(testData)
             .expect(201)
             .expect(res => {
-              expect(res.body.email).toBe(validAdminData.email);
+              expect(res.body.email).toBe(testData.email);
               expect(res.body.roles).toEqual(['admin']);
               expect(res.body.managerId).toBeUndefined();
               expect(res.body.mentorId).toBeUndefined();
