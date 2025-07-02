@@ -1,0 +1,171 @@
+{
+  "avaliacoes": [
+    {
+      "id_avaliacao": "auto_aval_ana_01",
+      "id_avaliado": "1",
+      "id_avaliador": "1",
+      "tipo_avaliacao": "Autoavaliação",
+      "data_avaliacao": "2025-06-25T11:00:00Z",
+      "answers": [
+        {
+          "criterionId": "sentimento-de-dono",
+          "score": 4,
+          "justification": "Assumi a liderança da iniciativa X."
+        },
+        {
+          "criterionId": "resiliencia-nas-adversidades",
+          "score": 5,
+          "justification": "Mantive a calma durante a crise do projeto Y."
+        },
+        {
+          "criterionId": "organizacao-no-trabalho",
+          "score": 4,
+          "justification": "As minhas tarefas estão sempre organizadas."
+        },
+        {
+          "criterionId": "capacidade-de-aprender",
+          "score": 5,
+          "justification": "Concluí 3 cursos de especialização."
+        },
+        {
+          "criterionId": "ser-team-player",
+          "score": 5,
+          "justification": "Ajudei colegas de outras equipas."
+        },
+        {
+          "criterionId": "entregar-com-qualidade",
+          "score": 4,
+          "justification": "O meu código passou em todos os testes."
+        },
+        {
+          "criterionId": "atender-aos-prazos",
+          "score": 5,
+          "justification": "Entreguei 90% das tarefas no prazo."
+        },
+        {
+          "criterionId": "fazer-mais-com-menos",
+          "score": 3,
+          "justification": "Busquei automatizar tarefas."
+        },
+        {
+          "criterionId": "pensar-fora-da-caixa",
+          "score": 4,
+          "justification": "Propus uma nova abordagem para o problema Z."
+        }
+      ]
+    },
+    {
+      "id_avaliacao": "auto_aval_felipe_01",
+      "id_avaliado": "3",
+      "id_avaliador": "3",
+      "tipo_avaliacao": "Autoavaliação",
+      "data_avaliacao": "2025-06-26T09:30:00Z",
+      "answers": [
+        {
+          "criterionId": "sentimento-de-dono",
+          "score": 3,
+          "justification": "Procuro sempre alinhar com a equipa."
+        },
+        {
+          "criterionId": "resiliencia-nas-adversidades",
+          "score": 4,
+          "justification": "Adaptei-me bem às mudanças."
+        },
+        {
+          "criterionId": "organizacao-no-trabalho",
+          "score": 4,
+          "justification": "Utilizo ferramentas de gestão."
+        },
+        {
+          "criterionId": "capacidade-de-aprender",
+          "score": 4,
+          "justification": "Estou a aprender uma nova framework."
+        },
+        {
+          "criterionId": "ser-team-player",
+          "score": 5,
+          "justification": "Estou sempre disponível para ajudar."
+        },
+        {
+          "criterionId": "entregar-com-qualidade",
+          "score": 5,
+          "justification": "As minhas entregas são sempre revistas."
+        },
+        {
+          "criterionId": "atender-aos-prazos",
+          "score": 5,
+          "justification": "Nunca falhei um prazo de entrega."
+        },
+        {
+          "criterionId": "fazer-mais-com-menos",
+          "score": 4,
+          "justification": "Reutilizei componentes existentes."
+        },
+        {
+          "criterionId": "pensar-fora-da-caixa",
+          "score": 5,
+          "justification": "A minha sugestão para a nova cache melhorou a performance."
+        }
+      ]
+    },
+    {
+      "id_avaliacao": "eval_mgr_1751420456421",
+      "id_avaliado": "3",
+      "id_avaliador": "2",
+      "tipo_avaliacao": "Gestor",
+      "notas": {
+        "sentimentodedono": 4,
+        "resiliencianasadversidades": 5,
+        "organizacaonotrabalho": 5,
+        "capacidadedeaprender": 5,
+        "serteamplayer": 5,
+        "entregarcomqualidade": 5,
+        "atenderaosprazos": 4,
+        "fazermaiscommenos": 5,
+        "pensarforadacaixa": 5
+      },
+      "justificativas": {
+        "sentimentodedono": "1",
+        "resiliencianasadversidades": "1",
+        "organizacaonotrabalho": "3",
+        "capacidadedeaprender": "3",
+        "serteamplayer": "3",
+        "entregarcomqualidade": "3",
+        "atenderaosprazos": "3",
+        "fazermaiscommenos": "3",
+        "pensarforadacaixa": "4"
+      },
+      "data_avaliacao": "2025-07-02T01:40:56.423Z"
+    },
+    {
+      "id_avaliacao": "eval_mgr_1751423890355",
+      "id_avaliado": "1",
+      "id_avaliador": "2",
+      "tipo_avaliacao": "Gestor",
+      "notas": {
+        "sentimentodedono": 5,
+        "resiliencianasadversidades": 5,
+        "organizacaonotrabalho": 5,
+        "capacidadedeaprender": 5,
+        "serteamplayer": 5,
+        "entregarcomqualidade": 5,
+        "atenderaosprazos": 5,
+        "fazermaiscommenos": 5,
+        "pensarforadacaixa": 5
+      },
+      "justificativas": {
+        "sentimentodedono": "a",
+        "resiliencianasadversidades": "a",
+        "organizacaonotrabalho": "a",
+        "capacidadedeaprender": "a",
+        "serteamplayer": "s",
+        "entregarcomqualidade": "s",
+        "atenderaosprazos": "s",
+        "fazermaiscommenos": "s",
+        "pensarforadacaixa": "s"
+      },
+      "data_avaliacao": "2025-07-02T02:38:10.355Z"
+    }
+  ],
+  "observacoes_equalizacao": []
+}
