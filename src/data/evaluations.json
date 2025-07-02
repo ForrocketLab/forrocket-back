@@ -109,36 +109,7 @@
       ]
     },
     {
-      "id_avaliacao": "eval_mgr_1751420456421",
-      "id_avaliado": "3",
-      "id_avaliador": "2",
-      "tipo_avaliacao": "Gestor",
-      "notas": {
-        "sentimentodedono": 4,
-        "resiliencianasadversidades": 5,
-        "organizacaonotrabalho": 5,
-        "capacidadedeaprender": 5,
-        "serteamplayer": 5,
-        "entregarcomqualidade": 5,
-        "atenderaosprazos": 4,
-        "fazermaiscommenos": 5,
-        "pensarforadacaixa": 5
-      },
-      "justificativas": {
-        "sentimentodedono": "1",
-        "resiliencianasadversidades": "1",
-        "organizacaonotrabalho": "3",
-        "capacidadedeaprender": "3",
-        "serteamplayer": "3",
-        "entregarcomqualidade": "3",
-        "atenderaosprazos": "3",
-        "fazermaiscommenos": "3",
-        "pensarforadacaixa": "4"
-      },
-      "data_avaliacao": "2025-07-02T01:40:56.423Z"
-    },
-    {
-      "id_avaliacao": "eval_mgr_1751423890355",
+      "id_avaliacao": "eval_mgr_1751464740197",
       "id_avaliado": "1",
       "id_avaliador": "2",
       "tipo_avaliacao": "Gestor",
@@ -154,17 +125,17 @@
         "pensarforadacaixa": 5
       },
       "justificativas": {
-        "sentimentodedono": "a",
-        "resiliencianasadversidades": "a",
-        "organizacaonotrabalho": "a",
-        "capacidadedeaprender": "a",
-        "serteamplayer": "s",
-        "entregarcomqualidade": "s",
-        "atenderaosprazos": "s",
-        "fazermaiscommenos": "s",
-        "pensarforadacaixa": "s"
+        "sentimentodedono": "1",
+        "resiliencianasadversidades": "1",
+        "organizacaonotrabalho": "1",
+        "capacidadedeaprender": "1",
+        "serteamplayer": "1",
+        "entregarcomqualidade": "1",
+        "atenderaosprazos": "1",
+        "fazermaiscommenos": "1",
+        "pensarforadacaixa": "1"
       },
-      "data_avaliacao": "2025-07-02T02:38:10.355Z"
+      "data_avaliacao": "2025-07-02T13:59:00.200Z"
     }
   ],
   "observacoes_equalizacao": []
