@@ -8,7 +8,7 @@ import { EvaluationsModule } from './evaluations/evaluations.module';
 import { GenAiModule } from './gen-ai/gen-ai.module';
 import { OKRsModule } from './okrs/okrs.module';
 import { ProjectsModule } from './projects/projects.module';
-
+import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 /**
  * Módulo principal da aplicação RPE
  * Integra todos os módulos e configurações globais
@@ -35,6 +35,8 @@ import { ProjectsModule } from './projects/projects.module';
 
     // Módulo de projetos
     ProjectsModule,
+
+    ErpSimulationModule,
 
     // Módulo de integração com GenAI
     GenAiModule,
