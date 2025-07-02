@@ -1,10 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UserService } from './user.service';
 import { LoginDto } from './dto/login.dto';
 import { User } from './entities/user.entity';
+import { UserService } from './user.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -50,6 +51,15 @@ describe('AuthController', () => {
     findUserById: jest.fn(),
   };
 
+  const mockRoleCheckerService = {
+    isAdmin: jest.fn(),
+    isHR: jest.fn(),
+    isManager: jest.fn(),
+    isCommittee: jest.fn(),
+    userHasRole: jest.fn(),
+    userHasAnyRole: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -61,6 +71,10 @@ describe('AuthController', () => {
         {
           provide: UserService,
           useValue: mockUserService,
+        },
+        {
+          provide: require('./role-checker.service').RoleCheckerService,
+          useValue: mockRoleCheckerService,
         },
       ],
     }).compile();
@@ -126,8 +140,8 @@ describe('AuthController', () => {
         {
           projectId: 'projeto-app-mobile',
           projectName: 'App Mobile',
-          roles: ['COLLABORATOR']
-        }
+          roles: ['COLLABORATOR'],
+        },
       ];
 
       const expectedProfile = {

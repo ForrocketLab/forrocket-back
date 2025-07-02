@@ -42,7 +42,7 @@ import { CriterionPillar } from '@prisma/client';
 import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 import {
-  CollaboratorEvaluationData,
+  TeamCollaboratorData,
   TeamEvaluationSummaryData,
   TeamScoreAnalysisData,
   CollaboratorScoreData,
@@ -1297,7 +1297,7 @@ export class EvaluationsService {
     );
 
     // Filtrar colaboradores nulos e calcular estatísticas da equipe
-    const validCollaborators = collaboratorsData.filter(Boolean) as CollaboratorEvaluationData[];
+    const validCollaborators = collaboratorsData.filter(Boolean) as TeamCollaboratorData[];
 
     const teamAverageScore =
       validCollaborators.length > 0

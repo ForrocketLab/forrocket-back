@@ -13,8 +13,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 
-import { CyclesService } from './cycles.service';
 import { CycleAutomationService } from './cycle-automation.service';
+import { CyclesService } from './cycles.service';
 import {
   EvaluationCycleDto,
   CreateEvaluationCycleDto,
@@ -25,6 +25,7 @@ import {
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { User } from '../../auth/entities/user.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RoleCheckerService } from '../../auth/role-checker.service';
 
 @ApiTags('Ciclos de Avaliação')
 @ApiBearerAuth()
@@ -34,6 +35,7 @@ export class CyclesController {
   constructor(
     private readonly cyclesService: CyclesService,
     private readonly cycleAutomationService: CycleAutomationService,
+    private readonly roleChecker: RoleCheckerService,
   ) {}
 
   @Get()
@@ -205,7 +207,8 @@ export class CyclesController {
   })
   async createCycle(@CurrentUser() user: User, @Body() createCycleDto: CreateEvaluationCycleDto) {
     // Verificar se o usuário é admin
-    if (!user.roles.includes('admin')) {
+    const isAdmin = await this.roleChecker.isAdmin(user.id);
+    if (!isAdmin) {
       throw new ForbiddenException('Apenas administradores podem criar ciclos de avaliação');
     }
 
@@ -256,7 +259,8 @@ export class CyclesController {
     @Body() activateCycleDto: ActivateCycleDto,
   ) {
     // Verificar se o usuário é admin
-    if (!user.roles.includes('admin')) {
+    const isAdmin = await this.roleChecker.isAdmin(user.id);
+    if (!isAdmin) {
       throw new ForbiddenException('Apenas administradores podem ativar ciclos de avaliação');
     }
 
@@ -298,7 +302,8 @@ export class CyclesController {
     @Body() updateStatusDto: UpdateCycleStatusDto,
   ) {
     // Verificar se o usuário é admin
-    if (!user.roles.includes('admin')) {
+    const isAdmin = await this.roleChecker.isAdmin(user.id);
+    if (!isAdmin) {
       throw new ForbiddenException('Apenas administradores podem alterar status de ciclos');
     }
 
@@ -351,7 +356,8 @@ export class CyclesController {
     @Body() updatePhaseDto: UpdateCyclePhaseDto,
   ) {
     // Verificar se o usuário é admin
-    if (!user.roles.includes('admin')) {
+    const isAdmin = await this.roleChecker.isAdmin(user.id);
+    if (!isAdmin) {
       throw new ForbiddenException('Apenas administradores podem alterar fases de ciclos');
     }
 
@@ -474,14 +480,13 @@ export class CyclesController {
   @HttpCode(HttpStatus.OK)
   async forceAutomationCheck(@CurrentUser() user: User) {
     // Verificar se o usuário é admin
-    if (!user.roles.includes('admin')) {
-      throw new ForbiddenException(
-        'Apenas administradores podem forçar verificações de automação',
-      );
+    const isAdmin = await this.roleChecker.isAdmin(user.id);
+    if (!isAdmin) {
+      throw new ForbiddenException('Apenas administradores podem forçar verificações de automação');
     }
 
     await this.cycleAutomationService.forceCheck();
-    
+
     return {
       message: 'Verificação de automação executada com sucesso',
       timestamp: new Date().toISOString(),

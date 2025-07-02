@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 
 import { PrismaService } from '../../database/prisma.service';
@@ -11,6 +12,10 @@ import {
   CreateCommitteeAssessmentDto,
   UpdateCommitteeAssessmentDto,
 } from './dto/committee-assessment.dto';
+import { 
+  CollaboratorSummaryResponseDto,
+  GetCollaboratorSummaryRequestDto 
+} from '../../gen-ai/dto/collaborator-summary.dto';
 
 @Injectable()
 export class CommitteeService {
@@ -400,6 +405,9 @@ export class CommitteeService {
     authorId: string,
     dto: UpdateCommitteeAssessmentDto,
   ) {
+    // Validar que estamos na fase de equalização
+    await this.cyclesService.validateActiveCyclePhase('EQUALIZATION');
+
     // Buscar a avaliação
     const assessment = await this.prisma.committeeAssessment.findUnique({
       where: { id: assessmentId },
@@ -421,10 +429,8 @@ export class CommitteeService {
 
     this.validateCommitteeMember(currentUser.roles);
 
-    // Verificar se a avaliação ainda não foi submetida
-    if (assessment.status === 'SUBMITTED') {
-      throw new BadRequestException('Esta avaliação já foi submetida e não pode ser alterada');
-    }
+    // Permitir edição durante a fase de equalização, mesmo se já foi submetida
+    // A verificação de fase já foi feita acima
 
     // Atualizar a avaliação
     const updatedAssessment = await this.prisma.committeeAssessment.update({
@@ -433,8 +439,6 @@ export class CommitteeService {
         ...(dto.finalScore !== undefined && { finalScore: dto.finalScore }),
         ...(dto.justification !== undefined && { justification: dto.justification }),
         ...(dto.observations !== undefined && { observations: dto.observations }),
-        status: 'SUBMITTED',
-        submittedAt: new Date(),
         updatedAt: new Date(),
       },
       include: {
@@ -763,5 +767,131 @@ export class CommitteeService {
     };
 
     return exportData;
+  }
+
+  /**
+   * Salva um resumo GenAI para um colaborador
+   */
+  async saveGenAISummary(
+    collaboratorId: string,
+    cycle: string,
+    summary: string,
+    collaboratorName: string,
+    jobTitle: string,
+    averageScore: number,
+    totalEvaluations: number,
+  ): Promise<CollaboratorSummaryResponseDto> {
+    // Verificar se já existe um resumo para este colaborador neste ciclo
+    const existingSummary = await this.prisma.genAISummary.findUnique({
+      where: {
+        collaboratorId_cycle: {
+          collaboratorId,
+          cycle,
+        },
+      },
+    });
+
+    if (existingSummary) {
+      throw new ConflictException(
+        `Já existe um resumo para o colaborador no ciclo ${cycle}. Use uma nova versão de ciclo para gerar um novo resumo.`,
+      );
+    }
+
+    // Criar novo resumo
+    const genaiSummary = await this.prisma.genAISummary.create({
+      data: {
+        collaboratorId,
+        cycle,
+        summary,
+        collaboratorName,
+        jobTitle,
+        averageScore,
+        totalEvaluations,
+      },
+    });
+
+    return {
+      id: genaiSummary.id,
+      summary: genaiSummary.summary,
+      collaboratorName: genaiSummary.collaboratorName,
+      jobTitle: genaiSummary.jobTitle,
+      cycle: genaiSummary.cycle,
+      averageScore: genaiSummary.averageScore,
+      totalEvaluations: genaiSummary.totalEvaluations,
+      createdAt: genaiSummary.createdAt,
+      updatedAt: genaiSummary.updatedAt,
+    };
+  }
+
+  /**
+   * Busca um resumo GenAI existente
+   */
+  async getGenAISummary(dto: GetCollaboratorSummaryRequestDto): Promise<CollaboratorSummaryResponseDto> {
+    const genaiSummary = await this.prisma.genAISummary.findUnique({
+      where: {
+        collaboratorId_cycle: {
+          collaboratorId: dto.collaboratorId,
+          cycle: dto.cycle,
+        },
+      },
+    });
+
+    if (!genaiSummary) {
+      throw new NotFoundException(
+        `Nenhum resumo encontrado para o colaborador no ciclo ${dto.cycle}`,
+      );
+    }
+
+    return {
+      id: genaiSummary.id,
+      summary: genaiSummary.summary,
+      collaboratorName: genaiSummary.collaboratorName,
+      jobTitle: genaiSummary.jobTitle,
+      cycle: genaiSummary.cycle,
+      averageScore: genaiSummary.averageScore,
+      totalEvaluations: genaiSummary.totalEvaluations,
+      createdAt: genaiSummary.createdAt,
+      updatedAt: genaiSummary.updatedAt,
+    };
+  }
+
+  /**
+   * Lista todos os resumos GenAI de um ciclo
+   */
+  async listGenAISummariesByCycle(cycle: string): Promise<CollaboratorSummaryResponseDto[]> {
+    const summaries = await this.prisma.genAISummary.findMany({
+      where: { cycle },
+      orderBy: [
+        { collaboratorName: 'asc' },
+      ],
+    });
+
+    return summaries.map(summary => ({
+      id: summary.id,
+      summary: summary.summary,
+      collaboratorName: summary.collaboratorName,
+      jobTitle: summary.jobTitle,
+      cycle: summary.cycle,
+      averageScore: summary.averageScore,
+      totalEvaluations: summary.totalEvaluations,
+      createdAt: summary.createdAt,
+      updatedAt: summary.updatedAt,
+    }));
+  }
+
+  /**
+   * Verifica se um resumo já existe para um colaborador/ciclo
+   */
+  async checkGenAISummaryExists(collaboratorId: string, cycle: string): Promise<boolean> {
+    const summary = await this.prisma.genAISummary.findUnique({
+      where: {
+        collaboratorId_cycle: {
+          collaboratorId,
+          cycle,
+        },
+      },
+    });
+
+    return !!summary;
   }
 }

@@ -79,6 +79,9 @@ model User {
   // Avaliações de comitê recebidas pelo usuário (como avaliado)
   committeeAssessmentsReceived CommitteeAssessment[] @relation("CommitteeAssessmentEvaluated")
 
+  // Resumos GenAI recebidos pelo usuário (como colaborador avaliado)
+  genaiSummaries GenAISummary[] @relation("GenAISummaryCollaborator")
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
@@ -239,6 +242,25 @@ model CommitteeAssessment {
 
   @@unique([authorId, evaluatedUserId, cycle]) // Um membro do comitê só pode avaliar um colaborador uma vez por ciclo
   @@map("committee_assessments")
+}
+
+model GenAISummary {
+  id               String   @id @default(cuid())
+  collaboratorId   String   // ID do colaborador avaliado
+  cycle            String   // Ciclo de avaliação (ex: "2025.1")
+  summary          String   // Resumo completo gerado pela GenAI
+  collaboratorName String   // Nome do colaborador (cache para facilitar consultas)
+  jobTitle         String   // Cargo do colaborador (cache)
+  averageScore     Float    // Média geral das avaliações
+  totalEvaluations Int      // Total de avaliações consideradas
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relacionamentos
+  collaborator User @relation("GenAISummaryCollaborator", fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@unique([collaboratorId, cycle]) // Um colaborador só pode ter um resumo por ciclo
+  @@map("genai_summaries")
 }
 
 // ==========================================
