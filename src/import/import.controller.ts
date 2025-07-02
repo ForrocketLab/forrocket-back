@@ -1,4 +1,3 @@
-// src/import/import.controller.ts
 import { Controller, Post, UseGuards, UploadedFiles, UseInterceptors, HttpStatus, Res, Body } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
@@ -9,7 +8,7 @@ import { ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth } from '@nestjs/swagg
 
 
 @ApiBearerAuth()
-@Controller('api/import') // <-- A ÚNICA ALTERAÇÃO NECESSÁRIA É AQUI
+@Controller('api/import')
 @UseGuards(JwtAuthGuard, HRRoleGuard)
 export class ImportController {
   constructor(private readonly importService: ImportService) {}
@@ -42,7 +41,6 @@ export class ImportController {
     }
 
     try {
-      // O processamento agora pode ser mais simples, delegando ao serviço
       const results = await this.importService.processCsvFile(files[0].originalname, files[0].buffer);
       return res.status(HttpStatus.OK).json(results);
     } catch (error: any) {
