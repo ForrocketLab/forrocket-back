@@ -36,6 +36,7 @@ import { TeamEvaluationSummaryResponseDto } from './manager/dto/team-evaluation-
 import { TeamScoreAnalysisResponseDto } from './manager/dto/team-score-analysis.dto';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 import { TeamAnalysisResponseDto } from './manager/dto/team-analysis-response.dto';
+import { TeamHistoricalPerformanceResponseDto } from './manager/dto/team-historical-performance.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -427,5 +428,50 @@ export class ManagerController {
     }
 
     return await this.evaluationsService.getBrutalFactsMetrics(user.id, cycle);
+  }
+
+  @Get('team-historical-performance')
+  @ApiOperation({
+    summary: 'Obter performance histórica da equipe por ciclo',
+    description: `
+      Retorna as médias históricas de performance da equipe para todos os ciclos disponíveis.
+      
+      **Funcionalidades:**
+      - Média geral por ciclo (combinando autoavaliação e avaliações 360)
+      - Média das autoavaliações por ciclo
+      - Média das avaliações 360 recebidas por ciclo
+      - Total de colaboradores considerados por ciclo
+      
+      **Regras de negócio:**
+      - Apenas gestores podem acessar esta funcionalidade
+      - Considera apenas avaliações submetidas (status SUBMITTED)
+      - Inclui todos os ciclos onde há pelo menos uma avaliação
+      - Ordenado por ciclo (mais recente primeiro)
+      - Overall score é calculado como média entre autoavaliação e 360 quando ambos existem
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Performance histórica retornada com sucesso.',
+    type: TeamHistoricalPerformanceResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para acessar dados históricos da equipe.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum colaborador encontrado para este gestor.',
+  })
+  async getTeamHistoricalPerformance(
+    @CurrentUser() user: User,
+  ): Promise<TeamHistoricalPerformanceResponseDto> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(user.id);
+    if (!isManager) {
+      throw new ForbiddenException('Apenas gestores podem acessar dados históricos da equipe.');
+    }
+
+    return await this.evaluationsService.getTeamHistoricalPerformance(user.id);
   }
 }
