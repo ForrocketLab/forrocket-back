@@ -82,6 +82,9 @@ model User {
   // Resumos GenAI recebidos pelo usuário (como colaborador avaliado)
   genaiSummaries GenAISummary[] @relation("GenAISummaryCollaborator")
 
+  // Resumos de equipe gerados para o usuário (como gestor)
+  managerTeamSummaries ManagerTeamSummary[] @relation("GenAIManagerTeamSummary")
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
@@ -262,6 +265,39 @@ model GenAISummary {
 
   @@unique([collaboratorId, cycle]) // Um colaborador só pode ter um resumo por ciclo
   @@map("genai_summaries")
+}
+
+model ManagerTeamSummary {
+  id        String   @id @default(cuid())
+  managerId String   // ID do gestor para quem o resumo foi gerado
+  cycle     String   // Ciclo de avaliação (ex: "2025.1")
+
+  // --- Resumos Gerados pela IA ---
+  // Resumo gerado por getTeamScoreAnalysis (análise quantitativa)
+  scoreAnalysisSummary    String
+  // Resumo gerado por getTeamEvaluationSummary (análise qualitativa de feedbacks)
+  feedbackAnalysisSummary String
+
+  // --- Estatísticas Gerais da Equipe (do getTeamEvaluationData) ---
+  totalCollaborators Int     // Número total de colaboradores na análise
+  teamAverageScore   Float   // Média geral da equipe
+  highPerformers     Int     // Contagem de colaboradores de alta performance
+  lowPerformers      Int     // Contagem de colaboradores de baixa performance
+
+  // --- Métricas de Pontuação por Pilar (do getTeamScoreAnalysisData) ---
+  behaviorAverage  Float?  // Média do pilar "Behavior" (pode não existir)
+  executionAverage Float?  // Média do pilar "Execution" (pode não existir)
+  criticalPerformers Int   // Contagem de colaboradores em zona crítica de performance
+
+  // --- Metadados ---
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento com o gestor
+  manager User @relation("GenAIManagerTeamSummary", fields: [managerId], references: [id], onDelete: Cascade)
+
+  @@unique([managerId, cycle])
+  @@map("manager_team_summaries")
 }
 
 // ==========================================
