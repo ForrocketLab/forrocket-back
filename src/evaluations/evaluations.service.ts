@@ -1746,7 +1746,9 @@ export class EvaluationsService {
    * @param managerId ID do gestor
    * @returns Dados históricos das médias por ciclo
    */
-  async getTeamHistoricalPerformance(managerId: string): Promise<TeamHistoricalPerformanceResponseDto> {
+  async getTeamHistoricalPerformance(
+    managerId: string,
+  ): Promise<TeamHistoricalPerformanceResponseDto> {
     // Verificar se o usuário é gestor
     const isManager = await this.projectsService.isManager(managerId);
     if (!isManager) {
@@ -1755,7 +1757,7 @@ export class EvaluationsService {
 
     // Buscar todos os colaboradores que o gestor pode gerenciar
     const projectsWithSubordinates = await this.projectsService.getEvaluableSubordinates(managerId);
-    
+
     const allSubordinateIds = new Set<string>();
     projectsWithSubordinates.forEach((project) => {
       (project as any).subordinates.forEach((sub: any) => allSubordinateIds.add(sub.id));
@@ -1774,12 +1776,12 @@ export class EvaluationsService {
     const performanceByCycle: TeamPerformanceByCycleDto[] = await Promise.all(
       allCycles.map(async (cycle) => {
         return await this.calculateTeamPerformanceForCycle(subordinateIds, cycle);
-      })
+      }),
     );
 
     // Filtrar ciclos que têm dados e ordenar por ciclo (mais recente primeiro)
     const validPerformanceByCycle = performanceByCycle
-      .filter(perf => perf.totalCollaborators > 0)
+      .filter((perf) => perf.totalCollaborators > 0)
       .sort((a, b) => b.cycle.localeCompare(a.cycle));
 
     return {
@@ -1818,10 +1820,10 @@ export class EvaluationsService {
 
     // Combinar todos os ciclos únicos
     const allCyclesSet = new Set<string>();
-    selfCycles.forEach(c => allCyclesSet.add(c.cycle));
-    managerCycles.forEach(c => allCyclesSet.add(c.cycle));
-    committeeCycles.forEach(c => allCyclesSet.add(c.cycle));
-    assessment360Cycles.forEach(c => allCyclesSet.add(c.cycle));
+    selfCycles.forEach((c) => allCyclesSet.add(c.cycle));
+    managerCycles.forEach((c) => allCyclesSet.add(c.cycle));
+    committeeCycles.forEach((c) => allCyclesSet.add(c.cycle));
+    assessment360Cycles.forEach((c) => allCyclesSet.add(c.cycle));
 
     return Array.from(allCyclesSet);
   }
@@ -1831,7 +1833,7 @@ export class EvaluationsService {
    */
   private async calculateTeamPerformanceForCycle(
     subordinateIds: string[],
-    cycle: string
+    cycle: string,
   ): Promise<TeamPerformanceByCycleDto> {
     // Buscar autoavaliações
     const selfAssessments = await this.prisma.selfAssessment.findMany({
@@ -1864,32 +1866,39 @@ export class EvaluationsService {
     });
 
     // Calcular médias das autoavaliações
-    const selfAssessmentScores = selfAssessments.map(assessment => {
-      if (assessment.answers.length === 0) return null;
-      const averageScore = assessment.answers.reduce((sum, answer) => sum + answer.score, 0) / assessment.answers.length;
-      return {
-        collaboratorId: assessment.authorId,
-        score: averageScore,
-      };
-    }).filter(item => item !== null);
+    const selfAssessmentScores = selfAssessments
+      .map((assessment) => {
+        if (assessment.answers.length === 0) return null;
+        const averageScore =
+          assessment.answers.reduce((sum, answer) => sum + answer.score, 0) /
+          assessment.answers.length;
+        return {
+          collaboratorId: assessment.authorId,
+          score: averageScore,
+        };
+      })
+      .filter((item) => item !== null);
 
     // Calcular médias das avaliações 360 recebidas
-    const received360Scores = received360Assessments.map(assessment => ({
+    const received360Scores = received360Assessments.map((assessment) => ({
       collaboratorId: assessment.evaluatedUserId,
       score: assessment.overallScore,
     }));
 
     // Calcular overall score usando apenas finalScore do comitê
-    const committeeScores = committeeAssessments.map(assessment => ({
+    const committeeScores = committeeAssessments.map((assessment) => ({
       collaboratorId: assessment.evaluatedUserId,
       score: assessment.finalScore,
     }));
 
     // Agrupar por colaborador
-    const collaboratorMap = new Map<string, { selfScore?: number; received360Score?: number; committeeScore?: number }>();
+    const collaboratorMap = new Map<
+      string,
+      { selfScore?: number; received360Score?: number; committeeScore?: number }
+    >();
 
     // Adicionar scores de autoavaliação
-    selfAssessmentScores.forEach(item => {
+    selfAssessmentScores.forEach((item) => {
       if (!collaboratorMap.has(item.collaboratorId)) {
         collaboratorMap.set(item.collaboratorId, {});
       }
@@ -1897,7 +1906,7 @@ export class EvaluationsService {
     });
 
     // Adicionar scores de 360 recebidas
-    received360Scores.forEach(item => {
+    received360Scores.forEach((item) => {
       if (!collaboratorMap.has(item.collaboratorId)) {
         collaboratorMap.set(item.collaboratorId, {});
       }
@@ -1905,7 +1914,7 @@ export class EvaluationsService {
     });
 
     // Adicionar scores do comitê
-    committeeScores.forEach(item => {
+    committeeScores.forEach((item) => {
       if (!collaboratorMap.has(item.collaboratorId)) {
         collaboratorMap.set(item.collaboratorId, {});
       }
@@ -1931,15 +1940,32 @@ export class EvaluationsService {
 
     return {
       cycle,
-      averageOverallScore: finalCommitteeScores.length > 0 
-        ? Number((finalCommitteeScores.reduce((sum, score) => sum + score, 0) / finalCommitteeScores.length).toFixed(2))
-        : null,
-      averageSelfAssessment: finalSelfScores.length > 0
-        ? Number((finalSelfScores.reduce((sum, score) => sum + score, 0) / finalSelfScores.length).toFixed(2))
-        : null,
-      averageReceived360: finalReceived360Scores.length > 0
-        ? Number((finalReceived360Scores.reduce((sum, score) => sum + score, 0) / finalReceived360Scores.length).toFixed(2))
-        : null,
+      averageOverallScore:
+        finalCommitteeScores.length > 0
+          ? Number(
+              (
+                finalCommitteeScores.reduce((sum, score) => sum + score, 0) /
+                finalCommitteeScores.length
+              ).toFixed(2),
+            )
+          : null,
+      averageSelfAssessment:
+        finalSelfScores.length > 0
+          ? Number(
+              (
+                finalSelfScores.reduce((sum, score) => sum + score, 0) / finalSelfScores.length
+              ).toFixed(2),
+            )
+          : null,
+      averageReceived360:
+        finalReceived360Scores.length > 0
+          ? Number(
+              (
+                finalReceived360Scores.reduce((sum, score) => sum + score, 0) /
+                finalReceived360Scores.length
+              ).toFixed(2),
+            )
+          : null,
       totalCollaborators: collaboratorMap.size,
     };
   }
