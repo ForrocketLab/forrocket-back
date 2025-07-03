@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator';
 import { KeyResultStatus, KeyResultType } from '@prisma/client';
 
 /**
@@ -25,9 +25,9 @@ export class UpdateKeyResultDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Tipo de métrica do key result',
+    description: 'Tipo de métrica do key result (sempre PERCENTAGE)',
     enum: KeyResultType,
-    example: KeyResultType.NUMBER,
+    example: KeyResultType.PERCENTAGE,
     required: false
   })
   @IsEnum(KeyResultType)
@@ -35,28 +35,30 @@ export class UpdateKeyResultDto {
   type?: KeyResultType;
 
   @ApiProperty({
-    description: 'Valor alvo a ser atingido',
-    example: 80,
+    description: 'Valor alvo a ser atingido (sempre 100 para porcentagem)',
+    example: 100,
     required: false
   })
   @IsNumber()
   @Min(0)
+  @Max(100)
   @IsOptional()
   targetValue?: number;
 
   @ApiProperty({
-    description: 'Valor atual atingido',
+    description: 'Valor atual atingido (0-100%)',
     example: 65,
     required: false
   })
   @IsNumber()
   @Min(0)
+  @Max(100)
   @IsOptional()
   currentValue?: number;
 
   @ApiProperty({
-    description: 'Unidade de medida',
-    example: 'pontos',
+    description: 'Unidade de medida (sempre % para porcentagem)',
+    example: '%',
     required: false
   })
   @IsString()

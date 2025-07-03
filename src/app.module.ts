@@ -8,6 +8,7 @@ import { EvaluationsModule } from './evaluations/evaluations.module';
 import { GenAiModule } from './gen-ai/gen-ai.module';
 import { OKRsModule } from './okrs/okrs.module';
 import { ProjectsModule } from './projects/projects.module';
+import { PDIsModule } from './pdis/pdis.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -40,6 +41,8 @@ import { ProjectsModule } from './projects/projects.module';
     GenAiModule,
     // Módulo de OKRs
     OKRsModule,
+
+    PDIsModule,
   ],
 })
 export class AppModule {}
