@@ -10,6 +10,7 @@ import { OKRsModule } from './okrs/okrs.module';
 import { ProjectsModule } from './projects/projects.module';
 import { PDIsModule } from './pdis/pdis.module';
 
+import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 /**
  * Módulo principal da aplicação RPE
  * Integra todos os módulos e configurações globais
@@ -36,6 +37,8 @@ import { PDIsModule } from './pdis/pdis.module';
 
     // Módulo de projetos
     ProjectsModule,
+
+    ErpSimulationModule,
 
     // Módulo de integração com GenAI
     GenAiModule,
