@@ -1,6 +1,6 @@
 /**
  * Interface para registros da planilha/arquivo 'Perfil'.
- * As propriedades devem corresponder EXATAMENTE aos cabeçalhos das colunas no seu arquivo XLSX/CSV.
+ * As propriedades devem corresponder EXATAMENTE aos cabeçalhos das colunas no seu arquivo XLSX/XLS.
  */
 export interface UserProfileRecord {
   'Nome ( nome.sobrenome )': string; // Exatamente como no Excel

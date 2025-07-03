@@ -26,7 +26,7 @@ export class ImportController {
             type: 'string',
             format: 'binary',
           },
-          description: 'Arquivos CSV ou XLSX de histórico para importação',
+          description: 'Arquivos XLS ou XLSX de histórico para importação',
         },
       },
     },
@@ -41,7 +41,7 @@ export class ImportController {
     }
 
     try {
-      const results = await this.importService.processCsvFile(files[0].originalname, files[0].buffer);
+      const results = await this.importService.processExcelFile(files[0].originalname, files[0].buffer);
       return res.status(HttpStatus.OK).json(results);
     } catch (error: any) {
       console.error(`Erro no controller ao processar o arquivo:`, error.message);
