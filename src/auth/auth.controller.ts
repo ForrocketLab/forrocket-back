@@ -10,6 +10,7 @@ import {
   ForbiddenException,
   Param,
   Query,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -815,5 +816,124 @@ export class AuthController {
   })
   async getPotentialMentors(@CurrentUser() currentUser: User): Promise<UserSummary[]> {
     return this.userService.getPotentialMentors();
+  }
+
+  /**
+   * Endpoint para buscar usuários com filtros avançados (apenas RH)
+   */
+  @Get('users/with-filters')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Buscar usuários com filtros avançados (apenas RH)',
+    description: `
+      Retorna usuários com seus dados de progresso de avaliação e permite filtros avançados:
+      - Busca por nome ou email
+      - Filtro por projeto
+      - Filtro por cargo (jobTitle)
+      - Filtro por área (businessUnit)
+      - Filtro por senioridade
+      - Filtro por trilha de carreira
+      - Filtro por status (ativo/inativo)
+      - Filtro por roles
+      
+      **Permissões:** Apenas RH
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários com filtros aplicados',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas RH pode acessar',
+  })
+  async getUsersWithAdvancedFilters(
+    @Query('search') search?: string,
+    @Query('projectId') projectId?: string,
+    @Query('jobTitle') jobTitle?: string,
+    @Query('businessUnit') businessUnit?: string,
+    @Query('seniority') seniority?: string,
+    @Query('careerTrack') careerTrack?: string,
+    @Query('isActive') isActive?: string,
+    @Query('roles') roles?: string,
+  ) {
+    try {
+      console.log('🔍 Parâmetros recebidos:', {
+        search,
+        projectId,
+        jobTitle,
+        businessUnit,
+        seniority,
+        careerTrack,
+        isActive,
+        roles
+      });
+
+      const filters: any = {};
+      
+      if (search) filters.search = search;
+      if (projectId) filters.projectId = projectId;
+      if (jobTitle) filters.jobTitle = jobTitle;
+      if (businessUnit) filters.businessUnit = businessUnit;
+      if (seniority) filters.seniority = seniority;
+      if (careerTrack) filters.careerTrack = careerTrack;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      if (roles) {
+        try {
+          filters.roles = JSON.parse(roles);
+        } catch {
+          filters.roles = [roles]; // Se não for um JSON, tratar como string única
+        }
+      }
+
+      console.log('🔍 Filtros processados:', filters);
+
+      const result = await this.userService.getUsersWithAdvancedFilters(filters);
+      
+      console.log('📊 Resultado da busca:', {
+        totalCount: result.totalCount,
+        filteredCount: result.filteredCount,
+        usersFound: result.users.length
+      });
+      
+      return {
+        success: true,
+        ...result
+      };
+    } catch (error) {
+      console.error('Erro ao buscar usuários com filtros avançados:', error);
+      throw new InternalServerErrorException('Erro interno do servidor ao buscar usuários');
+    }
+  }
+
+  /**
+   * Endpoint para buscar projetos disponíveis (apenas RH)
+   */
+  @Get('projects/list')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Buscar lista de projetos disponíveis (apenas RH)',
+    description: 'Retorna lista de projetos para uso em filtros',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de projetos retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          isActive: { type: 'boolean' },
+        },
+      },
+    },
+  })
+  async getProjectsList(@CurrentUser() currentUser: User) {
+    return this.userService.getProjectsList();
   }
 }
