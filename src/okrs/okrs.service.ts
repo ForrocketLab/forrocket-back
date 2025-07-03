@@ -520,13 +520,8 @@ export class OKRsService {
    * Calcula o progresso de um key result (sempre em percentual)
    */
   private calculateKeyResultProgress(keyResult: any): number {
-    // Sempre calcular como percentual simples: (atual / meta) * 100
-    if (keyResult.targetValue === 0) {
-      return 0;
-    }
-
-    const progress = (keyResult.currentValue / keyResult.targetValue) * 100;
-    return Math.min(Math.max(progress, 0), 100);
+    // Para tipo PERCENTAGE, o currentValue já é uma porcentagem de 0-100
+    return Math.min(Math.max(keyResult.currentValue, 0), 100);
   }
 
   /**
@@ -623,21 +618,10 @@ export class OKRsService {
   }
 
   /**
-   * Formata valores para exibição
+   * Formata valores para exibição (sempre em porcentagem)
    */
   private formatValue(value: number, type: KeyResultType, unit?: string, targetValue?: number): string {
-    if (type === KeyResultType.PERCENTAGE) {
-      return `${value}%`;
-    }
-    
-    if (type === KeyResultType.BINARY) {
-      if (targetValue !== undefined) {
-        return value >= targetValue ? 'Sim' : 'Não';
-      }
-      return 'Sim';
-    }
-
-    return unit ? `${value} ${unit}` : value.toString();
+    return `${value}%`;
   }
 
   /**
