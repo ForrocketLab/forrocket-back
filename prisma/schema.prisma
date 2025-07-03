@@ -93,6 +93,7 @@ model User {
   projectAssignments UserProjectAssignment[]
   projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
   okrs               OKR[]              // NOVA: OKRs do colaborador
+  pdis              PDI[]              // NOVA: PDIs do colaborador
 
   @@map("users")
 }
@@ -297,6 +298,68 @@ model ManagerTeamSummary {
 
   @@unique([managerId, cycle])
   @@map("manager_team_summaries")
+}
+
+// ==========================================
+// ESTRUTURA DE PDI (PLANO DE DESENVOLVIMENTO INDIVIDUAL)
+// ==========================================
+
+model PDI {
+  id              String    @id @default(cuid())
+  collaboratorId  String    // ID do colaborador dono do PDI
+  title           String    // Título do PDI
+  description     String    // Descrição geral do plano
+  startDate       DateTime  // Data de início do PDI
+  endDate         DateTime  // Data prevista de conclusão
+  status          PDIStatus @default(NOT_STARTED)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  // Relacionamentos
+  collaborator    User        @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  actions         PDIAction[]
+
+  @@map("pdis")
+}
+
+model PDIAction {
+  id          String          @id @default(cuid())
+  pdiId       String          // ID do PDI ao qual a ação pertence
+  title       String          // Título da ação
+  description String          // Descrição detalhada da ação
+  deadline    DateTime        // Prazo para conclusão
+  status      PDIActionStatus @default(TO_DO)
+  priority    PDIPriority    @default(MEDIUM)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  completedAt DateTime?
+
+  // Relacionamentos
+  pdi         PDI             @relation(fields: [pdiId], references: [id], onDelete: Cascade)
+
+  @@map("pdi_actions")
+}
+
+enum PDIStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum PDIActionStatus {
+  TO_DO
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum PDIPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 // ==========================================
@@ -517,6 +580,4 @@ enum KeyResultStatus {
 
 enum KeyResultType {
   PERCENTAGE
-  NUMBER
-  BINARY
 }

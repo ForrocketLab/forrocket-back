@@ -59,6 +59,7 @@ describe('CommitteeService', () => {
       user: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       committeeAssessment: {
         findFirst: jest.fn(),
@@ -66,20 +67,31 @@ describe('CommitteeService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        count: jest.fn(),
       },
       selfAssessment: {
         findFirst: jest.fn(),
+        count: jest.fn(),
       },
       assessment360: {
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       managerAssessment: {
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       mentoringAssessment: {
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       referenceFeedback: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
+      genAISummary: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
         findMany: jest.fn(),
       },
     };
@@ -87,6 +99,7 @@ describe('CommitteeService', () => {
     const mockCyclesService = {
       validateActiveCyclePhase: jest.fn(),
       getActiveCycleWithPhase: jest.fn(),
+      getActiveCycle: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -231,244 +244,295 @@ describe('CommitteeService', () => {
   });
 
   describe('createCommitteeAssessment', () => {
-    const createDto: CreateCommitteeAssessmentDto = {
-      evaluatedUserId: 'user-1',
-      finalScore: 4,
-      justification: 'Justificativa detalhada',
-      observations: 'Observações adicionais',
-    };
-
     beforeEach(() => {
       cyclesService.validateActiveCyclePhase.mockResolvedValue(undefined);
       cyclesService.getActiveCycleWithPhase.mockResolvedValue(mockActiveCycle);
     });
 
     it('deve criar avaliação de comitê com sucesso', async () => {
-      prismaService.user.findUnique
-        .mockResolvedValueOnce(mockCommitteeMember) // Para validar o autor
-        .mockResolvedValueOnce(mockUser); // Para validar o colaborador
-      prismaService.committeeAssessment.findFirst.mockResolvedValue(null);
-      prismaService.committeeAssessment.create.mockResolvedValue({
+      const mockAssessment = {
         ...mockCommitteeAssessment,
-        author: mockCommitteeMember,
-        evaluatedUser: mockUser,
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+        justification: 'Avaliação baseada no conjunto de avaliações recebidas.',
+        observations: 'Colaborador com bom desempenho geral.',
+      };
+      prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
+      prismaService.user.findMany.mockResolvedValue([mockUser]);
+      prismaService.committeeAssessment.findFirst.mockResolvedValue(null);
+      prismaService.committeeAssessment.create.mockResolvedValue(mockAssessment);
+
+      const result = await service.createCommitteeAssessment('committee-1', {
+        evaluatedUserId: 'user-1',
+        finalScore: 4,
+        justification: 'Avaliação baseada no conjunto de avaliações recebidas.',
+        observations: 'Colaborador com bom desempenho geral.',
       });
 
-      const result = await service.createCommitteeAssessment('committee-1', createDto);
-
-      expect(cyclesService.validateActiveCyclePhase).toHaveBeenCalledWith('EQUALIZATION');
+      expect(result).toEqual(mockAssessment);
       expect(prismaService.committeeAssessment.create).toHaveBeenCalledWith({
         data: {
           authorId: 'committee-1',
           evaluatedUserId: 'user-1',
           cycle: 'Q1 2024',
           finalScore: 4,
-          justification: 'Justificativa detalhada',
-          observations: 'Observações adicionais',
+          justification: 'Avaliação baseada no conjunto de avaliações recebidas.',
+          observations: 'Colaborador com bom desempenho geral.',
           status: 'SUBMITTED',
           submittedAt: expect.any(Date),
         },
-        include: expect.any(Object),
+        include: {
+          author: { select: { email: true, name: true, id: true } },
+          evaluatedUser: { select: { email: true, name: true, id: true, jobTitle: true, seniority: true } },
+        },
       });
-      expect(result).toBeDefined();
     });
 
     it('deve lançar NotFoundException quando autor não existe', async () => {
+      const createDto: CreateCommitteeAssessmentDto = {
+        evaluatedUserId: 'user-1',
+        finalScore: 4,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
+
       prismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.createCommitteeAssessment('invalid-user', createDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.createCommitteeAssessment('invalid-user', createDto)).rejects.toThrow(NotFoundException);
     });
 
     it('deve lançar ForbiddenException quando usuário não é membro do comitê', async () => {
-      prismaService.user.findUnique.mockResolvedValue({
-        ...mockCommitteeMember,
-        roles: '["colaborador"]',
-      });
+      const createDto: CreateCommitteeAssessmentDto = {
+        evaluatedUserId: 'user-1',
+        finalScore: 4,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
 
-      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(
-        ForbiddenException,
-      );
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(service.createCommitteeAssessment('user-1', createDto)).rejects.toThrow(ForbiddenException);
     });
 
     it('deve lançar NotFoundException quando colaborador não existe', async () => {
+      const createDto: CreateCommitteeAssessmentDto = {
+        evaluatedUserId: 'invalid-user',
+        finalScore: 4,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
+
       prismaService.user.findUnique
         .mockResolvedValueOnce(mockCommitteeMember)
         .mockResolvedValueOnce(null);
 
-      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(NotFoundException);
     });
 
     it('deve lançar BadRequestException quando já existe avaliação para o colaborador', async () => {
-      prismaService.user.findUnique
-        .mockResolvedValueOnce(mockCommitteeMember)
-        .mockResolvedValueOnce(mockUser);
+      const createDto: CreateCommitteeAssessmentDto = {
+        evaluatedUserId: 'user-1',
+        finalScore: 4,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
+
+      prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
       prismaService.committeeAssessment.findFirst.mockResolvedValue(mockCommitteeAssessment);
 
-      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(BadRequestException);
     });
 
     it('deve lançar BadRequestException quando não há ciclo ativo', async () => {
+      const createDto: CreateCommitteeAssessmentDto = {
+        evaluatedUserId: 'user-1',
+        finalScore: 4,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
+
       prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
       cyclesService.getActiveCycleWithPhase.mockResolvedValue(null);
 
-      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.createCommitteeAssessment('committee-1', createDto)).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('updateCommitteeAssessment', () => {
-    const updateDto: UpdateCommitteeAssessmentDto = {
-      finalScore: 5,
-      justification: 'Justificativa atualizada',
-    };
+    beforeEach(() => {
+      cyclesService.validateActiveCyclePhase.mockResolvedValue(undefined);
+    });
 
     it('deve atualizar avaliação de comitê com sucesso', async () => {
+      const updateDto: UpdateCommitteeAssessmentDto = {
+        finalScore: 5,
+        justification: 'Avaliação ajustada após revisão.',
+        observations: 'Excelente performance em todos os critérios.',
+      };
+
+      const updatedAssessment = { ...mockCommitteeAssessment, ...updateDto };
+
       prismaService.committeeAssessment.findUnique.mockResolvedValue(mockCommitteeAssessment);
       prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
-      prismaService.committeeAssessment.update.mockResolvedValue({
-        ...mockCommitteeAssessment,
-        ...updateDto,
-        author: mockCommitteeMember,
-        evaluatedUser: mockUser,
-      });
+      prismaService.committeeAssessment.update.mockResolvedValue(updatedAssessment);
 
-      const result = await service.updateCommitteeAssessment(
-        'assessment-1',
-        'committee-1',
-        updateDto,
-      );
+      const result = await service.updateCommitteeAssessment('assessment-1', 'committee-1', updateDto);
 
+      expect(result).toEqual(updatedAssessment);
       expect(prismaService.committeeAssessment.update).toHaveBeenCalledWith({
         where: { id: 'assessment-1' },
-        data: {
-          finalScore: 5,
-          justification: 'Justificativa atualizada',
-          status: 'SUBMITTED',
-          submittedAt: expect.any(Date),
-          updatedAt: expect.any(Date),
+        data: expect.objectContaining(updateDto),
+        include: {
+          author: { select: { id: true, name: true, email: true } },
+          evaluatedUser: { select: { id: true, name: true, email: true, jobTitle: true, seniority: true } },
         },
-        include: expect.any(Object),
       });
-      expect(result).toBeDefined();
     });
 
     it('deve lançar NotFoundException quando avaliação não existe', async () => {
+      const updateDto: UpdateCommitteeAssessmentDto = {
+        finalScore: 5,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
+
       prismaService.committeeAssessment.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.updateCommitteeAssessment('invalid-id', 'committee-1', updateDto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('deve lançar BadRequestException quando avaliação já foi submetida', async () => {
-      prismaService.committeeAssessment.findUnique.mockResolvedValue({
-        ...mockCommitteeAssessment,
-        status: 'SUBMITTED',
-      });
-      prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
-
-      await expect(
-        service.updateCommitteeAssessment('assessment-1', 'committee-1', updateDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.updateCommitteeAssessment('invalid-id', 'committee-1', updateDto)).rejects.toThrow(NotFoundException);
     });
 
     it('deve lançar ForbiddenException quando usuário não é membro do comitê', async () => {
-      prismaService.committeeAssessment.findUnique.mockResolvedValue(mockCommitteeAssessment);
-      prismaService.user.findUnique.mockResolvedValue({
-        ...mockCommitteeMember,
-        roles: '["colaborador"]',
-      });
+      const updateDto: UpdateCommitteeAssessmentDto = {
+        finalScore: 5,
+        justification: 'Justificativa',
+        observations: 'Observações',
+      };
 
-      await expect(
-        service.updateCommitteeAssessment('assessment-1', 'committee-1', updateDto),
-      ).rejects.toThrow(ForbiddenException);
+      prismaService.committeeAssessment.findUnique.mockResolvedValue(mockCommitteeAssessment);
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(service.updateCommitteeAssessment('assessment-1', 'user-1', updateDto)).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('submitCommitteeAssessment', () => {
     it('deve submeter avaliação de comitê com sucesso', async () => {
+      const submittedAssessment = { ...mockCommitteeAssessment, status: 'SUBMITTED', submittedAt: new Date() };
+
       prismaService.committeeAssessment.findUnique.mockResolvedValue(mockCommitteeAssessment);
       prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
-      prismaService.committeeAssessment.update.mockResolvedValue({
-        ...mockCommitteeAssessment,
-        status: 'SUBMITTED',
-        submittedAt: new Date(),
-        author: mockCommitteeMember,
-        evaluatedUser: mockUser,
-      });
+      prismaService.committeeAssessment.update.mockResolvedValue(submittedAssessment);
 
       const result = await service.submitCommitteeAssessment('assessment-1', 'committee-1');
 
+      expect(result).toEqual(submittedAssessment);
       expect(prismaService.committeeAssessment.update).toHaveBeenCalledWith({
         where: { id: 'assessment-1' },
         data: {
           status: 'SUBMITTED',
           submittedAt: expect.any(Date),
         },
-        include: expect.any(Object),
+        include: {
+          author: { select: { id: true, name: true, email: true } },
+          evaluatedUser: { select: { id: true, name: true, email: true, jobTitle: true, seniority: true } },
+        },
       });
-      expect(result).toBeDefined();
     });
 
     it('deve lançar NotFoundException quando avaliação não existe', async () => {
       prismaService.committeeAssessment.findUnique.mockResolvedValue(null);
 
-      await expect(service.submitCommitteeAssessment('invalid-id', 'committee-1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.submitCommitteeAssessment('invalid-id', 'committee-1')).rejects.toThrow(NotFoundException);
     });
 
     it('deve lançar BadRequestException quando avaliação já foi submetida', async () => {
-      prismaService.committeeAssessment.findUnique.mockResolvedValue({
-        ...mockCommitteeAssessment,
-        status: 'SUBMITTED',
-      });
+      const submittedAssessment = { ...mockCommitteeAssessment, status: 'SUBMITTED' };
+
+      prismaService.committeeAssessment.findUnique.mockResolvedValue(submittedAssessment);
       prismaService.user.findUnique.mockResolvedValue(mockCommitteeMember);
 
-      await expect(
-        service.submitCommitteeAssessment('assessment-1', 'committee-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.submitCommitteeAssessment('assessment-1', 'committee-1')).rejects.toThrow(BadRequestException);
     });
 
     it('deve lançar ForbiddenException quando usuário não é membro do comitê', async () => {
       prismaService.committeeAssessment.findUnique.mockResolvedValue(mockCommitteeAssessment);
-      prismaService.user.findUnique.mockResolvedValue({
-        ...mockCommitteeMember,
-        roles: '["colaborador"]',
-      });
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
 
-      await expect(
-        service.submitCommitteeAssessment('assessment-1', 'committee-1'),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.submitCommitteeAssessment('assessment-1', 'user-1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getCommitteeMetrics', () => {
+    beforeEach(() => {
+      cyclesService.getActiveCycleWithPhase.mockResolvedValue(mockActiveCycle);
+    });
+
+    it('deve retornar métricas do comitê', async () => {
+      const mockMetrics = {
+        cycle: 'Q1 2024',
+        phase: 'EQUALIZATION',
+        deadlines: {
+          assessment: undefined,
+          manager: undefined,
+          equalization: undefined,
+          daysRemaining: null,
+        },
+        metrics: {
+          totalCollaborators: 50,
+          counts: {
+            selfAssessments: 42,
+            assessments360: 60,
+            managerAssessments: 45,
+            committeeAssessments: 30,
+          },
+          selfAssessmentCompletion: 84,
+          assessment360Completion: 120,
+          managerAssessmentCompletion: 90,
+          committeeAssessmentCompletion: 60,
+        },
+      };
+      cyclesService.getActiveCycleWithPhase.mockResolvedValue(mockActiveCycle);
+      prismaService.user.count.mockResolvedValue(50);
+      prismaService.selfAssessment.count.mockResolvedValue(42);
+      prismaService.assessment360.count.mockResolvedValue(60);
+      prismaService.managerAssessment.count.mockResolvedValue(45);
+      prismaService.committeeAssessment.count.mockResolvedValue(30);
+
+      const result = await service.getCommitteeMetrics();
+
+      expect(result).toEqual(mockMetrics);
+    });
+
+    it('deve lançar BadRequestException quando não há ciclo ativo', async () => {
+      cyclesService.getActiveCycleWithPhase.mockResolvedValue(null);
+
+      await expect(service.getCommitteeMetrics()).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('getCommitteeAssessmentsByCycle', () => {
-    it('deve retornar avaliações de comitê do ciclo ativo', async () => {
+    beforeEach(() => {
       cyclesService.getActiveCycleWithPhase.mockResolvedValue(mockActiveCycle);
-      const mockAssessments = [
-        {
-          ...mockCommitteeAssessment,
-          author: mockCommitteeMember,
-          evaluatedUser: mockUser,
+    });
+
+    it('deve retornar avaliações de comitê do ciclo ativo', async () => {
+      const mockAssessments = [mockCommitteeAssessment];
+      const expectedResult = {
+        cycle: 'Q1 2024',
+        phase: 'EQUALIZATION',
+        assessments: mockAssessments,
+        summary: {
+          total: 1,
+          draft: 1,
+          submitted: 0,
         },
-      ];
+      };
+
       prismaService.committeeAssessment.findMany.mockResolvedValue(mockAssessments);
 
       const result = await service.getCommitteeAssessmentsByCycle();
 
-      expect(result.cycle).toBe('Q1 2024');
-      expect(result.assessments).toEqual(mockAssessments);
-      expect(result.summary.total).toBe(1);
-      expect(result.summary.draft).toBe(1);
-      expect(result.summary.submitted).toBe(0);
+      expect(result).toEqual(expectedResult);
     });
 
     it('deve lançar BadRequestException quando não há ciclo ativo', async () => {
@@ -478,19 +542,145 @@ describe('CommitteeService', () => {
     });
 
     it('deve calcular corretamente o resumo de status', async () => {
-      cyclesService.getActiveCycleWithPhase.mockResolvedValue(mockActiveCycle);
       const mockAssessments = [
         { ...mockCommitteeAssessment, status: 'DRAFT' },
-        { ...mockCommitteeAssessment, status: 'SUBMITTED' },
-        { ...mockCommitteeAssessment, status: 'SUBMITTED' },
+        { ...mockCommitteeAssessment, id: 'assessment-2', status: 'SUBMITTED' },
       ];
+
       prismaService.committeeAssessment.findMany.mockResolvedValue(mockAssessments);
 
       const result = await service.getCommitteeAssessmentsByCycle();
 
-      expect(result.summary.total).toBe(3);
+      expect(result.summary.total).toBe(2);
       expect(result.summary.draft).toBe(1);
-      expect(result.summary.submitted).toBe(2);
+      expect(result.summary.submitted).toBe(1);
+      expect(result.summary.submitted).toBe(1);
+    });
+  });
+
+  describe('exportCollaboratorEvaluationData', () => {
+    beforeEach(() => {
+      cyclesService.validateActiveCyclePhase.mockResolvedValue(undefined);
+      cyclesService.getActiveCycleWithPhase.mockResolvedValue(mockActiveCycle);
+    });
+
+    it('deve exportar dados de avaliação do colaborador', async () => {
+      cyclesService.getActiveCycle.mockResolvedValue(mockActiveCycle);
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
+      prismaService.selfAssessment.findFirst.mockResolvedValue(null);
+      prismaService.assessment360.findMany.mockResolvedValue([]);
+      prismaService.managerAssessment.findMany.mockResolvedValue([]);
+      prismaService.mentoringAssessment.findMany.mockResolvedValue([]);
+      prismaService.referenceFeedback.findMany.mockResolvedValue([]);
+      // Não retorna committeeAssessment, para simular equalização não concluída
+      prismaService.committeeAssessment.findFirst.mockResolvedValue(null);
+
+      await expect(service.exportCollaboratorEvaluationData('user-1')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('deve lançar NotFoundException quando colaborador não existe', async () => {
+      cyclesService.getActiveCycle.mockResolvedValue(mockActiveCycle);
+      prismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.exportCollaboratorEvaluationData('invalid-user')).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve lançar NotFoundException quando não há ciclo ativo', async () => {
+      cyclesService.getActiveCycle.mockResolvedValue(null);
+
+      await expect(service.exportCollaboratorEvaluationData('user-1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('GenAI Methods', () => {
+    it('deve salvar resumo GenAI com sucesso', async () => {
+      const summary = 'Resumo gerado por IA';
+      const expectedResult = {
+        id: 'summary-1',
+        cycle: 'Q1 2024',
+        summary,
+        collaboratorName: 'João Silva',
+        jobTitle: 'Desenvolvedor',
+        averageScore: 4.5,
+        totalEvaluations: 5,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prismaService.genAISummary.create.mockResolvedValue(expectedResult);
+
+      const result = await service.saveGenAISummary(
+        'user-1',
+        'Q1 2024',
+        summary,
+        'João Silva',
+        'Desenvolvedor',
+        4.5,
+        5
+      );
+
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('deve obter resumo GenAI com sucesso', async () => {
+      const mockSummary = {
+        id: 'summary-1',
+        cycle: 'Q1 2024',
+        summary: 'Resumo gerado por IA',
+        collaboratorName: 'João Silva',
+        jobTitle: 'Desenvolvedor',
+        averageScore: 4.5,
+        totalEvaluations: 5,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prismaService.genAISummary.findUnique.mockResolvedValue(mockSummary);
+
+      const result = await service.getGenAISummary({
+        collaboratorId: 'user-1',
+        cycle: 'Q1 2024',
+      });
+
+      expect(result).toEqual(mockSummary);
+    });
+
+    it('deve listar resumos GenAI por ciclo', async () => {
+      const mockSummaries = [
+        {
+          id: 'summary-1',
+          cycle: 'Q1 2024',
+          summary: 'Resumo 1',
+          collaboratorName: 'João Silva',
+          jobTitle: 'Desenvolvedor',
+          averageScore: 4.5,
+          totalEvaluations: 5,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      prismaService.genAISummary.findMany.mockResolvedValue(mockSummaries);
+
+      const result = await service.listGenAISummariesByCycle('Q1 2024');
+
+      expect(result).toEqual(mockSummaries);
+    });
+
+    it('deve verificar se resumo GenAI existe', async () => {
+      prismaService.genAISummary.findUnique.mockResolvedValue({ id: 'summary-1' });
+
+      const result = await service.checkGenAISummaryExists('user-1', 'Q1 2024');
+
+      expect(result).toBe(true);
+    });
+
+    it('deve retornar false quando resumo GenAI não existe', async () => {
+      prismaService.genAISummary.findUnique.mockResolvedValue(null);
+
+      const result = await service.checkGenAISummaryExists('user-1', 'Q1 2024');
+
+      expect(result).toBe(false);
     });
   });
 });

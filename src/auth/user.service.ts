@@ -27,6 +27,13 @@ export class UserService {
     // 1. VALIDAÇÕES INICIAIS
     await this.validateUserCreation(createUserDto);
 
+    // 1.1. Remover campos não permitidos para papéis globais
+    if (createUserDto.userType !== UserType.PROJECT_MEMBER) {
+      // Remove projectAssignments e mentorId para admin, rh, comite
+      delete (createUserDto as any).projectAssignments;
+      delete (createUserDto as any).mentorId;
+    }
+
     // 2. GERAÇÃO E PROCESSAMENTO AUTOMÁTICO DE CAMPOS
     const userData = await this.processUserData(createUserDto);
 

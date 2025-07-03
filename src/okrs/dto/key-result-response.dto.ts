@@ -31,27 +31,27 @@ export class KeyResultResponseDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Tipo de métrica do key result',
+    description: 'Tipo de métrica do key result (sempre PERCENTAGE)',
     enum: KeyResultType,
-    example: KeyResultType.NUMBER
+    example: KeyResultType.PERCENTAGE
   })
   type: KeyResultType;
 
   @ApiProperty({
-    description: 'Valor alvo a ser atingido',
-    example: 80
+    description: 'Valor alvo a ser atingido (sempre 100 para porcentagem)',
+    example: 100
   })
   targetValue: number;
 
   @ApiProperty({
-    description: 'Valor atual atingido',
+    description: 'Valor atual atingido (0-100%)',
     example: 65
   })
   currentValue: number;
 
   @ApiProperty({
-    description: 'Unidade de medida',
-    example: 'pontos',
+    description: 'Unidade de medida (sempre % para porcentagem)',
+    example: '%',
     required: false
   })
   unit?: string;
@@ -65,19 +65,19 @@ export class KeyResultResponseDto {
 
   @ApiProperty({
     description: 'Progresso calculado (0-100%)',
-    example: 81.25
+    example: 65
   })
   progress: number;
 
   @ApiProperty({
     description: 'Valor formatado atual',
-    example: '65 pontos'
+    example: '65%'
   })
   formattedCurrentValue: string;
 
   @ApiProperty({
     description: 'Valor formatado alvo',
-    example: '80 pontos'
+    example: '100%'
   })
   formattedTargetValue: string;
 

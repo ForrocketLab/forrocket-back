@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -6,6 +8,22 @@ async function postTestCleanup() {
   console.log('🧹 Executando limpeza pós-teste...\n');
 
   try {
+    // Limpar pastas de cobertura
+    console.log('🗂️ Limpando pastas de cobertura...');
+    const coverageFolders = [
+      'coverage',
+      'coverage-projects',
+      'coverage-genai', 
+      'coverage-okrs'
+    ];
+
+    for (const folder of coverageFolders) {
+      if (fs.existsSync(folder)) {
+        fs.rmSync(folder, { recursive: true, force: true });
+        console.log(`✅ Removida pasta: ${folder}`);
+      }
+    }
+
     // Este script é seguro de executar - só remove dados de teste
     console.log('🔍 Verificando dados de teste para limpeza...');
 
