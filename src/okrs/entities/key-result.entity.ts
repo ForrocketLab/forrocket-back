@@ -33,7 +33,7 @@ export class KeyResult {
   @ApiProperty({
     description: 'Tipo de métrica do key result',
     enum: KeyResultType,
-    example: KeyResultType.NUMBER
+    example: KeyResultType.PERCENTAGE
   })
   type: KeyResultType;
 
@@ -76,22 +76,11 @@ export class KeyResult {
 
   /**
    * Calcula o progresso do key result baseado no valor atual vs valor alvo
+   * Sempre retorna um valor em percentual (0-100)
    */
   calculateProgress(): number {
-    if (this.type === KeyResultType.BINARY) {
-      return this.currentValue >= this.targetValue ? 100 : 0;
-    }
-
-    if (this.type === KeyResultType.PERCENTAGE) {
-      return Math.min(this.currentValue, 100);
-    }
-
-    if (this.targetValue === 0) {
-      return 0;
-    }
-
-    const progress = (this.currentValue / this.targetValue) * 100;
-    return Math.min(Math.max(progress, 0), 100);
+    // Para tipo PERCENTAGE, o currentValue já é uma porcentagem
+    return Math.min(Math.max(this.currentValue, 0), 100);
   }
 
   /**
@@ -112,29 +101,13 @@ export class KeyResult {
    * Formata o valor atual com a unidade
    */
   getFormattedCurrentValue(): string {
-    if (this.type === KeyResultType.PERCENTAGE) {
-      return `${this.currentValue}%`;
-    }
-    
-    if (this.type === KeyResultType.BINARY) {
-      return this.currentValue >= this.targetValue ? 'Sim' : 'Não';
-    }
-
-    return this.unit ? `${this.currentValue} ${this.unit}` : this.currentValue.toString();
+    return `${this.currentValue}%`;
   }
 
   /**
    * Formata o valor alvo com a unidade
    */
   getFormattedTargetValue(): string {
-    if (this.type === KeyResultType.PERCENTAGE) {
-      return `${this.targetValue}%`;
-    }
-    
-    if (this.type === KeyResultType.BINARY) {
-      return 'Sim';
-    }
-
-    return this.unit ? `${this.targetValue} ${this.unit}` : this.targetValue.toString();
+    return `${this.targetValue}%`;
   }
 } 

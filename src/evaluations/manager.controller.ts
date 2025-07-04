@@ -35,6 +35,8 @@ import { Received360AssessmentDto } from './manager/dto/received-assessment360.d
 import { TeamEvaluationSummaryResponseDto } from './manager/dto/team-evaluation-summary.dto';
 import { TeamScoreAnalysisResponseDto } from './manager/dto/team-score-analysis.dto';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
+import { TeamAnalysisResponseDto } from './manager/dto/team-analysis-response.dto';
+import { TeamHistoricalPerformanceResponseDto } from './manager/dto/team-historical-performance.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -318,49 +320,36 @@ export class ManagerController {
     return this.evaluationsService.getPerformanceHistory(subordinateId);
   }
 
-  @Get('team-evaluation-summary')
+  @Get('team-analysis')
   @ApiOperation({
-    summary: 'Obter resumo inteligente da equipe',
-    description: `
-      Gera uma análise estratégica da equipe usando IA baseada em todas as avaliações.
-      
-      **Funcionalidades:**
-      - Coleta médias de todos os colaboradores da equipe
-      - Analisa avaliações 360 e de gestor
-      - Gera insights estratégicos sobre performance da equipe
-      - Identifica padrões e tendências comportamentais
-      - Fornece recomendações para liderança
-      
-      **Regras de negócio:**
-      - Apenas gestores podem acessar esta funcionalidade
-      - Considera apenas avaliações submetidas (status SUBMITTED)
-      - Prioriza notas do comitê quando disponíveis
-    `,
+    summary: 'Obter análise completa de desempenho da equipe (IA + Estatísticas)',
+    description:
+      'Busca uma análise de equipe pré-gerada ou a gera se não existir. Inclui resumos sobre notas, feedbacks e todas as estatísticas relevantes.',
   })
   @ApiQuery({
     name: 'cycle',
     description: 'Ciclo de avaliação para análise (ex: "2025.1")',
-    example: '2025.1',
     required: true,
   })
   @ApiResponse({
     status: 200,
-    description: 'Resumo da equipe gerado com sucesso.',
-    type: TeamEvaluationSummaryResponseDto,
+    description: 'Análise da equipe retornada com sucesso.',
+    type: TeamAnalysisResponseDto,
   })
   @ApiResponse({
     status: 403,
-    description: 'Usuário não tem permissão para acessar dados da equipe.',
+    description: 'Usuário não tem permissão para acessar análises de equipe.',
   })
   @ApiResponse({
     status: 404,
-    description: 'Nenhum colaborador encontrado para este gestor.',
+    description:
+      'Nenhuma análise encontrada para este ciclo. Pode ser necessário gerá-la primeiro.',
   })
-  async getTeamEvaluationSummary(
+  async getTeamAnalysis(
     @CurrentUser() user: User,
     @Query('cycle') cycle: string,
-  ): Promise<TeamEvaluationSummaryResponseDto> {
-    // Verificar se o usuário é gestor
+  ): Promise<TeamAnalysisResponseDto> {
+    // 1. Validações de permissão e parâmetros
     const isManager = await this.projectsService.isManager(user.id);
     if (!isManager) {
       throw new ForbiddenException('Apenas gestores podem acessar análises de equipe.');
@@ -370,94 +359,24 @@ export class ManagerController {
       throw new BadRequestException('O parâmetro cycle é obrigatório.');
     }
 
-    // Coletar dados estruturados da equipe
-    const teamData = await this.evaluationsService.getTeamEvaluationData(user.id, cycle);
+    // 2. Chama o serviço orquestrador
+    const analysis = await this.evaluationsService.findOrCreateTeamAnalyses(user.id, cycle);
 
-    // Gerar resumo usando IA
-    const teamSummary = await this.genAiService.getTeamEvaluationSummary(teamData);
-
+    // 3. Retorna a resposta completa
     return {
-      cycle: teamData.cycle,
-      teamSummary,
-      teamStats: {
-        totalCollaborators: teamData.totalCollaborators,
-        teamAverageScore: teamData.teamAverageScore,
-        highPerformers: teamData.highPerformers,
-        lowPerformers: teamData.lowPerformers,
-      },
-    };
-  }
-
-  @Get('team-score-analysis')
-  @ApiOperation({
-    summary: 'Obter análise quantitativa da equipe por pilar',
-    description: `
-      Gera uma análise estratégica baseada nas notas finais dos colaboradores por pilar e nota do comitê.
-      
-      **Funcionalidades:**
-      - Coleta notas finais de todos os colaboradores (prioriza comitê)
-      - Calcula médias por pilar (Comportamento, Execução)
-      - Gera insights estratégicos sobre distribuição de notas
-      - Identifica colaboradores de alto desempenho e zona crítica
-      - Fornece resumo quantitativo conciso
-      
-      **Regras de negócio:**
-      - Apenas gestores podem acessar esta funcionalidade
-      - Considera apenas avaliações submetidas (status SUBMITTED)
-      - Prioriza notas do comitê quando disponíveis
-      - Excluindo pilar Management conforme solicitado
-    `,
-  })
-  @ApiQuery({
-    name: 'cycle',
-    description: 'Ciclo de avaliação para análise (ex: "2025.1")',
-    example: '2025.1',
-    required: true,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Análise de notas da equipe gerada com sucesso.',
-    type: TeamScoreAnalysisResponseDto,
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Usuário não tem permissão para acessar dados da equipe.',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Nenhum colaborador encontrado para este gestor.',
-  })
-  async getTeamScoreAnalysis(
-    @CurrentUser() user: User,
-    @Query('cycle') cycle: string,
-  ): Promise<TeamScoreAnalysisResponseDto> {
-    // Verificar se o usuário é gestor
-    const isManager = await this.projectsService.isManager(user.id);
-    if (!isManager) {
-      throw new ForbiddenException('Apenas gestores podem acessar análises de equipe.');
-    }
-
-    if (!cycle) {
-      throw new BadRequestException('O parâmetro cycle é obrigatório.');
-    }
-
-    // Coletar dados de notas por pilar da equipe
-    const teamScoreData = await this.evaluationsService.getTeamScoreAnalysisData(user.id, cycle);
-
-    // Gerar análise usando IA
-    const scoreAnalysis = await this.genAiService.getTeamScoreAnalysis(teamScoreData);
-
-    return {
-      cycle: teamScoreData.cycle,
-      scoreAnalysis,
-      teamStats: {
-        totalCollaborators: teamScoreData.totalCollaborators,
-        teamAverageScore: teamScoreData.teamAverageScore,
-        behaviorAverage: teamScoreData.behaviorAverage,
-        executionAverage: teamScoreData.executionAverage,
-        highPerformers: teamScoreData.highPerformers,
-        criticalPerformers: teamScoreData.criticalPerformers,
-      },
+      id: analysis.id,
+      managerId: analysis.managerId,
+      cycle: analysis.cycle,
+      scoreAnalysisSummary: analysis.scoreAnalysisSummary,
+      feedbackAnalysisSummary: analysis.feedbackAnalysisSummary,
+      totalCollaborators: analysis.totalCollaborators,
+      teamAverageScore: analysis.teamAverageScore,
+      highPerformers: analysis.highPerformers,
+      lowPerformers: analysis.lowPerformers,
+      behaviorAverage: analysis.behaviorAverage ?? undefined,
+      executionAverage: analysis.executionAverage ?? undefined,
+      criticalPerformers: analysis.criticalPerformers,
+      createdAt: analysis.createdAt,
     };
   }
 
@@ -509,5 +428,50 @@ export class ManagerController {
     }
 
     return await this.evaluationsService.getBrutalFactsMetrics(user.id, cycle);
+  }
+
+  @Get('team-historical-performance')
+  @ApiOperation({
+    summary: 'Obter performance histórica da equipe por ciclo',
+    description: `
+      Retorna as médias históricas de performance da equipe para todos os ciclos disponíveis.
+      
+      **Funcionalidades:**
+      - Média geral por ciclo (combinando autoavaliação e avaliações 360)
+      - Média das autoavaliações por ciclo
+      - Média das avaliações 360 recebidas por ciclo
+      - Total de colaboradores considerados por ciclo
+      
+      **Regras de negócio:**
+      - Apenas gestores podem acessar esta funcionalidade
+      - Considera apenas avaliações submetidas (status SUBMITTED)
+      - Inclui todos os ciclos onde há pelo menos uma avaliação
+      - Ordenado por ciclo (mais recente primeiro)
+      - Overall score é calculado como média entre autoavaliação e 360 quando ambos existem
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Performance histórica retornada com sucesso.',
+    type: TeamHistoricalPerformanceResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para acessar dados históricos da equipe.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum colaborador encontrado para este gestor.',
+  })
+  async getTeamHistoricalPerformance(
+    @CurrentUser() user: User,
+  ): Promise<TeamHistoricalPerformanceResponseDto> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(user.id);
+    if (!isManager) {
+      throw new ForbiddenException('Apenas gestores podem acessar dados históricos da equipe.');
+    }
+
+    return await this.evaluationsService.getTeamHistoricalPerformance(user.id);
   }
 }
