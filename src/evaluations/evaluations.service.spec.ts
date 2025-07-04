@@ -5,6 +5,7 @@ import { EvaluationsService } from './evaluations.service';
 import { PrismaService } from '../database/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
+import { GenAiService } from '../gen-ai/gen-ai.service';
 import { Create360AssessmentDto, CreateMentoringAssessmentDto, CreateReferenceFeedbackDto, CreateManagerAssessmentDto } from './assessments/dto';
 
 describe('EvaluationsService', () => {
@@ -158,6 +159,13 @@ describe('EvaluationsService', () => {
       validateActiveCyclePhase: jest.fn(),
     };
 
+    const mockGenAiService = {
+      getSummary: jest.fn(),
+      getTeamEvaluationSummary: jest.fn(),
+      getTeamScoreAnalysis: jest.fn(),
+      getCollaboratorSummaryForEqualization: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EvaluationsService,
@@ -172,6 +180,10 @@ describe('EvaluationsService', () => {
         {
           provide: CyclesService,
           useValue: mockCyclesService,
+        },
+        {
+          provide: GenAiService,
+          useValue: mockGenAiService,
         },
       ],
     }).compile();

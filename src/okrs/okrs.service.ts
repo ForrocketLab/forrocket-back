@@ -520,8 +520,27 @@ export class OKRsService {
    * Calcula o progresso de um key result (sempre em percentual)
    */
   private calculateKeyResultProgress(keyResult: any): number {
-    // Para tipo PERCENTAGE, o currentValue já é uma porcentagem de 0-100
-    return Math.min(Math.max(keyResult.currentValue, 0), 100);
+    if (keyResult.targetValue === 0) {
+      return 0;
+    }
+    
+    switch (keyResult.type) {
+      case KeyResultType.PERCENTAGE:
+        // Para tipo PERCENTAGE, o currentValue já é uma porcentagem de 0-100
+        return Math.min(Math.max(keyResult.currentValue, 0), 100);
+      
+      case KeyResultType.NUMBER:
+        // Para tipo NUMBER, calcular percentual baseado no valor alvo
+        const progress = (keyResult.currentValue / keyResult.targetValue) * 100;
+        return Math.min(Math.max(progress, 0), 100);
+      
+      case KeyResultType.BINARY:
+        // Para tipo BINARY, 0 = 0% e qualquer valor > 0 = 100%
+        return keyResult.currentValue > 0 ? 100 : 0;
+      
+      default:
+        return Math.min(Math.max(keyResult.currentValue, 0), 100);
+    }
   }
 
   /**
@@ -618,10 +637,22 @@ export class OKRsService {
   }
 
   /**
-   * Formata valores para exibição (sempre em porcentagem)
+   * Formata valores para exibição baseado no tipo
    */
   private formatValue(value: number, type: KeyResultType, unit?: string, targetValue?: number): string {
-    return `${value}%`;
+    switch (type) {
+      case KeyResultType.PERCENTAGE:
+        return `${value}%`;
+      
+      case KeyResultType.NUMBER:
+        return unit ? `${value} ${unit}` : `${value}`;
+      
+      case KeyResultType.BINARY:
+        return value > 0 ? 'Sim' : 'Não';
+      
+      default:
+        return `${value}%`;
+    }
   }
 
   /**

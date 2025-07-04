@@ -580,4 +580,6 @@ enum KeyResultStatus {
 
 enum KeyResultType {
   PERCENTAGE
+  NUMBER
+  BINARY
 }

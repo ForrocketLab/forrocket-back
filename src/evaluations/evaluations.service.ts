@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CriterionPillar, ManagerTeamSummary } from '@prisma/client';
-import { GenAiService } from 'src/gen-ai/gen-ai.service';
+import { GenAiService } from '../gen-ai/gen-ai.service';
 
 import {
   CreateSelfAssessmentDto,
