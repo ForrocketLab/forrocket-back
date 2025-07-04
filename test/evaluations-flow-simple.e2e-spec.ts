@@ -215,9 +215,17 @@ describe('Fluxos de Integração E2E (e2e)', () => {
           name: 'E2E Test Cycle Admin',
           startDate: '2025-08-01',
           endDate: '2025-12-31',
-        })
-        .expect(201);
+        });
 
+      // Log do erro se não for 201
+      if (createResponse.status !== 201) {
+        console.log('❌ Erro na criação do ciclo:');
+        console.log('Status:', createResponse.status);
+        console.log('Body:', createResponse.body);
+        console.log('Text:', createResponse.text);
+      }
+
+      expect(createResponse.status).toBe(201);
       expect(createResponse.body).toHaveProperty('name');
       expect(createResponse.body).toHaveProperty('id');
 
