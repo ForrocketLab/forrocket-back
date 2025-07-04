@@ -1,13 +1,15 @@
-import { Controller, Post, UseGuards, UploadedFiles, UseInterceptors, HttpStatus, Res, Body } from '@nestjs/common';
+import { Controller, Post, UseGuards, UploadedFiles, UseInterceptors, HttpStatus, Res, Body, Get, Query, Param } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImportService } from './import.service';
 import { Response } from 'express';
-import { ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-
+import { ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth, ApiTags, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { User } from '../auth/entities/user.entity';
 
 @ApiBearerAuth()
+@ApiTags('Importação')
 @Controller('api/import')
 @UseGuards(JwtAuthGuard, HRRoleGuard)
 export class ImportController {
@@ -34,20 +36,58 @@ export class ImportController {
   @ApiOperation({ summary: 'Importa dados históricos de arquivos (Apenas RH)' })
   async importHistoricalData(
     @UploadedFiles() files: Array<Express.Multer.File>,
-    @Res() res: Response
+    @Res() res: Response,
+    @CurrentUser() user: User,
   ) {
     if (!files || files.length === 0) {
       return res.status(HttpStatus.BAD_REQUEST).json({ message: 'Nenhum arquivo enviado.' });
     }
 
     try {
-      const results = await this.importService.processExcelFile(files[0].originalname, files[0].buffer);
+      const results = await this.importService.processExcelFile(files[0].originalname, files[0].buffer, user.email);
       return res.status(HttpStatus.OK).json(results);
     } catch (error: any) {
       console.error(`Erro no controller ao processar o arquivo:`, error.message);
       return res.status(error.status || HttpStatus.INTERNAL_SERVER_ERROR).json({
         statusCode: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
         message: error.message || 'Erro interno ao processar o arquivo.',
+      });
+    }
+  }
+
+  @Get('history')
+  @ApiOperation({ summary: 'Lista TODOS os históricos de importações de arquivos (Apenas RH, sem paginação)' })
+
+  async getImportHistory(
+    @Res() res: Response,
+  ) {
+    try {
+      const history = await this.importService.getImportHistory();
+      return res.status(HttpStatus.OK).json(history);
+    } catch (error: any) {
+      console.error(`Erro ao listar histórico de importações:`, error.message);
+      return res.status(error.status || HttpStatus.INTERNAL_SERVER_ERROR).json({
+        statusCode: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message || 'Erro interno ao listar o histórico de importações.',
+      });
+    }
+  }
+
+  @Get('history/:id')
+  @ApiOperation({ summary: 'Obtém detalhes de uma importação específica (Apenas RH)' })
+  @ApiParam({ name: 'id', description: 'ID do registro de histórico de importação', type: String })
+  async getImportHistoryDetails(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const details = await this.importService.getImportHistoryDetails(id);
+      return res.status(HttpStatus.OK).json(details);
+    } catch (error: any) {
+      console.error(`Erro ao obter detalhes do histórico de importação '${id}':`, error.message);
+      return res.status(error.status || HttpStatus.NOT_FOUND).json({
+        statusCode: error.status || HttpStatus.NOT_FOUND,
+        message: error.message || `Histórico de importação com ID '${id}' não encontrado.`,
       });
     }
   }

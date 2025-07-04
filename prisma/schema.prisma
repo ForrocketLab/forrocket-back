@@ -387,6 +387,32 @@ enum EvaluationPhase {
 
 
   // ==========================================
+  // TABELAS DE IMPORTADOS
+  // ==========================================
+
+
+model ImportHistory {
+  id                   String   @id @default(uuid())
+  fileName             String
+  fileSize             Float?
+  uploadDate           DateTime @default(now())
+  uploadedByEmail      String?
+  overallStatus        String
+  totalSheetsProcessed Int
+  totalRecordsCreated  Int
+  totalRecordsUpdated  Int
+  totalErrors          Int
+  details              Json? 
+
+  perfisImportados      PerfilImportado[]
+  autoAvaliacoesImportadas AutoAvaliacaoImportada[]
+  avaliacoes360Importadas Avaliacao360Importada[]
+  pesquisasReferenciaImportadas PesquisaReferenciaImportada[]
+
+  @@map("import_history")
+}
+
+  // ==========================================
   // TABELAS DE DADOS IMPORTADOS
   // ==========================================
 
@@ -396,6 +422,10 @@ model PerfilImportado {
   email   String @unique
   ciclo   String @map("Ciclo (ano.semestre)")
   unidade String @map("Unidade")
+
+  // Campo para a chave estrangeira
+  importHistoryId String?
+  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
 
   @@map("perfis_importados")
 }
@@ -410,6 +440,10 @@ model AutoAvaliacaoImportada {
   descricaoNota           String?  @map("DESCRIÇÃO NOTA")
   dadosFatosAutoAvaliacao String?  @map("DADOS E FATOS DA AUTO-AVALIAÇÃO\nCITE, DE FORMA OBJETIVA, CASOS E SITUAÇÕES REAIS")
   dataImportacao          DateTime @default(now())
+
+  // Campo para a chave estrangeira
+  importHistoryId String? 
+  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
 
   @@map("auto_avaliacoes_importadas")
 }
@@ -427,6 +461,10 @@ model Avaliacao360Importada {
   pontosExplorar               String?  @map("PONTOS QUE FAZ BEM E DEVE EXPLORAR")
   dataImportacao               DateTime @default(now())
 
+  // Campo para a chave estrangeira
+  importHistoryId String? 
+  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
+
   @@map("avaliacoes_360_importadas")
 }
 
@@ -437,6 +475,10 @@ model PesquisaReferenciaImportada {
   emailReferencia  String   @map("EMAIL DA REFERÊNCIA\n( nome.sobrenome )")
   justificativa    String?  @map("JUSTIFICATIVA")
   dataImportacao   DateTime @default(now())
+
+  // Campo para a chave estrangeira
+  importHistoryId String?
+  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
 
   @@map("pesquisas_referencia_importadas")
 }
