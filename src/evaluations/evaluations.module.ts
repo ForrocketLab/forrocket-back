@@ -13,11 +13,12 @@ import { CriteriaService } from './criteria.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { GenAiModule } from '../gen-ai/gen-ai.module';
+import { HRModule } from './hr/hr.module';
 
 // Submódulos
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule],
+  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule, HRModule],
   controllers: [
     EvaluationsController,
     ManagerController,
