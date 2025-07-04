@@ -17,6 +17,22 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   /**
+   * Parse dos roles do usuário de forma segura
+   */
+  private parseUserRoles(roles: string | null | undefined): string[] {
+    try {
+      if (!roles || typeof roles !== 'string') {
+        return ['colaborador']; // Valor padrão
+      }
+      const parsed = JSON.parse(roles);
+      return Array.isArray(parsed) ? parsed : ['colaborador'];
+    } catch (error) {
+      console.error('Erro ao fazer parse dos roles:', error);
+      return ['colaborador']; // Valor padrão em caso de erro
+    }
+  }
+
+  /**
    * Cria um novo usuário aplicando todas as regras de negócio e validações
    * @param createUserDto - Dados para criação do usuário
    * @returns Usuário criado (sem o passwordHash)
@@ -1542,10 +1558,10 @@ export class UserService {
    * Retorna usuários ativos que não são mentores de ninguém ainda
    */
   async getPotentialMentors(): Promise<UserSummary[]> {
-    // Buscar todos os usuários ativos
-    const allUsers = await this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
+        mentorId: null, // Usuários que não são mentorados por ninguém
       },
       select: {
         id: true,
@@ -1556,312 +1572,360 @@ export class UserService {
         businessUnit: true,
       },
       orderBy: [
-        { businessUnit: 'asc' },
-        { name: 'asc' }
-      ]
+        { name: 'asc' },
+      ],
     });
 
-    // Buscar usuários que já são mentores de alguém
-    const existingMentors = await this.prisma.user.findMany({
+    // Filtrar usuários que não são mentores de ninguém
+    const mentorIds = await this.prisma.user.findMany({
       where: {
-        mentorId: { not: null },
         isActive: true,
+        mentorId: { not: null },
       },
       select: {
         mentorId: true,
       },
     });
 
-    const mentorIds = new Set(existingMentors.map(user => user.mentorId).filter(id => id !== null));
+    const activeMentorIds = new Set(mentorIds.map(u => u.mentorId).filter(id => id !== null));
 
-    // Filtrar usuários que não são mentores de ninguém
-    const potentialMentors = allUsers.filter(user => !mentorIds.has(user.id));
-
-    return potentialMentors.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      jobTitle: user.jobTitle,
-      seniority: user.seniority,
-      businessUnit: user.businessUnit,
-    }));
+    return users.filter(user => !activeMentorIds.has(user.id));
   }
 
   /**
-   * Busca dados detalhados de um colaborador para o modal "Ver Notas"
+   * Busca usuários com filtros avançados para o RH
    */
-  async getCollaboratorEvaluationDetailsForModal(userId: string): Promise<any> {
-    // Buscar o ciclo ativo
-    const activeCycle = await this.prisma.evaluationCycle.findFirst({
-      where: { status: 'OPEN' },
-      select: { name: true, phase: true }
-    });
+  async getUsersWithAdvancedFilters(filters: {
+    search?: string;
+    projectId?: string;
+    jobTitle?: string;
+    businessUnit?: string;
+    seniority?: string;
+    careerTrack?: string;
+    isActive?: boolean;
+    roles?: string[];
+  }): Promise<{
+    users: any[];
+    totalCount: number;
+    filteredCount: number;
+  }> {
+    try {
+      // Buscar o ciclo ativo
+      const activeCycle = await this.prisma.evaluationCycle.findFirst({
+        where: { status: 'OPEN' },
+        select: { name: true }
+      });
 
-    if (!activeCycle) {
-      throw new NotFoundException('Nenhum ciclo ativo encontrado');
+      if (!activeCycle) {
+        console.warn('Nenhum ciclo ativo encontrado para getUsersWithAdvancedFilters');
+        // Retornar lista vazia em vez de erro
+        return {
+          users: [],
+          totalCount: 0,
+          filteredCount: 0,
+        };
+      }
+
+    // Construir filtros para o Prisma
+    const where: any = {};
+    
+    if (filters.search && filters.search.trim()) {
+      const searchTerm = filters.search.trim();
+      where.OR = [
+        { name: { contains: searchTerm } },
+        { email: { contains: searchTerm } },
+      ];
     }
 
-    // Buscar dados do colaborador
-    const collaborator = await this.prisma.user.findUnique({
-      where: { id: userId },
+    if (filters.jobTitle && filters.jobTitle.trim()) {
+      where.jobTitle = { contains: filters.jobTitle.trim() };
+    }
+
+    if (filters.businessUnit && filters.businessUnit.trim()) {
+      where.businessUnit = filters.businessUnit.trim();
+    }
+
+    if (filters.seniority && filters.seniority.trim()) {
+      where.seniority = filters.seniority.trim();
+    }
+
+    if (filters.careerTrack && filters.careerTrack.trim()) {
+      where.careerTrack = filters.careerTrack.trim();
+    }
+
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+
+    // Buscar usuários base
+    const users = await this.prisma.user.findMany({
+      where,
       select: {
         id: true,
         name: true,
         email: true,
+        roles: true,
         jobTitle: true,
         seniority: true,
         careerTrack: true,
         businessUnit: true,
-        isActive: true
-      }
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        managerId: true,
+        mentorId: true,
+      },
+      orderBy: [
+        { businessUnit: 'asc' },
+        { name: 'asc' }
+      ]
     });
 
-    if (!collaborator) {
-      throw new NotFoundException('Colaborador não encontrado');
+    // Verificar se há usuários
+    if (!users || users.length === 0) {
+      return {
+        users: [],
+        totalCount: 0,
+        filteredCount: 0,
+      };
     }
 
-    // Buscar todas as avaliações do ciclo ativo (RECEBIDAS E ENVIADAS)
-    const [
-      selfAssessment,
-      assessments360Received,
-      assessments360Sent,
-      managerAssessmentsReceived,
-      managerAssessmentsSent,
-      mentoringAssessmentsReceived,
-      mentoringAssessmentsSent,
-      referenceFeedbacksReceived,
-      referenceFeedbacksSent,
-      committeeAssessment,
-    ] = await Promise.all([
-      // Autoavaliação
-      this.prisma.selfAssessment.findFirst({
-        where: {
-          authorId: userId,
-          cycle: activeCycle.name,
-        },
-        include: { answers: true },
-      }),
-
-      // Avaliações 360 recebidas
-      this.prisma.assessment360.findMany({
-        where: {
-          evaluatedUserId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          author: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Avaliações 360 enviadas
-      this.prisma.assessment360.findMany({
-        where: {
-          authorId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          evaluatedUser: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Avaliações de gestor recebidas
-      this.prisma.managerAssessment.findMany({
-        where: {
-          evaluatedUserId: userId,
-          cycle: activeCycle.name,
-        },
-        include: {
-          author: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-          answers: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Avaliações de gestor enviadas
-      this.prisma.managerAssessment.findMany({
-        where: {
-          authorId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          evaluatedUser: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-          answers: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Avaliações de mentoring recebidas
-      this.prisma.mentoringAssessment.findMany({
-        where: {
-          mentorId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          author: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Avaliações de mentoring enviadas
-      this.prisma.mentoringAssessment.findMany({
-        where: {
-          authorId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          mentor: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Feedbacks de referência recebidos
-      this.prisma.referenceFeedback.findMany({
-        where: {
-          referencedUserId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          author: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Feedbacks de referência enviados
-      this.prisma.referenceFeedback.findMany({
-        where: {
-          authorId: userId,
-          cycle: activeCycle.name,
-          status: 'SUBMITTED',
-        },
-        include: {
-          referencedUser: {
-            select: { id: true, name: true, email: true, jobTitle: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-
-      // Avaliação de comitê existente
-      this.prisma.committeeAssessment.findFirst({
-        where: {
-          evaluatedUserId: userId,
-          cycle: activeCycle.name,
-        },
-        include: {
-          author: {
-            select: { id: true, name: true, email: true },
-          },
-        },
-      }),
-    ]);
-
-    // Calcular médias das avaliações
-    const calculateSelfAssessmentAverage = (assessment: any) => {
-      if (!assessment?.answers?.length) return null;
-      const total = assessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0);
-      return Math.round((total / assessment.answers.length) * 10) / 10; // 1 casa decimal
-    };
-
-    const calculateAverage = (assessments: any[], scoreField: string) => {
-      if (!assessments.length) return null;
-      const total = assessments.reduce((sum, assessment) => sum + (assessment[scoreField] || 0), 0);
-      return Math.round((total / assessments.length) * 10) / 10; // 1 casa decimal
-    };
-
-    const calculateManagerAssessmentAverage = (assessments: any[]) => {
-      if (!assessments.length) return null;
-      const allScores: number[] = [];
-      
-      assessments.forEach(assessment => {
-        if (assessment.answers?.length) {
-          assessment.answers.forEach((answer: any) => {
-            allScores.push(answer.score);
-          });
+    // Filtrar por roles se especificado
+    let filteredUsers = users;
+    if (filters.roles && filters.roles.length > 0) {
+      filteredUsers = users.filter(user => {
+        try {
+          if (!user.roles || typeof user.roles !== 'string') {
+            return false;
+          }
+          const userRoles = JSON.parse(user.roles) as string[];
+          return Array.isArray(userRoles) && filters.roles!.some(role => userRoles.includes(role));
+        } catch (error) {
+          console.error('Erro ao fazer parse dos roles do usuário:', user.id, error);
+          return false;
         }
       });
-      
-      if (allScores.length === 0) return null;
-      const total = allScores.reduce((sum, score) => sum + score, 0);
-      return Math.round((total / allScores.length) * 10) / 10;
-    };
+    }
 
-    // Calcular médias
-    const selfAssessmentAverage = calculateSelfAssessmentAverage(selfAssessment);
-    const assessment360Average = calculateAverage(assessments360Received, 'overallScore');
-    const managerAssessmentAverage = calculateManagerAssessmentAverage(managerAssessmentsReceived);
-    const mentoringAverage = calculateAverage(mentoringAssessmentsReceived, 'score');
+    // Buscar projetos dos usuários (se filtro por projeto estiver ativo)
+    let userProjects: Map<string, any[]> = new Map();
+    if (filters.projectId) {
+      // Buscar usuários que participam do projeto específico
+      const projectAssignments = await this.prisma.userProjectAssignment.findMany({
+        where: { projectId: filters.projectId },
+        include: {
+          user: true,
+          project: true,
+        },
+      });
 
-    const totalAssessmentsReceived =
-      (selfAssessment ? 1 : 0) +
-      assessments360Received.length +
-      managerAssessmentsReceived.length +
-      mentoringAssessmentsReceived.length +
-      referenceFeedbacksReceived.length;
+      const projectUserIds = new Set(projectAssignments.map(pa => pa.userId));
+      filteredUsers = filteredUsers.filter(user => projectUserIds.has(user.id));
 
-    // Gerar resumo personalizado
-    const generateSummary = () => {
-      const parts: string[] = [];
-      if (selfAssessmentAverage) parts.push(`Autoavaliação: ${selfAssessmentAverage}`);
-      if (assessment360Average) parts.push(`Avaliação 360: ${assessment360Average}`);
-      if (managerAssessmentAverage) parts.push(`Avaliação Gestor: ${managerAssessmentAverage}`);
-      if (mentoringAverage) parts.push(`Mentoring: ${mentoringAverage}`);
-      
-      if (parts.length === 0) return 'Aguardando avaliações para análise';
-      
-      return `Médias recebidas - ${parts.join(', ')}. Total de ${totalAssessmentsReceived} avaliações.`;
-    };
+      // Buscar roles dos usuários nos projetos
+      const userProjectRoles = await this.prisma.userProjectRole.findMany({
+        where: { userId: { in: filteredUsers.map(u => u.id) } },
+        include: {
+          project: true,
+        },
+      });
 
-    return {
-      cycle: activeCycle.name,
-      currentPhase: activeCycle.phase,
-      collaborator,
-      evaluationScores: {
-        selfAssessment: selfAssessmentAverage,
-        assessment360: assessment360Average,
-        managerAssessment: managerAssessmentAverage,
-        mentoring: mentoringAverage
-      },
-      customSummary: generateSummary(),
-      // Avaliações recebidas
-      selfAssessment,
-      assessments360Received,
+      // Organizar projetos por usuário
+      filteredUsers.forEach(user => {
+        const userRoles = userProjectRoles.filter(upr => upr.userId === user.id);
+        const projects = userRoles.map(ur => ({
+          id: ur.project.id,
+          name: ur.project.name,
+          roleInProject: ur.role,
+        }));
+        userProjects.set(user.id, projects);
+      });
+    } else {
+      // Buscar projetos de todos os usuários
+      const allUserProjectRoles = await this.prisma.userProjectRole.findMany({
+        where: { userId: { in: filteredUsers.map(u => u.id) } },
+        include: {
+          project: true,
+        },
+      });
+
+      filteredUsers.forEach(user => {
+        const userRoles = allUserProjectRoles.filter(upr => upr.userId === user.id);
+        const projects = userRoles.map(ur => ({
+          id: ur.project.id,
+          name: ur.project.name,
+          roleInProject: ur.role,
+        }));
+        userProjects.set(user.id, projects);
+      });
+    }
+
+    // Buscar dados de progresso de avaliação
+    const [
+      selfAssessments,
+      assessments360,
       managerAssessmentsReceived,
       mentoringAssessmentsReceived,
       referenceFeedbacksReceived,
-      committeeAssessment,
-      // Avaliações enviadas
-      assessments360Sent,
-      managerAssessmentsSent,
-      mentoringAssessmentsSent,
-      referenceFeedbacksSent,
-      summary: {
-        totalAssessmentsReceived,
-        totalAssessmentsSent: assessments360Sent.length + managerAssessmentsSent.length + mentoringAssessmentsSent.length + referenceFeedbacksSent.length,
-        hasCommitteeAssessment: !!committeeAssessment,
-        isEqualizationComplete: !!committeeAssessment, // Se tem avaliação de comitê, a equalização está completa
-      },
+      committeeAssessments,
+      managersAndMentors
+    ] = await Promise.all([
+      this.prisma.selfAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          authorId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { authorId: true, status: true, submittedAt: true }
+      }),
+      this.prisma.assessment360.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+          evaluatedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { evaluatedUserId: true }
+      }),
+      this.prisma.managerAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          evaluatedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { evaluatedUserId: true, status: true, submittedAt: true }
+      }),
+      this.prisma.mentoringAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+          mentorId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { mentorId: true }
+      }),
+      this.prisma.referenceFeedback.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+          referencedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { referencedUserId: true }
+      }),
+      this.prisma.committeeAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          evaluatedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { evaluatedUserId: true, status: true, submittedAt: true }
+      }),
+      this.prisma.user.findMany({
+        where: { 
+          id: { 
+            in: [
+              ...filteredUsers.map(user => user.managerId).filter(id => id !== null) as string[],
+              ...filteredUsers.map(user => user.mentorId).filter(id => id !== null) as string[]
+            ]
+          }
+        },
+        select: { id: true, name: true }
+      })
+    ]);
+
+    // Criar maps para acesso rápido
+    const managerAndMentorMap = new Map(managersAndMentors.map(m => [m.id, m.name]));
+    const selfAssessmentMap = new Map(selfAssessments.map(sa => [sa.authorId, sa]));
+    const managerAssessmentMap = new Map(managerAssessmentsReceived.map(ma => [ma.evaluatedUserId, ma]));
+    const committeeAssessmentMap = new Map(committeeAssessments.map(ca => [ca.evaluatedUserId, ca]));
+
+    // Contar assessments por usuário
+    const assessments360Map = new Map<string, number>();
+    assessments360.forEach(a => {
+      const count = assessments360Map.get(a.evaluatedUserId) || 0;
+      assessments360Map.set(a.evaluatedUserId, count + 1);
+    });
+
+    const mentoringAssessmentMap = new Map<string, number>();
+    mentoringAssessmentsReceived.forEach(ma => {
+      const count = mentoringAssessmentMap.get(ma.mentorId) || 0;
+      mentoringAssessmentMap.set(ma.mentorId, count + 1);
+    });
+
+    const referenceFeedbackMap = new Map<string, number>();
+    referenceFeedbacksReceived.forEach(rf => {
+      const count = referenceFeedbackMap.get(rf.referencedUserId) || 0;
+      referenceFeedbackMap.set(rf.referencedUserId, count + 1);
+    });
+
+    // Montar resposta final
+    const usersWithProgress = filteredUsers.map(user => {
+      const selfAssessment = selfAssessmentMap.get(user.id);
+      const managerAssessment = managerAssessmentMap.get(user.id);
+      const committeeAssessment = committeeAssessmentMap.get(user.id);
+      
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roles: this.parseUserRoles(user.roles),
+        jobTitle: user.jobTitle,
+        seniority: user.seniority,
+        careerTrack: user.careerTrack,
+        businessUnit: user.businessUnit,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        managerName: user.managerId ? managerAndMentorMap.get(user.managerId) || null : null,
+        mentorName: user.mentorId ? managerAndMentorMap.get(user.mentorId) || null : null,
+        projects: userProjects.get(user.id) || [],
+        evaluationProgress: {
+          selfAssessment: {
+            status: selfAssessment?.status || 'PENDENTE',
+            submittedAt: selfAssessment?.submittedAt || null
+          },
+          assessments360Received: assessments360Map.get(user.id) || 0,
+          managerAssessment: {
+            status: managerAssessment?.status || 'PENDENTE',
+            submittedAt: managerAssessment?.submittedAt || null
+          },
+          mentoringAssessmentsReceived: mentoringAssessmentMap.get(user.id) || 0,
+          referenceFeedbacksReceived: referenceFeedbackMap.get(user.id) || 0,
+          committeeAssessment: {
+            status: committeeAssessment?.status || 'PENDING',
+            submittedAt: committeeAssessment?.submittedAt || null
+          }
+        }
+      };
+    });
+
+    return {
+      users: usersWithProgress,
+      totalCount: users.length,
+      filteredCount: filteredUsers.length,
     };
+    } catch (error) {
+      console.error('Erro ao buscar usuários com filtros avançados:', error);
+      // Retornar resultado vazio em caso de erro
+      return {
+        users: [],
+        totalCount: 0,
+        filteredCount: 0,
+      };
+    }
+  }
+
+  /**
+   * Busca lista de projetos disponíveis
+   */
+  async getProjectsList(): Promise<any[]> {
+    const projects = await this.prisma.project.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return projects;
   }
 } 
