@@ -425,7 +425,7 @@ model PerfilImportado {
 
   // Campo para a chave estrangeira
   importHistoryId String?
-  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
+  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
 
   @@map("perfis_importados")
 }
@@ -443,7 +443,7 @@ model AutoAvaliacaoImportada {
 
   // Campo para a chave estrangeira
   importHistoryId String? 
-  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
+  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
 
   @@map("auto_avaliacoes_importadas")
 }
@@ -463,7 +463,7 @@ model Avaliacao360Importada {
 
   // Campo para a chave estrangeira
   importHistoryId String? 
-  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
+  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
 
   @@map("avaliacoes_360_importadas")
 }
@@ -478,7 +478,7 @@ model PesquisaReferenciaImportada {
 
   // Campo para a chave estrangeira
   importHistoryId String?
-  importHistory   ImportHistory? @relation(fields: [importHistoryId], references: [id])
+  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
 
   @@map("pesquisas_referencia_importadas")
 }

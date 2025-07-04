@@ -1,4 +1,4 @@
-import { Controller, Post, UseGuards, UploadedFiles, UseInterceptors, HttpStatus, Res, Body, Get, Query, Param } from '@nestjs/common';
+import { Controller, Post, UseGuards, UploadedFiles, UseInterceptors, HttpStatus, Res, Body, Get, Query, Param, Delete } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -33,6 +33,7 @@ export class ImportController {
       },
     },
   })
+
   @ApiOperation({ summary: 'Importa dados históricos de arquivos (Apenas RH)' })
   async importHistoricalData(
     @UploadedFiles() files: Array<Express.Multer.File>,
@@ -88,6 +89,25 @@ export class ImportController {
       return res.status(error.status || HttpStatus.NOT_FOUND).json({
         statusCode: error.status || HttpStatus.NOT_FOUND,
         message: error.message || `Histórico de importação com ID '${id}' não encontrado.`,
+      });
+    }
+  }
+
+  @Delete('history/:id')
+  @ApiOperation({ summary: 'Deleta um registro de histórico de importação e seus dados associados (Apenas RH)' })
+  @ApiParam({ name: 'id', description: 'ID do registro de histórico de importação a ser deletado', type: String })
+  async deleteImportHistory(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    try {
+      await this.importService.deleteImportHistoryById(id);
+      return res.status(HttpStatus.NO_CONTENT).send();
+    } catch (error: any) {
+      console.error(`Erro ao deletar histórico de importação '${id}':`, error.message);
+      return res.status(error.status || HttpStatus.INTERNAL_SERVER_ERROR).json({
+        statusCode: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message || `Erro interno ao deletar o histórico de importação '${id}'.`,
       });
     }
   }

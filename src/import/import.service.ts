@@ -305,6 +305,36 @@ export class ImportService {
     return importHistory;
   }
 
+  /**
+   * Deleta um registro ImportHistory pelo ID e, devido ao onDelete: Cascade,
+   * deleta automaticamente os registros filhos associados.
+   * @param id O ID do registro ImportHistory a ser deletado.
+   * @returns O registro deletado.
+   * @throws BadRequestException se o registro não for encontrado.
+   */
+  async deleteImportHistoryById(id: string): Promise<ImportHistory> {
+    console.log(`Backend: [deleteImportHistoryById] Iniciando exclusão para ID: ${id}`);
+    try {
+      const existingHistory = await this.prisma.importHistory.findUnique({
+        where: { id: id },
+      });
+
+      if (!existingHistory) {
+        console.log(`Backend: [deleteImportHistoryById] Histórico com ID '${id}' não encontrado.`);
+        throw new BadRequestException(`Histórico de importação com ID '${id}' não encontrado.`);
+      }
+
+      const deletedRecord = await this.prisma.importHistory.delete({
+        where: { id: id },
+      });
+      console.log(`Backend: [deleteImportHistoryById] Histórico e registros associados para ID '${id}' deletados com sucesso.`);
+      return deletedRecord;
+    } catch (error: any) {
+      console.error(`Backend: [deleteImportHistoryById] ERRO ao deletar histórico para ID '${id}':`, error.message);
+      throw error;
+    }
+  }
+
   // --- Funções de Importação Específicas para as NOVAS TABELAS ---
 
   // 1. Importação de Perfis para 'PerfilImportado'
