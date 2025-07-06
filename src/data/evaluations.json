@@ -140,5 +140,23 @@
 
   
   ],
-  "observacoes_equalizacao": []
+  "observacoes_equalizacao": [],
+  
+  "projetos": [
+  {
+   "projeto-api-core": {
+    "2024.1": 4.5,
+    "2024.2": 4.8,
+    "2025.1": 4.6
+  },
+  "projeto-mobile-app": {
+    "2024.1": 4.0,
+    "2024.2": 3.8,
+    "2025.1": 4.2
+  },
+  "projeto-alpha": {
+    "2025.1": 4.75
+  }
+}
+  ]
 }

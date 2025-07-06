@@ -12,7 +12,8 @@
       "Manager": "bruno.id",
       "Direct Reports": "null",
       "Mentor": "null",
-      "Active": "true"
+      "Active": "true",
+      "Projects": "['projeto-alpha', 'projeto-mobile-app']"
     },
     {
       "id": "2",
@@ -26,7 +27,9 @@
       "Manager": "null",
       "DirectReports": "",
       "Mentor": "null",
-      "Active": "true"
+      "Active": "true",
+      "Projects": "['projeto-alpha', 'projeto-api-core']"
+      
     },
     {
       "id": "3",
@@ -40,7 +43,8 @@
       "Manager": "bruno.id",
       "DirectReports": "null",
       "Mentor": "ana.id",
-      "Active": "true"
+      "Active": "true",
+      "Projects": "['projeto-alpha', 'projeto-mobile-app']"
     }
   ]
 }

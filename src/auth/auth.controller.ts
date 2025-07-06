@@ -8,6 +8,7 @@ import {
   UseGuards,
   ValidationPipe,
   ForbiddenException,
+  NotFoundException,
   Param,
   Query,
   InternalServerErrorException,
@@ -19,6 +20,7 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiExtraModels,
+  ApiParam,
 } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
@@ -590,6 +592,70 @@ export class AuthController {
   })
   async getAllUsers(@CurrentUser() currentUser: User) {
     return this.userService.getAllUsers();
+  }
+
+  /**
+   * Endpoint para buscar os projetos de um usuário específico
+   * @param userId - ID do usuário cujos projetos serão buscados
+   * @param currentUser - Usuário autenticado (para verificação de permissão)
+   * @returns Lista de projetos do usuário
+   */
+  @Get('users/:userId/projects')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Buscar projetos de um usuário específico',
+    description: `
+      Retorna a lista de projetos e as roles associadas para um usuário específico.
+      
+      **🔒 Acesso Restrito**:
+      - O próprio usuário pode ver seus projetos.
+      - O gestor direto do usuário pode ver os projetos.
+      - Usuários com roles ADMIN ou RH podem ver os projetos de qualquer usuário.
+    `,
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'ID do usuário a ser consultado',
+    example: 'cmbyavwvd0000tzsgo55812qo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de projetos retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          projectId: { type: 'string', example: 'projeto-alpha' },
+          projectName: { type: 'string', example: 'Projeto Alpha' },
+          roles: { type: 'array', items: { type: 'string' }, example: ['COLLABORATOR'] },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
+  @ApiResponse({ status: 403, description: 'Acesso negado. Você não tem permissão para ver os projetos deste usuário.' })
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
+  async getUserProjects(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: User,
+  ) {
+    // 1. Verificar se o usuário alvo existe
+    const targetUser = await this.authService.findUserById(userId);
+    if (!targetUser) {
+      throw new NotFoundException(`Usuário com ID ${userId} não encontrado.`);
+    }
+
+    // 2. Verificar permissões (se é o próprio usuário, seu gestor, ou RH/Admin)
+    const hasPermission = (await this.roleChecker.userHasAnyRole(currentUser.id, ['admin', 'rh'])) || currentUser.id === userId || targetUser.managerId === currentUser.id;
+
+    if (!hasPermission) {
+      throw new ForbiddenException('Acesso negado. Você não tem permissão para ver os projetos deste usuário.');
+    }
+
+    // 3. Se tiver permissão, buscar os projetos
+    return this.userService.getUserProjects(userId);
   }
 
   /**
