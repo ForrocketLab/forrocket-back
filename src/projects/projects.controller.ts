@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, HttpStatus, Query, Param } from '@nestjs/common';
+import { Controller, Get, UseGuards, HttpStatus, Query, Param, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 
 import { ProjectsService } from './projects.service';
@@ -181,5 +181,29 @@ export class ProjectsController {
   })
   async getAllProjects() {
     return this.projectsService.getAllProjects();
+  }
+
+  @Get(':projectId/scores')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Extrair as notas de um projeto específico',
+    description: 'Retorna as notas de um projeto específico pelo seu ID, a partir do arquivo evaluations.json.',
+  })
+  @ApiParam({
+    name: 'projectId',
+    description: 'ID do projeto (ex: projeto-alpha)',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Notas do projeto retornadas com sucesso.',
+  })
+  @ApiResponse({ status: 404, description: 'Projeto ou dados de notas não encontrados.' })
+  @ApiResponse({
+    status: 500,
+    description: 'Erro interno do servidor ou falha ao ler o arquivo.',
+  })
+  async getProjectScores(@Param('projectId') projectId: string) {
+    return this.projectsService.getProjectScores(projectId);
   }
 }

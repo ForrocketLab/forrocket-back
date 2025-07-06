@@ -565,6 +565,18 @@ export class UserService {
   }
 
   /**
+   * Busca os projetos e as roles de um usuário específico.
+   * A verificação de existência e permissão do usuário deve ser feita pelo chamador (Controller).
+   * @param userId - ID do usuário
+   * @returns Array de projetos com suas roles
+   */
+  async getUserProjects(userId: string): Promise<{ projectId: string; projectName: string; roles: string[] }[]> {
+    // Este método assume que o usuário já foi validado pelo controller.
+    // Ele reutiliza a lógica privada que já busca os projetos e roles.
+    return this.getProjectRoles(userId);
+  }
+
+  /**
    * Busca as roles de projeto de um usuário
    * @param userId - ID do usuário
    * @returns Array de roles por projeto

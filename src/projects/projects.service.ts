@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 import { EvaluableUserDto, EvaluableUsersResponseDto } from './dto';
 import { PrismaService } from '../database/prisma.service';
@@ -935,5 +937,42 @@ export class ProjectsService {
       isMentor: mentees.length > 0,
       isManager,
     };
+  }
+
+  /**
+   * @description Obtém as notas de um projeto específico a partir do arquivo evaluations.json.
+   * @param {string} projectId O ID do projeto.
+   * @returns {Promise<any>} As notas do projeto específico.
+   */
+  async getProjectScores(projectId: string): Promise<any> {
+    const dataPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
+    try {
+      const fileContent = await fs.readFile(dataPath, 'utf-8');
+      const data = JSON.parse(fileContent);
+
+      if (!data.projetos || !Array.isArray(data.projetos) || data.projetos.length === 0) {
+        throw new NotFoundException('Seção "projetos" não encontrada ou vazia no arquivo evaluations.json.');
+      }
+
+      // As notas estão dentro do primeiro elemento do array "projetos"
+      const allProjectScores = data.projetos[0];
+
+      if (!allProjectScores || typeof allProjectScores !== 'object') {
+        throw new InternalServerErrorException('Formato de dados de projetos inválido.');
+      }
+
+      const projectScores = allProjectScores[projectId];
+
+      if (projectScores === undefined) {
+        throw new NotFoundException(`Projeto com ID "${projectId}" não encontrado no arquivo de avaliações.`);
+      }
+
+      return projectScores;
+    } catch (error) {
+      if (error.code === 'ENOENT') throw new NotFoundException('Arquivo evaluations.json não encontrado.');
+      if (error instanceof NotFoundException || error instanceof InternalServerErrorException) throw error;
+      console.error('Erro ao ler ou processar o arquivo de avaliações:', error);
+      throw new InternalServerErrorException('Falha ao extrair as notas do projeto.');
+    }
   }
 }

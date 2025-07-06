@@ -27,11 +27,11 @@ async function main() {
       id: '2025.1',
       name: '2025.1',
       status: 'OPEN' as const,
-      phase: 'EQUALIZATION' as const,
+      phase: 'MANAGER_REVIEWS' as const,
       startDate: new Date('2025-01-01T00:00:00.000Z'),
       endDate: new Date('2025-07-19T23:59:59.999Z'),
       assessmentDeadline: new Date('2025-03-15T23:59:59.999Z'),
-      managerDeadline: new Date('2025-04-15T23:59:59.999Z'),
+      managerDeadline: new Date('2025-07-15T23:59:59.999Z'),
       equalizationDeadline: new Date('2025-07-15T23:59:59.999Z'),
     },
     {
