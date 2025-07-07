@@ -14,34 +14,34 @@ model User {
   // ==========================================
   // DADOS DE IDENTIFICAÇÃO E ACESSO
   // ==========================================
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String @unique
   passwordHash String
-  roles        String   // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
+  roles        String // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
 
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
   // ==========================================
-  jobTitle     String   // Cargo/Posição do colaborador
-  seniority    String   // Nível de senioridade
-  careerTrack  String   // Trilha de carreira
-  businessUnit String   // Unidade de negócio
+  jobTitle     String // Cargo/Posição do colaborador
+  seniority    String // Nível de senioridade
+  careerTrack  String // Trilha de carreira
+  businessUnit String // Unidade de negócio
 
   // ==========================================
   // DADOS DE ALOCAÇÃO E RELACIONAMENTO
   // ==========================================
-  projects       String?  // Array de projetos (JSON string) - DEPRECATED: migrar para UserProjectAssignment
-  managerId      String?  // ID do gestor direto
-  directReports  String?  // Array de IDs dos liderados (JSON string)
-  mentorId       String?  // ID do mentor designado
+  projects      String? // Array de projetos (JSON string) - DEPRECATED: migrar para UserProjectAssignment
+  managerId     String? // ID do gestor direto
+  directReports String? // Array de IDs dos liderados (JSON string)
+  mentorId      String? // ID do mentor designado
 
   // ==========================================
   // METADADOS DE CONTROLE
   // ==========================================
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // ==========================================
   // RELACIONAMENTOS COM AVALIAÇÕES (COMPATIBILIDADE)
@@ -51,31 +51,31 @@ model User {
 
   // Avaliações 360 criadas pelo usuário (como avaliador)
   assessments360Created Assessment360[] @relation("Assessment360Author")
-  
+
   // Avaliações 360 recebidas pelo usuário (como avaliado)
   assessments360Received Assessment360[] @relation("Assessment360Evaluated")
 
   // Avaliações de mentoring criadas pelo usuário (como mentorado)
   mentoringAssessmentsCreated MentoringAssessment[] @relation("MentoringAssessmentAuthor")
-  
+
   // Avaliações de mentoring recebidas pelo usuário (como mentor)
   mentoringAssessmentsReceived MentoringAssessment[] @relation("MentoringAssessmentMentor")
 
   // Feedbacks de referência criados pelo usuário (como autor)
   referenceFeedbacksCreated ReferenceFeedback[] @relation("ReferenceFeedbackAuthor")
-  
+
   // Feedbacks de referência recebidos pelo usuário (como referenciado)
   referenceFeedbacksReceived ReferenceFeedback[] @relation("ReferenceFeedbackReferenced")
 
   // Avaliações de gestor criadas pelo usuário (como gestor)
   managerAssessmentsCreated ManagerAssessment[] @relation("ManagerAssessmentAuthor")
-  
+
   // Avaliações de gestor recebidas pelo usuário (como liderado)
   managerAssessmentsReceived ManagerAssessment[] @relation("ManagerAssessmentEvaluated")
 
   // Avaliações de comitê criadas pelo usuário (como membro do comitê)
   committeeAssessmentsCreated CommitteeAssessment[] @relation("CommitteeAssessmentAuthor")
-  
+
   // Avaliações de comitê recebidas pelo usuário (como avaliado)
   committeeAssessmentsReceived CommitteeAssessment[] @relation("CommitteeAssessmentEvaluated")
 
@@ -91,9 +91,9 @@ model User {
   // Relacionamentos com novas estruturas
   roleAssignments    UserRoleAssignment[]
   projectAssignments UserProjectAssignment[]
-  projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
-  okrs               OKR[]              // NOVA: OKRs do colaborador
-  pdis              PDI[]              // NOVA: PDIs do colaborador
+  projectRoles       UserProjectRole[] // NOVA: Roles específicas por projeto
+  okrs               OKR[] // NOVA: OKRs do colaborador
+  pdis               PDI[] // NOVA: PDIs do colaborador
 
   @@map("users")
 }
@@ -103,16 +103,16 @@ model User {
 // ==========================================
 
 model SelfAssessment {
-  id          String   @id @default(cuid())
-  cycle       String   // Ciclo de avaliação (ex: "2025.1") - FUTURO: migrar para FK evaluation_cycles
-  authorId    String   // ID do usuário que criou a autoavaliação
-  status      String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String    @id @default(cuid())
+  cycle       String // Ciclo de avaliação (ex: "2025.1") - FUTURO: migrar para FK evaluation_cycles
+  authorId    String // ID do usuário que criou a autoavaliação
+  status      String    @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   submittedAt DateTime?
 
   // Relacionamentos
-  author  User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author  User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   answers SelfAssessmentAnswer[]
 
   @@unique([authorId, cycle]) // Um usuário só pode ter uma autoavaliação por ciclo
@@ -123,7 +123,7 @@ model SelfAssessmentAnswer {
   id               String @id @default(cuid())
   selfAssessmentId String
   criterionId      String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
-  score            Int    // Nota de 1 a 5
+  score            Int // Nota de 1 a 5
   justification    String // Justificativa textual
 
   // Relacionamentos
@@ -134,17 +134,17 @@ model SelfAssessmentAnswer {
 }
 
 model Assessment360 {
-  id               String   @id @default(cuid())
-  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId         String   // ID do usuário que criou a avaliação
-  evaluatedUserId  String   // ID do usuário sendo avaliado
-  overallScore     Int      // Nota geral de 1 a 5
-  strengths        String   // Pontos fortes
-  improvements     String   // Pontos de melhoria
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  submittedAt      DateTime?
+  id              String    @id @default(cuid())
+  cycle           String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId        String // ID do usuário que criou a avaliação
+  evaluatedUserId String // ID do usuário sendo avaliado
+  overallScore    Int // Nota geral de 1 a 5
+  strengths       String // Pontos fortes
+  improvements    String // Pontos de melhoria
+  status          String    @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  submittedAt     DateTime?
 
   // Relacionamentos
   author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
@@ -155,15 +155,15 @@ model Assessment360 {
 }
 
 model MentoringAssessment {
-  id            String   @id @default(cuid())
-  cycle         String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId      String   // ID do mentorado que criou a avaliação
-  mentorId      String   // ID do mentor sendo avaliado
-  score         Int      // Nota de 1 a 5
-  justification String   // Justificativa da avaliação
-  status        String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String    @id @default(cuid())
+  cycle         String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId      String // ID do mentorado que criou a avaliação
+  mentorId      String // ID do mentor sendo avaliado
+  score         Int // Nota de 1 a 5
+  justification String // Justificativa da avaliação
+  status        String    @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   submittedAt   DateTime?
 
   // Relacionamentos
@@ -175,16 +175,16 @@ model MentoringAssessment {
 }
 
 model ReferenceFeedback {
-  id                String   @id @default(cuid())
-  cycle             String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId          String   // ID do usuário que criou o feedback
-  referencedUserId  String   // ID do usuário sendo referenciado
-  topic             String?  // Tópico do feedback (NOVO CAMPO)
-  justification     String   // Feedback textual
-  status            String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  submittedAt       DateTime?
+  id               String    @id @default(cuid())
+  cycle            String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId         String // ID do usuário que criou o feedback
+  referencedUserId String // ID do usuário sendo referenciado
+  topic            String? // Tópico do feedback (NOVO CAMPO)
+  justification    String // Feedback textual
+  status           String    @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  submittedAt      DateTime?
 
   // Relacionamentos
   author         User @relation("ReferenceFeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -195,18 +195,18 @@ model ReferenceFeedback {
 }
 
 model ManagerAssessment {
-  id               String   @id @default(cuid())
-  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId         String   // ID do gestor que criou a avaliação
-  evaluatedUserId  String   // ID do liderado sendo avaliado
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  submittedAt      DateTime?
+  id              String    @id @default(cuid())
+  cycle           String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId        String // ID do gestor que criou a avaliação
+  evaluatedUserId String // ID do liderado sendo avaliado
+  status          String    @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  submittedAt     DateTime?
 
   // Relacionamentos
-  author        User @relation("ManagerAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  evaluatedUser User @relation("ManagerAssessmentEvaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
+  author        User                      @relation("ManagerAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  evaluatedUser User                      @relation("ManagerAssessmentEvaluated", fields: [evaluatedUserId], references: [id], onDelete: Cascade)
   answers       ManagerAssessmentAnswer[]
 
   @@unique([authorId, evaluatedUserId, cycle]) // Um gestor só pode avaliar um liderado uma vez por ciclo
@@ -214,11 +214,11 @@ model ManagerAssessment {
 }
 
 model ManagerAssessmentAnswer {
-  id                    String @id @default(cuid())
-  managerAssessmentId   String
-  criterionId           String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
-  score                 Int    // Nota de 1 a 5
-  justification         String // Justificativa textual
+  id                  String @id @default(cuid())
+  managerAssessmentId String
+  criterionId         String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
+  score               Int // Nota de 1 a 5
+  justification       String // Justificativa textual
 
   // Relacionamentos
   managerAssessment ManagerAssessment @relation(fields: [managerAssessmentId], references: [id], onDelete: Cascade)
@@ -228,17 +228,17 @@ model ManagerAssessmentAnswer {
 }
 
 model CommitteeAssessment {
-  id               String   @id @default(cuid())
-  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId         String   // ID do membro do comitê que criou a avaliação
-  evaluatedUserId  String   // ID do colaborador sendo avaliado
-  finalScore       Int      // Nota final de equalização (1 a 5)
-  justification    String   // Justificativa da equalização
-  observations     String?  // Observações adicionais
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  submittedAt      DateTime?
+  id              String    @id @default(cuid())
+  cycle           String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId        String // ID do membro do comitê que criou a avaliação
+  evaluatedUserId String // ID do colaborador sendo avaliado
+  finalScore      Int // Nota final de equalização (1 a 5)
+  justification   String // Justificativa da equalização
+  observations    String? // Observações adicionais
+  status          String    @default("DRAFT") // DRAFT | SUBMITTED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  submittedAt     DateTime?
 
   // Relacionamentos
   author        User @relation("CommitteeAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -250,13 +250,13 @@ model CommitteeAssessment {
 
 model GenAISummary {
   id               String   @id @default(cuid())
-  collaboratorId   String   // ID do colaborador avaliado
-  cycle            String   // Ciclo de avaliação (ex: "2025.1")
-  summary          String   // Resumo completo gerado pela GenAI
-  collaboratorName String   // Nome do colaborador (cache para facilitar consultas)
-  jobTitle         String   // Cargo do colaborador (cache)
-  averageScore     Float    // Média geral das avaliações
-  totalEvaluations Int      // Total de avaliações consideradas
+  collaboratorId   String // ID do colaborador avaliado
+  cycle            String // Ciclo de avaliação (ex: "2025.1")
+  summary          String // Resumo completo gerado pela GenAI
+  collaboratorName String // Nome do colaborador (cache para facilitar consultas)
+  jobTitle         String // Cargo do colaborador (cache)
+  averageScore     Float // Média geral das avaliações
+  totalEvaluations Int // Total de avaliações consideradas
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -268,9 +268,9 @@ model GenAISummary {
 }
 
 model ManagerTeamSummary {
-  id        String   @id @default(cuid())
-  managerId String   // ID do gestor para quem o resumo foi gerado
-  cycle     String   // Ciclo de avaliação (ex: "2025.1")
+  id        String @id @default(cuid())
+  managerId String // ID do gestor para quem o resumo foi gerado
+  cycle     String // Ciclo de avaliação (ex: "2025.1")
 
   // --- Resumos Gerados pela IA ---
   // Resumo gerado por getTeamScoreAnalysis (análise quantitativa)
@@ -279,15 +279,15 @@ model ManagerTeamSummary {
   feedbackAnalysisSummary String
 
   // --- Estatísticas Gerais da Equipe (do getTeamEvaluationData) ---
-  totalCollaborators Int     // Número total de colaboradores na análise
-  teamAverageScore   Float   // Média geral da equipe
-  highPerformers     Int     // Contagem de colaboradores de alta performance
-  lowPerformers      Int     // Contagem de colaboradores de baixa performance
+  totalCollaborators Int // Número total de colaboradores na análise
+  teamAverageScore   Float // Média geral da equipe
+  highPerformers     Int // Contagem de colaboradores de alta performance
+  lowPerformers      Int // Contagem de colaboradores de baixa performance
 
   // --- Métricas de Pontuação por Pilar (do getTeamScoreAnalysisData) ---
-  behaviorAverage  Float?  // Média do pilar "Behavior" (pode não existir)
-  executionAverage Float?  // Média do pilar "Execution" (pode não existir)
-  criticalPerformers Int   // Contagem de colaboradores em zona crítica de performance
+  behaviorAverage    Float? // Média do pilar "Behavior" (pode não existir)
+  executionAverage   Float? // Média do pilar "Execution" (pode não existir)
+  criticalPerformers Int // Contagem de colaboradores em zona crítica de performance
 
   // --- Metadados ---
   createdAt DateTime @default(now())
@@ -305,38 +305,38 @@ model ManagerTeamSummary {
 // ==========================================
 
 model PDI {
-  id              String    @id @default(cuid())
-  collaboratorId  String    // ID do colaborador dono do PDI
-  title           String    // Título do PDI
-  description     String    // Descrição geral do plano
-  startDate       DateTime  // Data de início do PDI
-  endDate         DateTime  // Data prevista de conclusão
-  status          PDIStatus @default(NOT_STARTED)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  completedAt     DateTime?
+  id             String    @id @default(cuid())
+  collaboratorId String // ID do colaborador dono do PDI
+  title          String // Título do PDI
+  description    String // Descrição geral do plano
+  startDate      DateTime // Data de início do PDI
+  endDate        DateTime // Data prevista de conclusão
+  status         PDIStatus @default(NOT_STARTED)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  completedAt    DateTime?
 
   // Relacionamentos
-  collaborator    User        @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
-  actions         PDIAction[]
+  collaborator User        @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  actions      PDIAction[]
 
   @@map("pdis")
 }
 
 model PDIAction {
   id          String          @id @default(cuid())
-  pdiId       String          // ID do PDI ao qual a ação pertence
-  title       String          // Título da ação
-  description String          // Descrição detalhada da ação
-  deadline    DateTime        // Prazo para conclusão
+  pdiId       String // ID do PDI ao qual a ação pertence
+  title       String // Título da ação
+  description String // Descrição detalhada da ação
+  deadline    DateTime // Prazo para conclusão
   status      PDIActionStatus @default(TO_DO)
-  priority    PDIPriority    @default(MEDIUM)
+  priority    PDIPriority     @default(MEDIUM)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   completedAt DateTime?
 
   // Relacionamentos
-  pdi         PDI             @relation(fields: [pdiId], references: [id], onDelete: Cascade)
+  pdi PDI @relation(fields: [pdiId], references: [id], onDelete: Cascade)
 
   @@map("pdi_actions")
 }
@@ -367,28 +367,28 @@ enum PDIPriority {
 // ==========================================
 
 model EvaluationCycle {
-  id        String           @id @default(cuid())
-  name      String           @unique // Ex: "2025.1", "2025.2"
-  status    CycleStatus      @default(UPCOMING)
-  phase     EvaluationPhase  @default(ASSESSMENTS) // Nova fase do ciclo
+  id        String          @id @default(cuid())
+  name      String          @unique // Ex: "2025.1", "2025.2"
+  status    CycleStatus     @default(UPCOMING)
+  phase     EvaluationPhase @default(ASSESSMENTS) // Nova fase do ciclo
   startDate DateTime?
   endDate   DateTime?
-  
+
   // NOVOS CAMPOS PARA DEADLINES
-  assessmentDeadline    DateTime? // Prazo para autoavaliações e 360
-  managerDeadline       DateTime? // Prazo para avaliações de gestor  
-  equalizationDeadline  DateTime? // Prazo para equalização do comitê
-  
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  assessmentDeadline   DateTime? // Prazo para autoavaliações e 360
+  managerDeadline      DateTime? // Prazo para avaliações de gestor  
+  equalizationDeadline DateTime? // Prazo para equalização do comitê
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("evaluation_cycles")
 }
 
 model Criterion {
   id          String          @id @default(cuid()) // Ex: "sentimento-de-dono"
-  name        String          // Ex: "Sentimento de Dono"
-  description String          // Descrição detalhada do critério
+  name        String // Ex: "Sentimento de Dono"
+  description String // Descrição detalhada do critério
   pillar      CriterionPillar // BEHAVIOR, EXECUTION, MANAGEMENT
   weight      Float           @default(1.0) // Peso do critério na avaliação (1.0 = 100%)
   isRequired  Boolean         @default(true) // Se o critério é obrigatório no formulário
@@ -407,8 +407,8 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   // Relacionamentos
-  userAssignments UserProjectAssignment[]
-  userProjectRoles UserProjectRole[]  // NOVA: Roles específicas por projeto
+  userAssignments  UserProjectAssignment[]
+  userProjectRoles UserProjectRole[] // NOVA: Roles específicas por projeto
 
   @@map("projects")
 }
@@ -446,8 +446,8 @@ model UserProjectAssignment {
 
 model UserProjectRole {
   id        String   @id @default(cuid())
-  userId    String   // ID do usuário
-  projectId String   // ID do projeto
+  userId    String // ID do usuário
+  projectId String // ID do projeto
   role      UserRole // Role do usuário neste projeto específico (gestor, colaborador, comite, rh, admin)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -465,55 +465,55 @@ model UserProjectRole {
 // ==========================================
 
 model OKR {
-  id          String   @id @default(cuid())
-  userId      String   // ID do colaborador dono do OKR
-  title       String   // Título do OKR
-  description String?  // Descrição opcional do OKR
-  quarter     String   // Trimestre do OKR (ex: "2025-Q1")
-  year        Int      // Ano do OKR
+  id          String    @id @default(cuid())
+  userId      String // ID do colaborador dono do OKR
+  title       String // Título do OKR
+  description String? // Descrição opcional do OKR
+  quarter     String // Trimestre do OKR (ex: "2025-Q1")
+  year        Int // Ano do OKR
   status      OKRStatus @default(ACTIVE)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Relacionamentos
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  objectives  Objective[]
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  objectives Objective[]
 
   @@map("okrs")
 }
 
 model Objective {
-  id          String   @id @default(cuid())
-  okrId       String   // ID do OKR pai
-  title       String   // Título do objetivo
-  description String?  // Descrição do objetivo
+  id          String          @id @default(cuid())
+  okrId       String // ID do OKR pai
+  title       String // Título do objetivo
+  description String? // Descrição do objetivo
   status      ObjectiveStatus @default(NOT_STARTED)
-  progress    Float    @default(0.0) // Progresso de 0 a 100%
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  progress    Float           @default(0.0) // Progresso de 0 a 100%
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   // Relacionamentos
-  okr         OKR         @relation(fields: [okrId], references: [id], onDelete: Cascade)
-  keyResults  KeyResult[]
+  okr        OKR         @relation(fields: [okrId], references: [id], onDelete: Cascade)
+  keyResults KeyResult[]
 
   @@map("objectives")
 }
 
 model KeyResult {
-  id           String   @id @default(cuid())
-  objectiveId  String   // ID do objetivo pai
-  title        String   // Título do key result
-  description  String?  // Descrição do key result
-  type         KeyResultType @default(PERCENTAGE) // Tipo de métrica
-  targetValue  Float    // Valor alvo
-  currentValue Float    @default(0.0) // Valor atual
-  unit         String?  // Unidade de medida (opcional)
+  id           String          @id @default(cuid())
+  objectiveId  String // ID do objetivo pai
+  title        String // Título do key result
+  description  String? // Descrição do key result
+  type         KeyResultType   @default(PERCENTAGE) // Tipo de métrica
+  targetValue  Float // Valor alvo
+  currentValue Float           @default(0.0) // Valor atual
+  unit         String? // Unidade de medida (opcional)
   status       KeyResultStatus @default(NOT_STARTED)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   // Relacionamentos
-  objective    Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
 
   @@map("key_results")
 }
@@ -524,11 +524,11 @@ model KeyResult {
 
 enum UserRole {
   COLLABORATOR // colaborador
-  MANAGER      // gestor
-  MENTOR       // mentor
-  COMMITTEE    // comite
-  RH           // rh
-  ADMIN        // admin
+  MANAGER // gestor
+  MENTOR // mentor
+  COMMITTEE // comite
+  RH // rh
+  ADMIN // admin
 }
 
 enum CriterionPillar {
@@ -552,9 +552,9 @@ enum CycleStatus {
 }
 
 enum EvaluationPhase {
-  ASSESSMENTS      // Fase 1: Autoavaliação, 360, Mentoring, Reference
-  MANAGER_REVIEWS  // Fase 2: Avaliações de Gestor
-  EQUALIZATION     // Fase 3: Equalização (ainda não implementada)
+  ASSESSMENTS // Fase 1: Autoavaliação, 360, Mentoring, Reference
+  MANAGER_REVIEWS // Fase 2: Avaliações de Gestor
+  EQUALIZATION // Fase 3: Equalização (ainda não implementada)
 }
 
 enum OKRStatus {
