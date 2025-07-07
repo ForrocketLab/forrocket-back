@@ -8,7 +8,10 @@ import {
   UseGuards,
   ValidationPipe,
   ForbiddenException,
+  NotFoundException,
   Param,
+  Query,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,28 +20,39 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiExtraModels,
+  ApiParam,
 } from '@nestjs/swagger';
+
 import { AuthService } from './auth.service';
-import { UserService } from './user.service';
-import { LoginDto, LoginResponseDto, ErrorResponseDto } from './dto/login.dto';
-import { UserInfoDto, UserProfileDto, CreateUserDto } from './dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
-import { Public } from './public.decorator';
+import { UserInfoDto, UserProfileDto, CreateUserDto } from './dto';
+import { LoginDto, LoginResponseDto, ErrorResponseDto } from './dto/login.dto';
 import { User } from './entities/user.entity';
 import { HRRoleGuard } from './guards/hr-role.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Public } from './public.decorator';
+import { RoleCheckerService } from './role-checker.service';
+import { UserService, UserSummary } from './user.service';
 
 /**
  * Controlador responsável pelos endpoints de autenticação
  * Gerencia as rotas relacionadas ao login, autenticação e perfil de usuários
  */
 @ApiTags('Autenticação')
-@ApiExtraModels(LoginDto, LoginResponseDto, UserInfoDto, UserProfileDto, CreateUserDto, ErrorResponseDto)
+@ApiExtraModels(
+  LoginDto,
+  LoginResponseDto,
+  UserInfoDto,
+  UserProfileDto,
+  CreateUserDto,
+  ErrorResponseDto,
+)
 @Controller('api')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly roleChecker: RoleCheckerService,
   ) {}
 
   /**
@@ -90,50 +104,50 @@ export class AuthController {
         description: 'Ana Oliveira - Desenvolvedora Frontend Pleno',
         value: {
           email: 'ana.oliveira@rocketcorp.com',
-          password: 'password123'
-        }
+          password: 'password123',
+        },
       },
       gestor: {
         summary: 'Login como Gestor',
         description: 'Bruno Mendes - Tech Lead Sênior (Gestor + Colaborador)',
         value: {
           email: 'bruno.mendes@rocketcorp.com',
-          password: 'password123'
-        }
+          password: 'password123',
+        },
       },
       comite: {
         summary: 'Login como Comitê',
         description: 'Carla Dias - Head of Engineering Principal (Comitê + Colaborador)',
         value: {
           email: 'carla.dias@rocketcorp.com',
-          password: 'password123'
-        }
+          password: 'password123',
+        },
       },
       rh: {
         summary: 'Login como RH',
         description: 'Diana Costa - People & Culture Manager Sênior (RH + Colaborador)',
         value: {
           email: 'diana.costa@rocketcorp.com',
-          password: 'password123'
-        }
+          password: 'password123',
+        },
       },
       colaborador_junior: {
         summary: 'Login como Colaborador Júnior',
         description: 'Felipe Silva - Desenvolvedor Backend Júnior',
         value: {
           email: 'felipe.silva@rocketcorp.com',
-          password: 'password123'
-        }
+          password: 'password123',
+        },
       },
       admin: {
         summary: 'Login como Admin',
         description: 'Eduardo Tech - DevOps Engineer Sênior (Admin)',
         value: {
           email: 'eduardo.tech@rocketcorp.com',
-          password: 'password123'
-        }
-      }
-    }
+          password: 'password123',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 200,
@@ -143,40 +157,43 @@ export class AuthController {
       colaborador: {
         summary: 'Resposta - Colaborador',
         value: {
-          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmQwMDAwdHpzZ281NTgxMnFvIiwibmFtZSI6IkFuYSBPbGl2ZWlyYSIsImVtYWlsIjoiYW5hLm9saXZlaXJhQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiXX0...',
+          token:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmQwMDAwdHpzZ281NTgxMnFvIiwibmFtZSI6IkFuYSBPbGl2ZWlyYSIsImVtYWlsIjoiYW5hLm9saXZlaXJhQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiXX0...',
           user: {
             id: 'cmbyavwvd0000tzsgo55812qo',
             name: 'Ana Oliveira',
             email: 'ana.oliveira@rocketcorp.com',
-            roles: ['colaborador']
-          }
-        }
+            roles: ['colaborador'],
+          },
+        },
       },
       gestor: {
         summary: 'Resposta - Gestor',
         value: {
-          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmgwMDAxdHpzZzVvd2Z4d2JxIiwibmFtZSI6IkJydW5vIE1lbmRlcyIsImVtYWlsIjoiYnJ1bm8ubWVuZGVzQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiLCJnZXN0b3IiXX0...',
+          token:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dmgwMDAxdHpzZzVvd2Z4d2JxIiwibmFtZSI6IkJydW5vIE1lbmRlcyIsImVtYWlsIjoiYnJ1bm8ubWVuZGVzQHJvY2tldGNvcnAuY29tIiwicm9sZXMiOlsiY29sYWJvcmFkb3IiLCJnZXN0b3IiXX0...',
           user: {
             id: 'cmbyavwvh0001tzsg5owfxwbq',
             name: 'Bruno Mendes',
             email: 'bruno.mendes@rocketcorp.com',
-            roles: ['colaborador', 'gestor']
-          }
-        }
+            roles: ['colaborador', 'gestor'],
+          },
+        },
       },
       admin: {
         summary: 'Resposta - Admin',
         value: {
-          token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dm4wMDA1dHpzZ3h5ejEyM2FiYyIsIm5hbWUiOiJFZHVhcmRvIFRlY2giLCJlbWFpbCI6ImVkdWFyZG8udGVjaEByb2NrZXRjb3JwLmNvbSIsInJvbGVzIjpbImFkbWluIl19...',
+          token:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWJ5YXZ3dm4wMDA1dHpzZ3h5ejEyM2FiYyIsIm5hbWUiOiJFZHVhcmRvIFRlY2giLCJlbWFpbCI6ImVkdWFyZG8udGVjaEByb2NrZXRjb3JwLmNvbSIsInJvbGVzIjpbImFkbWluIl19...',
           user: {
             id: 'cmbyavwvn0005tzsgxyz123abc',
             name: 'Eduardo Tech',
             email: 'eduardo.tech@rocketcorp.com',
-            roles: ['admin']
-          }
-        }
-      }
-    }
+            roles: ['admin'],
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -185,8 +202,8 @@ export class AuthController {
     example: {
       statusCode: 400,
       message: ['Email deve ter um formato válido', 'Senha deve ter pelo menos 6 caracteres'],
-      error: 'Bad Request'
-    }
+      error: 'Bad Request',
+    },
   })
   @ApiResponse({
     status: 401,
@@ -195,8 +212,8 @@ export class AuthController {
     example: {
       statusCode: 401,
       message: 'Senha incorreta',
-      error: 'Unauthorized'
-    }
+      error: 'Unauthorized',
+    },
   })
   @ApiResponse({
     status: 404,
@@ -205,12 +222,10 @@ export class AuthController {
     example: {
       statusCode: 404,
       message: 'Usuário não encontrado',
-      error: 'Not Found'
-    }
+      error: 'Not Found',
+    },
   })
-  async login(
-    @Body() loginDto: LoginDto
-  ): Promise<LoginResponseDto> {
+  async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     const result = await this.authService.login(loginDto);
     return result;
   }
@@ -264,8 +279,8 @@ export class AuthController {
         {
           projectId: 'api-core',
           projectName: 'API Core',
-          roles: ['COLLABORATOR']
-        }
+          roles: ['COLLABORATOR'],
+        },
       ],
       managerId: 'cmbyavwvh0001tzsg5owfxwbq',
       managerName: 'Bruno Mendes',
@@ -273,8 +288,8 @@ export class AuthController {
       mentorName: 'Carla Dias',
       isActive: true,
       createdAt: '2024-01-15T10:00:00.000Z',
-      updatedAt: '2024-01-15T10:00:00.000Z'
-    }
+      updatedAt: '2024-01-15T10:00:00.000Z',
+    },
   })
   @ApiResponse({
     status: 400,
@@ -286,18 +301,18 @@ export class AuthController {
         value: {
           statusCode: 400,
           message: 'Email deve ter o domínio @rocketcorp.com',
-          error: 'Bad Request'
-        }
+          error: 'Bad Request',
+        },
       },
       'projeto-inexistente': {
         summary: 'Projeto não encontrado',
         value: {
           statusCode: 400,
           message: 'Projeto com ID projeto-inexistente não encontrado',
-          error: 'Bad Request'
-        }
-      }
-    }
+          error: 'Bad Request',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -306,8 +321,8 @@ export class AuthController {
     example: {
       statusCode: 401,
       message: 'Token inválido ou expirado',
-      error: 'Unauthorized'
-    }
+      error: 'Unauthorized',
+    },
   })
   @ApiResponse({
     status: 403,
@@ -316,8 +331,8 @@ export class AuthController {
     example: {
       statusCode: 403,
       message: 'Acesso negado. Apenas usuários ADMIN ou RH podem criar usuários.',
-      error: 'Forbidden'
-    }
+      error: 'Forbidden',
+    },
   })
   @ApiResponse({
     status: 409,
@@ -326,16 +341,21 @@ export class AuthController {
     example: {
       statusCode: 409,
       message: 'Usuário com este email já existe',
-      error: 'Conflict'
-    }
+      error: 'Conflict',
+    },
   })
   async createUser(
     @Body(ValidationPipe) createUserDto: CreateUserDto,
-    @CurrentUser() currentUser: User
+    @CurrentUser() currentUser: User,
   ): Promise<UserProfileDto> {
     // Verificar se o usuário tem permissão para criar usuários
-    if (!currentUser.roles.includes('admin') && !currentUser.roles.includes('rh')) {
-      throw new ForbiddenException('Acesso negado. Apenas usuários ADMIN ou RH podem criar usuários.');
+    const isAdmin = await this.roleChecker.isAdmin(currentUser.id);
+    const isHR = await this.roleChecker.isHR(currentUser.id);
+
+    if (!isAdmin && !isHR) {
+      throw new ForbiddenException(
+        'Acesso negado. Apenas usuários ADMIN ou RH podem criar usuários.',
+      );
     }
 
     const newUser = await this.userService.createUser(createUserDto);
@@ -377,13 +397,13 @@ export class AuthController {
             {
               projectId: 'app-mobile',
               projectName: 'App Mobile',
-              roles: ['COLLABORATOR']
+              roles: ['COLLABORATOR'],
             },
             {
               projectId: 'dashboard',
               projectName: 'Dashboard Analytics',
-              roles: ['COLLABORATOR']
-            }
+              roles: ['COLLABORATOR'],
+            },
           ],
           managerId: 'cmbyavwvh0001tzsg5owfxwbq',
           managerName: 'Bruno Mendes',
@@ -391,8 +411,8 @@ export class AuthController {
           mentorName: 'Carla Dias',
           isActive: true,
           createdAt: '2024-01-15T10:00:00.000Z',
-          updatedAt: '2024-01-15T10:00:00.000Z'
-        }
+          updatedAt: '2024-01-15T10:00:00.000Z',
+        },
       },
       gestor: {
         summary: 'Perfil - Gestor',
@@ -409,13 +429,13 @@ export class AuthController {
             {
               projectId: 'api-core',
               projectName: 'API Core',
-              roles: ['COLLABORATOR', 'MANAGER']
+              roles: ['COLLABORATOR', 'MANAGER'],
             },
             {
               projectId: 'arquitetura',
               projectName: 'Arquitetura',
-              roles: ['COLLABORATOR', 'TECH_LEAD']
-            }
+              roles: ['COLLABORATOR', 'TECH_LEAD'],
+            },
           ],
           managerId: 'cmbyavwvk0002tzsgi5r3edy5',
           managerName: 'Carla Dias',
@@ -423,8 +443,8 @@ export class AuthController {
           directReportsNames: ['Ana Oliveira', 'Felipe Silva'],
           isActive: true,
           createdAt: '2024-01-15T10:00:00.000Z',
-          updatedAt: '2024-01-15T10:00:00.000Z'
-        }
+          updatedAt: '2024-01-15T10:00:00.000Z',
+        },
       },
       admin: {
         summary: 'Perfil - Admin',
@@ -441,20 +461,20 @@ export class AuthController {
             {
               projectId: 'infraestrutura',
               projectName: 'Infraestrutura',
-              roles: ['COLLABORATOR', 'ADMIN']
+              roles: ['COLLABORATOR', 'ADMIN'],
             },
             {
               projectId: 'ci-cd',
               projectName: 'CI/CD Pipeline',
-              roles: ['COLLABORATOR', 'ADMIN']
-            }
+              roles: ['COLLABORATOR', 'ADMIN'],
+            },
           ],
           isActive: true,
           createdAt: '2024-01-15T10:00:00.000Z',
-          updatedAt: '2024-01-15T10:00:00.000Z'
-        }
-      }
-    }
+          updatedAt: '2024-01-15T10:00:00.000Z',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -463,13 +483,13 @@ export class AuthController {
     example: {
       statusCode: 401,
       message: 'Token inválido ou expirado',
-      error: 'Unauthorized'
-    }
+      error: 'Unauthorized',
+    },
   })
   async getProfile(@CurrentUser() user: User): Promise<UserProfileDto> {
     // Buscar roles específicas do usuário por projeto
     const projectRoles = await this.authService.getUserProjectRoles(user.id);
-    
+
     // Retorna o perfil completo do usuário
     return {
       id: user.id,
@@ -486,7 +506,7 @@ export class AuthController {
       mentorId: user.mentorId,
       isActive: user.isActive,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
     };
   }
 
@@ -507,15 +527,15 @@ export class AuthController {
       status: 'ok',
       message: 'API de autenticação RPE funcionando',
       timestamp: '2024-01-15T10:00:00.000Z',
-      version: '1.0.0'
-    }
+      version: '1.0.0',
+    },
   })
   async getStatus() {
     return {
       status: 'ok',
       message: 'API de autenticação RPE funcionando',
       timestamp: new Date().toISOString(),
-      version: '1.0.0'
+      version: '1.0.0',
     };
   }
 
@@ -555,23 +575,87 @@ export class AuthController {
           isActive: { type: 'boolean', example: true },
           createdAt: { type: 'string', format: 'date-time' },
           managerName: { type: 'string', example: 'Bruno Mendes', nullable: true },
-          directReportsCount: { type: 'number', example: 2 }
-        }
-      }
-    }
+          directReportsCount: { type: 'number', example: 2 },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 403,
     description: 'Acesso negado. Apenas usuários do RH podem acessar esta funcionalidade.',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 401,
     description: 'Token inválido ou ausente',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   async getAllUsers(@CurrentUser() currentUser: User) {
     return this.userService.getAllUsers();
+  }
+
+  /**
+   * Endpoint para buscar os projetos de um usuário específico
+   * @param userId - ID do usuário cujos projetos serão buscados
+   * @param currentUser - Usuário autenticado (para verificação de permissão)
+   * @returns Lista de projetos do usuário
+   */
+  @Get('users/:userId/projects')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Buscar projetos de um usuário específico',
+    description: `
+      Retorna a lista de projetos e as roles associadas para um usuário específico.
+      
+      **🔒 Acesso Restrito**:
+      - O próprio usuário pode ver seus projetos.
+      - O gestor direto do usuário pode ver os projetos.
+      - Usuários com roles ADMIN ou RH podem ver os projetos de qualquer usuário.
+    `,
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'ID do usuário a ser consultado',
+    example: 'cmbyavwvd0000tzsgo55812qo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de projetos retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          projectId: { type: 'string', example: 'projeto-alpha' },
+          projectName: { type: 'string', example: 'Projeto Alpha' },
+          roles: { type: 'array', items: { type: 'string' }, example: ['COLLABORATOR'] },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
+  @ApiResponse({ status: 403, description: 'Acesso negado. Você não tem permissão para ver os projetos deste usuário.' })
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
+  async getUserProjects(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: User,
+  ) {
+    // 1. Verificar se o usuário alvo existe
+    const targetUser = await this.authService.findUserById(userId);
+    if (!targetUser) {
+      throw new NotFoundException(`Usuário com ID ${userId} não encontrado.`);
+    }
+
+    // 2. Verificar permissões (se é o próprio usuário, seu gestor, ou RH/Admin)
+    const hasPermission = (await this.roleChecker.userHasAnyRole(currentUser.id, ['admin', 'rh'])) || currentUser.id === userId || targetUser.managerId === currentUser.id;
+
+    if (!hasPermission) {
+      throw new ForbiddenException('Acesso negado. Você não tem permissão para ver os projetos deste usuário.');
+    }
+
+    // 3. Se tiver permissão, buscar os projetos
+    return this.userService.getUserProjects(userId);
   }
 
   /**
@@ -618,16 +702,16 @@ export class AuthController {
                 type: 'object',
                 properties: {
                   status: { type: 'string', example: 'SUBMITTED' },
-                  submittedAt: { type: 'string', format: 'date-time', nullable: true }
-                }
+                  submittedAt: { type: 'string', format: 'date-time', nullable: true },
+                },
               },
               assessments360Received: { type: 'number', example: 3 },
               managerAssessment: {
                 type: 'object',
                 properties: {
                   status: { type: 'string', example: 'SUBMITTED' },
-                  submittedAt: { type: 'string', format: 'date-time', nullable: true }
-                }
+                  submittedAt: { type: 'string', format: 'date-time', nullable: true },
+                },
               },
               mentoringAssessmentsReceived: { type: 'number', example: 1 },
               referenceFeedbacksReceived: { type: 'number', example: 2 },
@@ -635,29 +719,29 @@ export class AuthController {
                 type: 'object',
                 properties: {
                   status: { type: 'string', example: 'PENDING' },
-                  submittedAt: { type: 'string', format: 'date-time', nullable: true }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                  submittedAt: { type: 'string', format: 'date-time', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 403,
     description: 'Acesso negado. Apenas usuários do RH podem acessar esta funcionalidade.',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 401,
     description: 'Token inválido ou ausente',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Nenhum ciclo ativo encontrado',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   async getAllUsersWithEvaluationProgress(@CurrentUser() currentUser: User) {
     return this.userService.getAllUsersWithEvaluationProgress();
@@ -697,8 +781,8 @@ export class AuthController {
             name: { type: 'string', example: 'Ana Oliveira' },
             email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
             jobTitle: { type: 'string', example: 'Desenvolvedora Frontend' },
-            seniority: { type: 'string', example: 'Pleno' }
-          }
+            seniority: { type: 'string', example: 'Pleno' },
+          },
         },
         evaluationScores: {
           type: 'object',
@@ -706,8 +790,8 @@ export class AuthController {
             selfAssessment: { type: 'number', example: 4.2, nullable: true },
             assessment360: { type: 'number', example: 4.0, nullable: true },
             managerAssessment: { type: 'number', example: 4.5, nullable: true },
-            mentoring: { type: 'number', example: 4.8, nullable: true }
-          }
+            mentoring: { type: 'number', example: 4.8, nullable: true },
+          },
         },
         selfAssessment: { type: 'object', nullable: true },
         assessments360Received: { type: 'array' },
@@ -720,31 +804,202 @@ export class AuthController {
           properties: {
             totalAssessmentsReceived: { type: 'number', example: 5 },
             hasCommitteeAssessment: { type: 'boolean', example: false },
-            isEqualizationComplete: { type: 'boolean', example: false }
-          }
-        }
-      }
-    }
+            isEqualizationComplete: { type: 'boolean', example: false },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
     description: 'Colaborador não encontrado',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 403,
     description: 'Acesso negado. Apenas usuários do RH podem acessar esta funcionalidade.',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 401,
     description: 'Token inválido ou ausente',
-    type: ErrorResponseDto
+    type: ErrorResponseDto,
   })
   async getCollaboratorEvaluationDetails(
     @Param('collaboratorId') collaboratorId: string,
-    @CurrentUser() currentUser: User
+    @CurrentUser() currentUser: User,
   ) {
     return this.userService.getCollaboratorEvaluationDetails(collaboratorId);
   }
-} 
+
+  /**
+   * Busca dados para a matriz 9-box de talento (apenas RH)
+   */
+  @Get('users/talent-matrix')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Busca dados para matriz 9-box de talento (apenas RH)' })
+  @ApiResponse({ status: 200, description: 'Dados da matriz retornados com sucesso' })
+  @ApiResponse({ status: 403, description: 'Acesso negado - apenas RH' })
+  async getTalentMatrix(@Query('cycle') cycle?: string) {
+    return this.userService.getTalentMatrixData(cycle);
+  }
+
+  @Get('users/potential-mentors')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiOperation({
+    summary: 'Buscar usuários potenciais para serem mentores',
+    description:
+      'Retorna lista de usuários ativos que não são mentores de ninguém ainda e podem ser designados como mentores',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários potenciais mentores retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'user-123' },
+          name: { type: 'string', example: 'Ana Oliveira' },
+          email: { type: 'string', example: 'ana.oliveira@rocketcorp.com' },
+          jobTitle: { type: 'string', example: 'Desenvolvedora Frontend Pleno' },
+          seniority: { type: 'string', example: 'Pleno' },
+          businessUnit: { type: 'string', example: 'Tech/Digital Products' },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado. Apenas usuários do RH/Admin podem acessar esta funcionalidade.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+    type: ErrorResponseDto,
+  })
+  async getPotentialMentors(@CurrentUser() currentUser: User): Promise<UserSummary[]> {
+    return this.userService.getPotentialMentors();
+  }
+
+  /**
+   * Endpoint para buscar usuários com filtros avançados (apenas RH)
+   */
+  @Get('users/with-filters')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Buscar usuários com filtros avançados (apenas RH)',
+    description: `
+      Retorna usuários com seus dados de progresso de avaliação e permite filtros avançados:
+      - Busca por nome ou email
+      - Filtro por projeto
+      - Filtro por cargo (jobTitle)
+      - Filtro por área (businessUnit)
+      - Filtro por senioridade
+      - Filtro por trilha de carreira
+      - Filtro por status (ativo/inativo)
+      - Filtro por roles
+      
+      **Permissões:** Apenas RH
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários com filtros aplicados',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas RH pode acessar',
+  })
+  async getUsersWithAdvancedFilters(
+    @Query('search') search?: string,
+    @Query('projectId') projectId?: string,
+    @Query('jobTitle') jobTitle?: string,
+    @Query('businessUnit') businessUnit?: string,
+    @Query('seniority') seniority?: string,
+    @Query('careerTrack') careerTrack?: string,
+    @Query('isActive') isActive?: string,
+    @Query('roles') roles?: string,
+  ) {
+    try {
+      console.log('🔍 Parâmetros recebidos:', {
+        search,
+        projectId,
+        jobTitle,
+        businessUnit,
+        seniority,
+        careerTrack,
+        isActive,
+        roles
+      });
+
+      const filters: any = {};
+      
+      if (search) filters.search = search;
+      if (projectId) filters.projectId = projectId;
+      if (jobTitle) filters.jobTitle = jobTitle;
+      if (businessUnit) filters.businessUnit = businessUnit;
+      if (seniority) filters.seniority = seniority;
+      if (careerTrack) filters.careerTrack = careerTrack;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      if (roles) {
+        try {
+          filters.roles = JSON.parse(roles);
+        } catch {
+          filters.roles = [roles]; // Se não for um JSON, tratar como string única
+        }
+      }
+
+      console.log('🔍 Filtros processados:', filters);
+
+      const result = await this.userService.getUsersWithAdvancedFilters(filters);
+      
+      console.log('📊 Resultado da busca:', {
+        totalCount: result.totalCount,
+        filteredCount: result.filteredCount,
+        usersFound: result.users.length
+      });
+      
+      return {
+        success: true,
+        ...result
+      };
+    } catch (error) {
+      console.error('Erro ao buscar usuários com filtros avançados:', error);
+      throw new InternalServerErrorException('Erro interno do servidor ao buscar usuários');
+    }
+  }
+
+  /**
+   * Endpoint para buscar projetos disponíveis (apenas RH)
+   */
+  @Get('projects/list')
+  @UseGuards(JwtAuthGuard, HRRoleGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Buscar lista de projetos disponíveis (apenas RH)',
+    description: 'Retorna lista de projetos para uso em filtros',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de projetos retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          isActive: { type: 'boolean' },
+        },
+      },
+    },
+  })
+  async getProjectsList(@CurrentUser() currentUser: User) {
+    return this.userService.getProjectsList();
+  }
+}

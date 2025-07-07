@@ -124,23 +124,156 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
   async function cleanupTestData() {
     // Limpar dados de teste criados
     try {
-      await prismaService.committeeAssessment.deleteMany({
-        where: { cycle: { contains: 'Test' } },
+      console.log('🧹 Limpando dados de teste...');
+      
+      // Limpar avaliações de comitê de teste
+      const deletedCommitteeAssessments = await prismaService.committeeAssessment.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
       });
-      await prismaService.managerAssessment.deleteMany({
-        where: { cycle: { contains: 'Test' } },
+      console.log(`   📝 ${deletedCommitteeAssessments.count} avaliações de comitê removidas`);
+
+      // Limpar avaliações de gestor de teste
+      const deletedManagerAssessments = await prismaService.managerAssessment.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
       });
-      await prismaService.selfAssessment.deleteMany({
-        where: { cycle: { contains: 'Test' } },
+      console.log(`   📝 ${deletedManagerAssessments.count} avaliações de gestor removidas`);
+
+      // Limpar autoavaliações de teste
+      const deletedSelfAssessments = await prismaService.selfAssessment.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
       });
-      await prismaService.assessment360.deleteMany({
-        where: { cycle: { contains: 'Test' } },
+      console.log(`   📝 ${deletedSelfAssessments.count} autoavaliações removidas`);
+
+      // Limpar avaliações 360 de teste
+      const deletedAssessments360 = await prismaService.assessment360.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
       });
-      await prismaService.evaluationCycle.deleteMany({
-        where: { name: { contains: 'Test' } },
+      console.log(`   📝 ${deletedAssessments360.count} avaliações 360 removidas`);
+
+      // Limpar avaliações de mentoria de teste
+      const deletedMentoringAssessments = await prismaService.mentoringAssessment.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
       });
+      console.log(`   📝 ${deletedMentoringAssessments.count} avaliações de mentoria removidas`);
+
+      // Limpar feedbacks de referência de teste
+      const deletedReferenceFeedbacks = await prismaService.referenceFeedback.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
+      });
+      console.log(`   📝 ${deletedReferenceFeedbacks.count} feedbacks de referência removidos`);
+
+      // Limpar resumos GenAI de teste
+      const deletedGenAISummaries = await prismaService.genAISummary.deleteMany({
+        where: { 
+          OR: [
+            { cycle: { contains: 'Test' } },
+            { cycle: { contains: 'Security' } },
+            { cycle: { contains: 'E2E' } }
+          ]
+        },
+      });
+      console.log(`   🤖 ${deletedGenAISummaries.count} resumos GenAI removidos`);
+
+      // Limpar ciclos de teste
+      const deletedCycles = await prismaService.evaluationCycle.deleteMany({
+        where: { 
+          OR: [
+            { name: { contains: 'Test' } },
+            { name: { contains: 'Security' } },
+            { name: { contains: 'E2E' } },
+            { name: { contains: 'Unauthorized' } },
+            { name: { contains: 'Invalid' } },
+            { name: { contains: 'Incomplete' } }
+          ]
+        },
+      });
+      console.log(`   📅 ${deletedCycles.count} ciclos de teste removidos`);
+
+      // Limpar usuários de teste (que não são da seed)
+      const seedEmails = [
+        'eduardo.tech@rocketcorp.com',
+        'diana.costa@rocketcorp.com', 
+        'carla.dias@rocketcorp.com',
+        'bruno.mendes@rocketcorp.com',
+        'ana.oliveira@rocketcorp.com',
+        'felipe.silva@rocketcorp.com'
+      ];
+
+      // Limpar relacionamentos primeiro
+      const deletedUserProjectRoles = await prismaService.userProjectRole.deleteMany({
+        where: {
+          user: {
+            email: { notIn: seedEmails }
+          }
+        }
+      });
+      console.log(`   🔗 ${deletedUserProjectRoles.count} roles de projeto removidos`);
+
+      const deletedUserProjectAssignments = await prismaService.userProjectAssignment.deleteMany({
+        where: {
+          user: {
+            email: { notIn: seedEmails }
+          }
+        }
+      });
+      console.log(`   🔗 ${deletedUserProjectAssignments.count} assignments de projeto removidos`);
+
+      const deletedUserRoleAssignments = await prismaService.userRoleAssignment.deleteMany({
+        where: {
+          user: {
+            email: { notIn: seedEmails }
+          }
+        }
+      });
+      console.log(`   🔗 ${deletedUserRoleAssignments.count} assignments de role removidos`);
+
+      // Remover usuários de teste
+      const deletedUsers = await prismaService.user.deleteMany({
+        where: {
+          email: { notIn: seedEmails }
+        }
+      });
+      console.log(`   👥 ${deletedUsers.count} usuários de teste removidos`);
+
+      console.log('✅ Limpeza concluída!');
     } catch (error) {
-      console.warn('Erro na limpeza:', error);
+      console.warn('⚠️ Erro na limpeza:', error);
     }
   }
 
@@ -152,7 +285,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Test Cycle 2025.3',
-          startDate: '2025-07-01',
+          startDate: '2025-08-01',
           endDate: '2025-12-31',
         })
         .expect(201);
@@ -164,7 +297,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
       console.log('Ciclo criado com ID:', cycleId);
 
       // Aguardar um pouco para garantir que o ciclo foi persistido
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // 2. Ativar o ciclo criado
       const activateResponse = await request(app.getHttpServer())
@@ -189,9 +322,12 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
           .get('/api/evaluation-cycles')
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(200);
-        
-        console.log('Ciclos existentes:', checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })));
-        
+
+        console.log(
+          'Ciclos existentes:',
+          checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })),
+        );
+
         // Se o ciclo não existe, aceitar o 404
         expect(activateResponse.status).toBe(404);
         return;
@@ -208,7 +344,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Test Cycle Deadlines 2025.4',
-          startDate: '2025-10-01',
+          startDate: '2025-08-01',
           endDate: '2025-12-31',
         })
         .expect(201);
@@ -217,7 +353,7 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
       console.log('Ciclo criado com ID:', cycleId);
 
       // Aguardar um pouco para garantir que o ciclo foi persistido
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // 2. Ativar com deadlines completas
       const activateResponse = await request(app.getHttpServer())
@@ -243,9 +379,12 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
           .get('/api/evaluation-cycles')
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(200);
-        
-        console.log('Ciclos existentes:', checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })));
-        
+
+        console.log(
+          'Ciclos existentes:',
+          checkResponse.body.map((c: any) => ({ id: c.id, name: c.name })),
+        );
+
         // Se o ciclo não existe, aceitar o 404
         expect(activateResponse.status).toBe(404);
         return;
@@ -597,8 +736,8 @@ describe('Fluxos Completos de Avaliação (e2e)', () => {
           .set('Authorization', `Bearer ${adminToken}`)
           .send({
             name: 'Test Phase Cycle',
-            startDate: '2025-01-01',
-            endDate: '2025-03-31',
+            startDate: '2025-08-01',
+            endDate: '2025-12-31',
           })
           .expect(201);
 

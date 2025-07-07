@@ -60,6 +60,9 @@ export class CyclesService {
     // Validar consistência de datas antes de salvar
     this.validateCycleDatesConsistency(createData);
 
+    // Validar se não há conflito com ciclo ativo
+    await this.validateNoCycleConflict(createData);
+
     return this.prisma.evaluationCycle.create({
       data: createData,
     });
@@ -294,6 +297,47 @@ export class CyclesService {
       managerDeadline: activeCycle.managerDeadline,
       equalizationDeadline: activeCycle.equalizationDeadline,
     };
+  }
+
+  /**
+   * Valida se não há conflito com ciclo ativo
+   */
+  private async validateNoCycleConflict(data: any) {
+    const { startDate, endDate } = data;
+    
+    if (!startDate) return; // Se não tem data de início, não há conflito
+
+    const newStart = startDate instanceof Date ? startDate : new Date(startDate);
+    const newEnd = endDate ? (endDate instanceof Date ? endDate : new Date(endDate)) : null;
+
+    // Buscar ciclo ativo
+    const activeCycle = await this.getActiveCycle();
+    
+    if (!activeCycle || !activeCycle.startDate || !activeCycle.endDate) {
+      return; // Não há ciclo ativo ou ciclo ativo não tem datas definidas
+    }
+
+    const activeStart = activeCycle.startDate;
+    const activeEnd = activeCycle.endDate;
+
+    // Verificar se a data de início do novo ciclo está dentro do período do ciclo ativo
+    if (newStart >= activeStart && newStart <= activeEnd) {
+      throw new BadRequestException(
+        `Não é possível criar um ciclo com data de início ${newStart.toLocaleDateString('pt-BR')} pois há um ciclo ativo (${activeCycle.name}) no período de ${activeStart.toLocaleDateString('pt-BR')} a ${activeEnd.toLocaleDateString('pt-BR')}`
+      );
+    }
+
+    // Se o novo ciclo tem data de fim, verificar se há sobreposição
+    if (newEnd) {
+      // Verificar se há qualquer sobreposição entre os períodos
+      const hasOverlap = (newStart <= activeEnd && newEnd >= activeStart);
+      
+      if (hasOverlap) {
+        throw new BadRequestException(
+          `Não é possível criar um ciclo no período de ${newStart.toLocaleDateString('pt-BR')} a ${newEnd.toLocaleDateString('pt-BR')} pois há sobreposição com o ciclo ativo (${activeCycle.name}) no período de ${activeStart.toLocaleDateString('pt-BR')} a ${activeEnd.toLocaleDateString('pt-BR')}`
+        );
+      }
+    }
   }
 
   /**

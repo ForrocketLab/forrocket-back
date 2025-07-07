@@ -1,21 +1,40 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, ValidatorConstraint, ValidatorConstraintInterface, Validate, ValidationArguments, IsBoolean } from 'class-validator'; 
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsDateString,
+  IsEnum,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  Validate,
+  ValidationArguments,
+} from 'class-validator';
 
 // Validador customizado para garantir que uma data é posterior a outra
 @ValidatorConstraint({ name: 'IsAfterDate', async: false })
 export class IsAfterDateConstraint implements ValidatorConstraintInterface {
   validate(value: any, args: ValidationArguments) {
     if (!value) return true; // Se não há valor, não validar (campo opcional)
-    
+
     const [relatedPropertyName] = args.constraints;
     const relatedValue = (args.object as any)[relatedPropertyName];
-    
+
     if (!relatedValue) return true; // Se não há data de referência, não validar
-    
-    const currentDate = new Date(value);
-    const referenceDate = new Date(relatedValue);
-    
-    return currentDate > referenceDate;
+
+    try {
+      const currentDate = new Date(value);
+      const referenceDate = new Date(relatedValue);
+
+      // Verificar se as datas são válidas
+      if (isNaN(currentDate.getTime()) || isNaN(referenceDate.getTime())) {
+        return false;
+      }
+
+      return currentDate > referenceDate;
+    } catch (error) {
+      return false;
+    }
   }
 
   defaultMessage(args: ValidationArguments) {
@@ -29,28 +48,37 @@ export class IsAfterDateConstraint implements ValidatorConstraintInterface {
 export class ValidateDeadlineSequenceConstraint implements ValidatorConstraintInterface {
   validate(value: any, args: ValidationArguments) {
     const obj = args.object as any;
-    
+
     // Se não há deadlines, não validar
     if (!obj.assessmentDeadline && !obj.managerDeadline && !obj.equalizationDeadline) {
       return true;
     }
 
-    const assessmentDate = obj.assessmentDeadline ? new Date(obj.assessmentDeadline) : null;
-    const managerDate = obj.managerDeadline ? new Date(obj.managerDeadline) : null;
-    const equalizationDate = obj.equalizationDeadline ? new Date(obj.equalizationDeadline) : null;
+    try {
+      const assessmentDate = obj.assessmentDeadline ? new Date(obj.assessmentDeadline) : null;
+      const managerDate = obj.managerDeadline ? new Date(obj.managerDeadline) : null;
+      const equalizationDate = obj.equalizationDeadline ? new Date(obj.equalizationDeadline) : null;
 
-    // Validar sequência: assessment < manager < equalization
-    if (assessmentDate && managerDate && assessmentDate >= managerDate) {
-      return false;
-    }
-    if (managerDate && equalizationDate && managerDate >= equalizationDate) {
-      return false;
-    }
-    if (assessmentDate && equalizationDate && assessmentDate >= equalizationDate) {
-      return false;
-    }
+      // Verificar se as datas são válidas quando fornecidas
+      if (assessmentDate && isNaN(assessmentDate.getTime())) return false;
+      if (managerDate && isNaN(managerDate.getTime())) return false;
+      if (equalizationDate && isNaN(equalizationDate.getTime())) return false;
 
-    return true;
+      // Validar sequência: assessment < manager < equalization
+      if (assessmentDate && managerDate && assessmentDate >= managerDate) {
+        return false;
+      }
+      if (managerDate && equalizationDate && managerDate >= equalizationDate) {
+        return false;
+      }
+      if (assessmentDate && equalizationDate && assessmentDate >= equalizationDate) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   defaultMessage() {
@@ -188,7 +216,6 @@ export class CreateEvaluationCycleDto {
   })
   @IsOptional()
   @IsDateString()
-  @IsAfterDate('startDate')
   endDate?: string;
 
   @ApiProperty({
@@ -198,7 +225,6 @@ export class CreateEvaluationCycleDto {
   })
   @IsOptional()
   @IsDateString()
-  @IsAfterDate('startDate')
   assessmentDeadline?: string;
 
   @ApiProperty({
@@ -208,7 +234,6 @@ export class CreateEvaluationCycleDto {
   })
   @IsOptional()
   @IsDateString()
-  @IsAfterDate('assessmentDeadline')
   managerDeadline?: string;
 
   @ApiProperty({
@@ -218,8 +243,6 @@ export class CreateEvaluationCycleDto {
   })
   @IsOptional()
   @IsDateString()
-  @IsAfterDate('managerDeadline')
-  @ValidateDeadlineSequence()
   equalizationDeadline?: string;
 
   @ApiProperty({

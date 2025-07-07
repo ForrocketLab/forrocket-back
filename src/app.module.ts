@@ -1,11 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
+import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
-import { ProjectsModule } from './projects/projects.module';
+import { GenAiModule } from './gen-ai/gen-ai.module';
 import { ImportModule } from './import/import.module';
+import { OKRsModule } from './okrs/okrs.module';
+import { PDIsModule } from './pdis/pdis.module';
+import { ProjectsModule } from './projects/projects.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -18,6 +23,9 @@ import { ImportModule } from './import/import.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+
+    // Módulo de agendamento de tarefas
+    ScheduleModule.forRoot(),
 
     // Módulo do banco de dados (com configuração TypeORM)
     DatabaseModule,
@@ -33,6 +41,14 @@ import { ImportModule } from './import/import.module';
 
     // Módulo de importação de dados
     ImportModule,
+    ErpSimulationModule,
+
+    // Módulo de integração com GenAI
+    GenAiModule,
+    // Módulo de OKRs
+    OKRsModule,
+
+    PDIsModule,
   ],
 })
 export class AppModule {}

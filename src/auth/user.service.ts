@@ -4,9 +4,34 @@ import { CreateUserDto, UserProfileDto, UserType } from './dto';
 import { UpdateUserData } from '../common/types/user.types';
 import * as bcrypt from 'bcryptjs';
 
+export interface UserSummary {
+  id: string;
+  name: string;
+  email: string;
+  jobTitle: string;
+  seniority: string;
+  businessUnit: string;
+}
+
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Parse dos roles do usuário de forma segura
+   */
+  private parseUserRoles(roles: string | null | undefined): string[] {
+    try {
+      if (!roles || typeof roles !== 'string') {
+        return ['colaborador']; // Valor padrão
+      }
+      const parsed = JSON.parse(roles);
+      return Array.isArray(parsed) ? parsed : ['colaborador'];
+    } catch (error) {
+      console.error('Erro ao fazer parse dos roles:', error);
+      return ['colaborador']; // Valor padrão em caso de erro
+    }
+  }
 
   /**
    * Cria um novo usuário aplicando todas as regras de negócio e validações
@@ -18,6 +43,13 @@ export class UserService {
 
     // 1. VALIDAÇÕES INICIAIS
     await this.validateUserCreation(createUserDto);
+
+    // 1.1. Remover campos não permitidos para papéis globais
+    if (createUserDto.userType !== UserType.PROJECT_MEMBER) {
+      // Remove projectAssignments e mentorId para admin, rh, comite
+      delete (createUserDto as any).projectAssignments;
+      delete (createUserDto as any).mentorId;
+    }
 
     // 2. GERAÇÃO E PROCESSAMENTO AUTOMÁTICO DE CAMPOS
     const userData = await this.processUserData(createUserDto);
@@ -587,6 +619,18 @@ export class UserService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
+  }
+
+  /**
+   * Busca os projetos e as roles de um usuário específico.
+   * A verificação de existência e permissão do usuário deve ser feita pelo chamador (Controller).
+   * @param userId - ID do usuário
+   * @returns Array de projetos com suas roles
+   */
+  async getUserProjects(userId: string): Promise<{ projectId: string; projectName: string; roles: string[] }[]> {
+    // Este método assume que o usuário já foi validado pelo controller.
+    // Ele reutiliza a lógica privada que já busca os projetos e roles.
+    return this.getProjectRoles(userId);
   }
 
   /**
@@ -1160,5 +1204,797 @@ export class UserService {
         isEqualizationComplete: !!committeeAssessment, // Se tem avaliação de comitê, a equalização está completa
       },
     };
+  }
+
+  /**
+   * Busca dados para a matriz 9-box de talento (apenas RH)
+   * @param cycle - Ciclo de avaliação (opcional, usa o ativo se não fornecido)
+   * @returns Dados da matriz com posições dos colaboradores
+   */
+  async getTalentMatrixData(cycle?: string): Promise<any> {
+    try {
+      // Buscar ciclo ativo se não fornecido
+      let activeCycle: string;
+      if (cycle) {
+        activeCycle = cycle;
+      } else {
+        const activeCycleData = await this.prisma.evaluationCycle.findFirst({
+          where: { status: 'OPEN' },
+          select: { name: true }
+        });
+        
+        if (!activeCycleData) {
+          // Se não há ciclo ativo, usar um padrão
+          activeCycle = '2025.1';
+        } else {
+          activeCycle = activeCycleData.name;
+        }
+      }
+
+    // Buscar todos os usuários ativos que são colaboradores (incluindo gestores e comitê que também são colaboradores)
+    const collaborators = await this.prisma.user.findMany({
+      where: { 
+        isActive: true,
+        OR: [
+          { roles: { contains: 'colaborador' } },
+          { roles: { contains: 'gestor' } },
+          { roles: { contains: 'comite' } }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+        businessUnit: true,
+        seniority: true,
+        careerTrack: true,
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    // Buscar todas as avaliações do ciclo em paralelo
+    const [
+      selfAssessments,
+      managerAssessments,
+      assessments360,
+      committeeAssessments
+    ] = await Promise.all([
+      // Autoavaliações
+      this.prisma.selfAssessment.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' },
+        include: { answers: true }
+      }),
+
+      // Avaliações de gestor
+      this.prisma.managerAssessment.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' },
+        include: { answers: true }
+      }),
+
+      // Avaliações 360
+      this.prisma.assessment360.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' }
+      }),
+
+      // Avaliações do comitê
+      this.prisma.committeeAssessment.findMany({
+        where: { cycle: activeCycle, status: 'SUBMITTED' }
+      })
+    ]);
+
+    // Verificar se há avaliações suficientes para gerar a matriz
+    const totalEvaluations = selfAssessments.length + managerAssessments.length + assessments360.length + committeeAssessments.length;
+    
+    if (totalEvaluations === 0) {
+      return {
+        cycle: activeCycle,
+        positions: [],
+        stats: {
+          totalCollaborators: 0,
+          categoryDistribution: {},
+          businessUnitDistribution: {},
+          topTalents: 0,
+          lowPerformers: 0
+        },
+        generatedAt: new Date(),
+        hasInsufficientData: true,
+        message: `Não há avaliações disponíveis para o ciclo ${activeCycle}. A matriz será gerada quando houver dados suficientes de avaliações.`
+      };
+    }
+
+    // Processar dados apenas para colaboradores que têm pelo menos uma avaliação
+    const positions = collaborators.filter(collaborator => {
+      const selfAssessment = selfAssessments.find(sa => sa.authorId === collaborator.id);
+      const managerAssessment = managerAssessments.find(ma => ma.evaluatedUserId === collaborator.id);
+      const assessments360ForUser = assessments360.filter(a => a.evaluatedUserId === collaborator.id);
+      const committeeAssessment = committeeAssessments.find(ca => ca.evaluatedUserId === collaborator.id);
+      
+      // Incluir apenas se tiver pelo menos uma avaliação
+      return selfAssessment || managerAssessment || assessments360ForUser.length > 0 || committeeAssessment;
+    }).map(collaborator => {
+      const selfAssessment = selfAssessments.find(sa => sa.authorId === collaborator.id);
+      const managerAssessment = managerAssessments.find(ma => ma.evaluatedUserId === collaborator.id);
+      const assessments360ForUser = assessments360.filter(a => a.evaluatedUserId === collaborator.id);
+      const committeeAssessment = committeeAssessments.find(ca => ca.evaluatedUserId === collaborator.id);
+
+      // Calcular scores (agora sabemos que há pelo menos uma avaliação)
+      const performanceScore = this.calculatePerformanceScore(
+        selfAssessment,
+        managerAssessment,
+        assessments360ForUser
+      );
+
+      const potentialScore = this.calculatePotentialScore(
+        collaborator,
+        selfAssessment,
+        managerAssessment,
+        assessments360ForUser
+      );
+
+      // Determinar posição na matriz
+      const matrixData = this.determineMatrixPosition(performanceScore, potentialScore);
+
+      // Gerar iniciais
+      const initials = collaborator.name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+
+      return {
+        id: collaborator.id,
+        name: collaborator.name,
+        jobTitle: collaborator.jobTitle,
+        businessUnit: collaborator.businessUnit,
+        seniority: collaborator.seniority,
+        performanceScore,
+        potentialScore,
+        matrixPosition: matrixData.position,
+        matrixLabel: matrixData.label,
+        matrixColor: matrixData.color,
+        initials,
+        evaluationDetails: {
+          selfAssessmentScore: selfAssessment ? this.calculateSelfAssessmentAverage(selfAssessment) : null,
+          managerAssessmentScore: managerAssessment ? this.calculateManagerAssessmentAverage([managerAssessment]) : null,
+          assessment360Score: assessments360ForUser.length > 0 ? this.calculateAssessment360Average(assessments360ForUser) : null,
+          committeeScore: committeeAssessment?.finalScore || null,
+          totalEvaluations: [selfAssessment, managerAssessment, ...assessments360ForUser, committeeAssessment].filter(Boolean).length
+        }
+      };
+    });
+
+    // Calcular estatísticas
+    const stats = this.calculateMatrixStats(positions);
+
+    return {
+      cycle: activeCycle,
+      positions,
+      stats,
+      generatedAt: new Date(),
+      hasInsufficientData: false
+    };
+    } catch (error) {
+      console.error('Erro ao gerar matriz de talento:', error);
+      throw error;
+    }
+  }
+
+
+
+  /**
+   * Calcula o score de performance baseado nas avaliações
+   */
+  private calculatePerformanceScore(selfAssessment: any, managerAssessment: any, assessments360: any[]): number {
+    // Calcular scores individuais
+    let selfScore: number | null = null;
+    let managerScore: number | null = null;
+    let score360: number | null = null;
+
+    if (selfAssessment?.answers?.length) {
+      selfScore = selfAssessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0) / selfAssessment.answers.length;
+    }
+
+    if (managerAssessment?.answers?.length) {
+      managerScore = managerAssessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0) / managerAssessment.answers.length;
+    }
+
+    if (assessments360.length > 0) {
+      score360 = assessments360.reduce((sum, a) => sum + a.overallScore, 0) / assessments360.length;
+    }
+
+    // Se não há avaliações, não incluir na matriz (será filtrado)
+    if (!selfScore && !managerScore && !score360) {
+      return 0; // Indica dados insuficientes
+    }
+
+    // Redistribuir pesos dinamicamente baseado nas avaliações disponíveis
+    let totalWeightedScore = 0;
+    let totalWeight = 0;
+
+    // Autoavaliação (peso base 20%)
+    if (selfScore !== null) {
+      const weight = managerScore !== null ? 0.2 : 0.4; // Se não há gestor, aumenta para 40%
+      totalWeightedScore += selfScore * weight;
+      totalWeight += weight;
+    }
+
+    // Avaliação do gestor (peso base 50%)
+    if (managerScore !== null) {
+      totalWeightedScore += managerScore * 0.5;
+      totalWeight += 0.5;
+    }
+
+    // Avaliações 360 (peso base 30%)
+    if (score360 !== null) {
+      const weight = managerScore !== null ? 0.3 : 0.6; // Se não há gestor, aumenta para 60%
+      totalWeightedScore += score360 * weight;
+      totalWeight += weight;
+    }
+
+    // Normalizar pela soma dos pesos (deve ser sempre 1.0)
+    const finalScore = totalWeightedScore / totalWeight;
+    return Math.round(finalScore * 10) / 10;
+  }
+
+  /**
+   * Calcula o score de potencial baseado em critérios específicos e dados do colaborador
+   */
+  private calculatePotentialScore(collaborator: any, selfAssessment: any, managerAssessment: any, assessments360: any[]): number {
+    const potentialFactors: number[] = [];
+
+    // Fator 1: Senioridade (júnior = mais potencial)
+    const seniorityScore = this.getSeniorityPotentialScore(collaborator.seniority);
+    potentialFactors.push(seniorityScore);
+
+    // Fator 2: Critérios específicos de potencial das avaliações
+    const criteriaScore = this.getPotentialCriteriaScore(selfAssessment, managerAssessment, assessments360);
+    if (criteriaScore > 0) {
+      potentialFactors.push(criteriaScore);
+    }
+
+    // Fator 3: Consistência nas avaliações 360 (diversidade de feedback positivo)
+    if (assessments360.length >= 2) {
+      const consistencyScore = this.getConsistencyScore(assessments360);
+      potentialFactors.push(consistencyScore);
+    }
+
+    // Se não há dados suficientes, não incluir na matriz (será filtrado)
+    if (potentialFactors.length === 0) {
+      return 0; // Indica dados insuficientes
+    }
+
+    const avgScore = potentialFactors.reduce((sum, score) => sum + score, 0) / potentialFactors.length;
+    return Math.round(avgScore * 10) / 10;
+  }
+
+  /**
+   * Score de potencial baseado na senioridade
+   */
+  private getSeniorityPotentialScore(seniority: string): number {
+    const seniorityMap: Record<string, number> = {
+      'junior': 4.5,
+      'pleno': 4.0,
+      'senior': 3.5,
+      'especialista': 3.0,
+      'principal': 2.5,
+      'staff': 2.0
+    };
+    
+    return seniorityMap[seniority.toLowerCase()] || 3.0;
+  }
+
+  /**
+   * Score de potencial baseado em critérios específicos
+   */
+  private getPotentialCriteriaScore(selfAssessment: any, managerAssessment: any, assessments360: any[]): number {
+    // Critérios que indicam potencial
+    const potentialCriteria = ['capacidade-aprender', 'team-player', 'resiliencia-adversidades'];
+    const scores: number[] = [];
+
+    // Verificar critérios na avaliação do gestor (mais peso)
+    if (managerAssessment?.answers) {
+      const potentialAnswers = managerAssessment.answers.filter((answer: any) => 
+        potentialCriteria.includes(answer.criterionId)
+      );
+      if (potentialAnswers.length > 0) {
+        const avgScore = potentialAnswers.reduce((sum: number, answer: any) => sum + answer.score, 0) / potentialAnswers.length;
+        scores.push(avgScore * 0.6); // 60% peso
+      }
+    }
+
+    // Verificar critérios na autoavaliação
+    if (selfAssessment?.answers) {
+      const potentialAnswers = selfAssessment.answers.filter((answer: any) => 
+        potentialCriteria.includes(answer.criterionId)
+      );
+      if (potentialAnswers.length > 0) {
+        const avgScore = potentialAnswers.reduce((sum: number, answer: any) => sum + answer.score, 0) / potentialAnswers.length;
+        scores.push(avgScore * 0.4); // 40% peso
+      }
+    }
+
+    return scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) : 0;
+  }
+
+  /**
+   * Score de consistência baseado na variação das avaliações 360
+   */
+  private getConsistencyScore(assessments360: any[]): number {
+    if (assessments360.length < 2) return 3;
+
+    const scores = assessments360.map(a => a.overallScore);
+    const avg = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - avg, 2), 0) / scores.length;
+    
+    // Menor variância = maior consistência = maior potencial
+    if (variance <= 0.5) return 4.5; // Muito consistente
+    if (variance <= 1.0) return 4.0; // Consistente
+    if (variance <= 1.5) return 3.5; // Moderadamente consistente
+    return 3.0; // Inconsistente
+  }
+
+  /**
+   * Determina a posição na matriz 9-box baseado nos scores
+   */
+  private determineMatrixPosition(performance: number, potential: number): { position: number, label: string, color: string } {
+    // Normalizar scores para grid 3x3
+    const perfLevel = performance <= 2.5 ? 1 : performance <= 3.5 ? 2 : 3;
+    const potLevel = potential <= 2.5 ? 1 : potential <= 3.5 ? 2 : 3;
+
+    // Mapeamento da matriz 9-box
+    const matrixMap: Record<string, { position: number, label: string, color: string }> = {
+      '3-3': { position: 1, label: 'Estrelas', color: '#22c55e' },           // Alto Perf, Alto Pot
+      '3-2': { position: 2, label: 'Talentos', color: '#84cc16' },          // Alto Perf, Médio Pot
+      '3-1': { position: 3, label: 'Questionáveis', color: '#eab308' },     // Alto Perf, Baixo Pot
+      '2-3': { position: 4, label: 'Especialistas', color: '#3b82f6' },     // Médio Perf, Alto Pot
+      '2-2': { position: 5, label: 'Consistentes', color: '#6b7280' },      // Médio Perf, Médio Pot
+      '2-1': { position: 6, label: 'Trabalhadores', color: '#f59e0b' },     // Médio Perf, Baixo Pot
+      '1-3': { position: 7, label: 'Potenciais', color: '#8b5cf6' },        // Baixo Perf, Alto Pot
+      '1-2': { position: 8, label: 'Inconsistentes', color: '#ef4444' },    // Baixo Perf, Médio Pot
+      '1-1': { position: 9, label: 'Baixo Desempenho', color: '#dc2626' }   // Baixo Perf, Baixo Pot
+    };
+
+    const key = `${perfLevel}-${potLevel}`;
+    return matrixMap[key] || { position: 5, label: 'Consistentes', color: '#6b7280' };
+  }
+
+  /**
+   * Calcula estatísticas da matriz
+   */
+  private calculateMatrixStats(positions: any[]): any {
+    const totalCollaborators = positions.length;
+    
+    // Distribuição por categoria
+    const categoryDistribution: Record<string, number> = {};
+    positions.forEach(pos => {
+      categoryDistribution[pos.matrixLabel] = (categoryDistribution[pos.matrixLabel] || 0) + 1;
+    });
+
+    // Distribuição por unidade de negócio
+    const businessUnitDistribution: Record<string, number> = {};
+    positions.forEach(pos => {
+      businessUnitDistribution[pos.businessUnit] = (businessUnitDistribution[pos.businessUnit] || 0) + 1;
+    });
+
+    // Top talents (posições 1, 2, 4)
+    const topTalents = positions.filter(pos => [1, 2, 4].includes(pos.matrixPosition)).length;
+
+    // Low performers (posições 8, 9)
+    const lowPerformers = positions.filter(pos => [8, 9].includes(pos.matrixPosition)).length;
+
+    return {
+      totalCollaborators,
+      categoryDistribution,
+      businessUnitDistribution,
+      topTalents,
+      lowPerformers
+    };
+  }
+
+  // Métodos auxiliares existentes (adaptados)
+  private calculateSelfAssessmentAverage(assessment: any): number | null {
+    if (!assessment?.answers?.length) return null;
+    const total = assessment.answers.reduce((sum: number, answer: any) => sum + answer.score, 0);
+    return Math.round((total / assessment.answers.length) * 10) / 10;
+  }
+
+  private calculateManagerAssessmentAverage(assessments: any[]): number | null {
+    if (!assessments.length) return null;
+    const allScores: number[] = [];
+    
+    assessments.forEach(assessment => {
+      if (assessment.answers?.length) {
+        assessment.answers.forEach((answer: any) => {
+          allScores.push(answer.score);
+        });
+      }
+    });
+    
+    if (allScores.length === 0) return null;
+    const total = allScores.reduce((sum, score) => sum + score, 0);
+    return Math.round((total / allScores.length) * 10) / 10;
+  }
+
+  private calculateAssessment360Average(assessments: any[]): number | null {
+    if (!assessments.length) return null;
+    const total = assessments.reduce((sum, assessment) => sum + (assessment.overallScore || 0), 0);
+    return Math.round((total / assessments.length) * 10) / 10;
+  }
+
+  /**
+   * Busca usuários potenciais para serem mentores
+   * Retorna usuários ativos que não são mentores de ninguém ainda
+   */
+  async getPotentialMentors(): Promise<UserSummary[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        mentorId: null, // Usuários que não são mentorados por ninguém
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobTitle: true,
+        seniority: true,
+        businessUnit: true,
+      },
+      orderBy: [
+        { name: 'asc' },
+      ],
+    });
+
+    // Filtrar usuários que não são mentores de ninguém
+    const mentorIds = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        mentorId: { not: null },
+      },
+      select: {
+        mentorId: true,
+      },
+    });
+
+    const activeMentorIds = new Set(mentorIds.map(u => u.mentorId).filter(id => id !== null));
+
+    return users.filter(user => !activeMentorIds.has(user.id));
+  }
+
+  /**
+   * Busca usuários com filtros avançados para o RH
+   */
+  async getUsersWithAdvancedFilters(filters: {
+    search?: string;
+    projectId?: string;
+    jobTitle?: string;
+    businessUnit?: string;
+    seniority?: string;
+    careerTrack?: string;
+    isActive?: boolean;
+    roles?: string[];
+  }): Promise<{
+    users: any[];
+    totalCount: number;
+    filteredCount: number;
+  }> {
+    try {
+      // Buscar o ciclo ativo
+      const activeCycle = await this.prisma.evaluationCycle.findFirst({
+        where: { status: 'OPEN' },
+        select: { name: true }
+      });
+
+      if (!activeCycle) {
+        console.warn('Nenhum ciclo ativo encontrado para getUsersWithAdvancedFilters');
+        // Retornar lista vazia em vez de erro
+        return {
+          users: [],
+          totalCount: 0,
+          filteredCount: 0,
+        };
+      }
+
+    // Construir filtros para o Prisma
+    const where: any = {};
+    
+    if (filters.search && filters.search.trim()) {
+      const searchTerm = filters.search.trim();
+      where.OR = [
+        { name: { contains: searchTerm } },
+        { email: { contains: searchTerm } },
+      ];
+    }
+
+    if (filters.jobTitle && filters.jobTitle.trim()) {
+      where.jobTitle = { contains: filters.jobTitle.trim() };
+    }
+
+    if (filters.businessUnit && filters.businessUnit.trim()) {
+      where.businessUnit = filters.businessUnit.trim();
+    }
+
+    if (filters.seniority && filters.seniority.trim()) {
+      where.seniority = filters.seniority.trim();
+    }
+
+    if (filters.careerTrack && filters.careerTrack.trim()) {
+      where.careerTrack = filters.careerTrack.trim();
+    }
+
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+
+    // Buscar usuários base
+    const users = await this.prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        roles: true,
+        jobTitle: true,
+        seniority: true,
+        careerTrack: true,
+        businessUnit: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        managerId: true,
+        mentorId: true,
+      },
+      orderBy: [
+        { businessUnit: 'asc' },
+        { name: 'asc' }
+      ]
+    });
+
+    // Verificar se há usuários
+    if (!users || users.length === 0) {
+      return {
+        users: [],
+        totalCount: 0,
+        filteredCount: 0,
+      };
+    }
+
+    // Filtrar por roles se especificado
+    let filteredUsers = users;
+    if (filters.roles && filters.roles.length > 0) {
+      filteredUsers = users.filter(user => {
+        try {
+          if (!user.roles || typeof user.roles !== 'string') {
+            return false;
+          }
+          const userRoles = JSON.parse(user.roles) as string[];
+          return Array.isArray(userRoles) && filters.roles!.some(role => userRoles.includes(role));
+        } catch (error) {
+          console.error('Erro ao fazer parse dos roles do usuário:', user.id, error);
+          return false;
+        }
+      });
+    }
+
+    // Buscar projetos dos usuários (se filtro por projeto estiver ativo)
+    let userProjects: Map<string, any[]> = new Map();
+    if (filters.projectId) {
+      // Buscar usuários que participam do projeto específico
+      const projectAssignments = await this.prisma.userProjectAssignment.findMany({
+        where: { projectId: filters.projectId },
+        include: {
+          user: true,
+          project: true,
+        },
+      });
+
+      const projectUserIds = new Set(projectAssignments.map(pa => pa.userId));
+      filteredUsers = filteredUsers.filter(user => projectUserIds.has(user.id));
+
+      // Buscar roles dos usuários nos projetos
+      const userProjectRoles = await this.prisma.userProjectRole.findMany({
+        where: { userId: { in: filteredUsers.map(u => u.id) } },
+        include: {
+          project: true,
+        },
+      });
+
+      // Organizar projetos por usuário
+      filteredUsers.forEach(user => {
+        const userRoles = userProjectRoles.filter(upr => upr.userId === user.id);
+        const projects = userRoles.map(ur => ({
+          id: ur.project.id,
+          name: ur.project.name,
+          roleInProject: ur.role,
+        }));
+        userProjects.set(user.id, projects);
+      });
+    } else {
+      // Buscar projetos de todos os usuários
+      const allUserProjectRoles = await this.prisma.userProjectRole.findMany({
+        where: { userId: { in: filteredUsers.map(u => u.id) } },
+        include: {
+          project: true,
+        },
+      });
+
+      filteredUsers.forEach(user => {
+        const userRoles = allUserProjectRoles.filter(upr => upr.userId === user.id);
+        const projects = userRoles.map(ur => ({
+          id: ur.project.id,
+          name: ur.project.name,
+          roleInProject: ur.role,
+        }));
+        userProjects.set(user.id, projects);
+      });
+    }
+
+    // Buscar dados de progresso de avaliação
+    const [
+      selfAssessments,
+      assessments360,
+      managerAssessmentsReceived,
+      mentoringAssessmentsReceived,
+      referenceFeedbacksReceived,
+      committeeAssessments,
+      managersAndMentors
+    ] = await Promise.all([
+      this.prisma.selfAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          authorId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { authorId: true, status: true, submittedAt: true }
+      }),
+      this.prisma.assessment360.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+          evaluatedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { evaluatedUserId: true }
+      }),
+      this.prisma.managerAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          evaluatedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { evaluatedUserId: true, status: true, submittedAt: true }
+      }),
+      this.prisma.mentoringAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+          mentorId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { mentorId: true }
+      }),
+      this.prisma.referenceFeedback.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          status: 'SUBMITTED',
+          referencedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { referencedUserId: true }
+      }),
+      this.prisma.committeeAssessment.findMany({
+        where: { 
+          cycle: activeCycle.name,
+          evaluatedUserId: { in: filteredUsers.map(u => u.id) }
+        },
+        select: { evaluatedUserId: true, status: true, submittedAt: true }
+      }),
+      this.prisma.user.findMany({
+        where: { 
+          id: { 
+            in: [
+              ...filteredUsers.map(user => user.managerId).filter(id => id !== null) as string[],
+              ...filteredUsers.map(user => user.mentorId).filter(id => id !== null) as string[]
+            ]
+          }
+        },
+        select: { id: true, name: true }
+      })
+    ]);
+
+    // Criar maps para acesso rápido
+    const managerAndMentorMap = new Map(managersAndMentors.map(m => [m.id, m.name]));
+    const selfAssessmentMap = new Map(selfAssessments.map(sa => [sa.authorId, sa]));
+    const managerAssessmentMap = new Map(managerAssessmentsReceived.map(ma => [ma.evaluatedUserId, ma]));
+    const committeeAssessmentMap = new Map(committeeAssessments.map(ca => [ca.evaluatedUserId, ca]));
+
+    // Contar assessments por usuário
+    const assessments360Map = new Map<string, number>();
+    assessments360.forEach(a => {
+      const count = assessments360Map.get(a.evaluatedUserId) || 0;
+      assessments360Map.set(a.evaluatedUserId, count + 1);
+    });
+
+    const mentoringAssessmentMap = new Map<string, number>();
+    mentoringAssessmentsReceived.forEach(ma => {
+      const count = mentoringAssessmentMap.get(ma.mentorId) || 0;
+      mentoringAssessmentMap.set(ma.mentorId, count + 1);
+    });
+
+    const referenceFeedbackMap = new Map<string, number>();
+    referenceFeedbacksReceived.forEach(rf => {
+      const count = referenceFeedbackMap.get(rf.referencedUserId) || 0;
+      referenceFeedbackMap.set(rf.referencedUserId, count + 1);
+    });
+
+    // Montar resposta final
+    const usersWithProgress = filteredUsers.map(user => {
+      const selfAssessment = selfAssessmentMap.get(user.id);
+      const managerAssessment = managerAssessmentMap.get(user.id);
+      const committeeAssessment = committeeAssessmentMap.get(user.id);
+      
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roles: this.parseUserRoles(user.roles),
+        jobTitle: user.jobTitle,
+        seniority: user.seniority,
+        careerTrack: user.careerTrack,
+        businessUnit: user.businessUnit,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        managerName: user.managerId ? managerAndMentorMap.get(user.managerId) || null : null,
+        mentorName: user.mentorId ? managerAndMentorMap.get(user.mentorId) || null : null,
+        projects: userProjects.get(user.id) || [],
+        evaluationProgress: {
+          selfAssessment: {
+            status: selfAssessment?.status || 'PENDENTE',
+            submittedAt: selfAssessment?.submittedAt || null
+          },
+          assessments360Received: assessments360Map.get(user.id) || 0,
+          managerAssessment: {
+            status: managerAssessment?.status || 'PENDENTE',
+            submittedAt: managerAssessment?.submittedAt || null
+          },
+          mentoringAssessmentsReceived: mentoringAssessmentMap.get(user.id) || 0,
+          referenceFeedbacksReceived: referenceFeedbackMap.get(user.id) || 0,
+          committeeAssessment: {
+            status: committeeAssessment?.status || 'PENDING',
+            submittedAt: committeeAssessment?.submittedAt || null
+          }
+        }
+      };
+    });
+
+    return {
+      users: usersWithProgress,
+      totalCount: users.length,
+      filteredCount: filteredUsers.length,
+    };
+    } catch (error) {
+      console.error('Erro ao buscar usuários com filtros avançados:', error);
+      // Retornar resultado vazio em caso de erro
+      return {
+        users: [],
+        totalCount: 0,
+        filteredCount: 0,
+      };
+    }
+  }
+
+  /**
+   * Busca lista de projetos disponíveis
+   */
+  async getProjectsList(): Promise<any[]> {
+    const projects = await this.prisma.project.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return projects;
   }
 } 

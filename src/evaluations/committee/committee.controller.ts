@@ -9,10 +9,13 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 
 import { CommitteeService } from './committee.service';
+import { CommitteeDataService } from './committee-data.service';
+import { GenAiService } from '../../gen-ai/gen-ai.service';
 import {
   CreateCommitteeAssessmentDto,
   UpdateCommitteeAssessmentDto,
@@ -22,13 +25,22 @@ import { CurrentUser } from '../../auth/current-user.decorator';
 import { User } from '../../auth/entities/user.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CommitteeRoleGuard } from './guards/committee-role.guard';
+import { 
+  CollaboratorSummaryRequestDto, 
+  CollaboratorSummaryResponseDto,
+  GetCollaboratorSummaryRequestDto 
+} from '../../gen-ai/dto/collaborator-summary.dto';
 
 @ApiTags('Avaliações de Comitê')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('api/evaluations/committee')
 export class CommitteeController {
-  constructor(private readonly committeeService: CommitteeService) {}
+  constructor(
+    private readonly committeeService: CommitteeService,
+    private readonly committeeDataService: CommitteeDataService,
+    private readonly genAiService: GenAiService,
+  ) {}
 
   @Get('collaborators')
   @UseGuards(CommitteeRoleGuard)
@@ -483,5 +495,183 @@ export class CommitteeController {
   @ApiResponse({ status: 403, description: 'Equalization not completed yet' })
   async exportCollaboratorData(@Param('collaboratorId') collaboratorId: string) {
     return this.committeeService.exportCollaboratorEvaluationData(collaboratorId);
+  }
+
+  @Post('collaborator-summary')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Gerar resumo automático de colaborador para equalização',
+    description: 'Gera um resumo completo usando IA de todas as avaliações de um colaborador para facilitar a equalização do comitê. Salva no banco de dados e não permite duplicação no mesmo ciclo.',
+  })
+  @ApiBody({
+    type: CollaboratorSummaryRequestDto,
+    description: 'Dados do colaborador e ciclo para gerar o resumo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumo gerado e salvo com sucesso',
+    type: CollaboratorSummaryResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou colaborador não encontrado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas membros do comitê podem gerar resumos',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Já existe um resumo para este colaborador neste ciclo',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Erro interno - falha na geração do resumo pela IA',
+  })
+  async generateCollaboratorSummary(
+    @CurrentUser() user: User,
+    @Body() requestDto: CollaboratorSummaryRequestDto,
+  ): Promise<CollaboratorSummaryResponseDto> {
+    // Coletar todos os dados de avaliação do colaborador
+    const collaboratorData = await this.committeeDataService.getCollaboratorEvaluationData(
+      requestDto.collaboratorId,
+      requestDto.cycle,
+    );
+
+    // Gerar resumo usando IA
+    const aiSummary = await this.genAiService.getCollaboratorSummaryForEqualization(collaboratorData);
+
+    // Salvar no banco de dados
+    const savedSummary = await this.committeeService.saveGenAISummary(
+      requestDto.collaboratorId,
+      requestDto.cycle,
+      aiSummary,
+      collaboratorData.collaboratorName,
+      collaboratorData.jobTitle,
+      collaboratorData.statistics.averageScore,
+      collaboratorData.statistics.totalEvaluations,
+    );
+
+    return savedSummary;
+  }
+
+  @Get('collaborator-summary/:collaboratorId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar resumo existente de um colaborador',
+    description: 'Retorna um resumo GenAI previamente gerado para um colaborador em um ciclo específico.',
+  })
+  @ApiParam({
+    name: 'collaboratorId',
+    description: 'ID do colaborador',
+    example: 'cmc1zy5wj0000xp8qi7awrc2s',
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação',
+    example: '2025.1',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumo encontrado com sucesso',
+    type: CollaboratorSummaryResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Nenhum resumo encontrado para o colaborador no ciclo especificado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas membros do comitê podem acessar resumos',
+  })
+  async getCollaboratorSummary(
+    @CurrentUser() user: User,
+    @Param('collaboratorId') collaboratorId: string,
+    @Query('cycle') cycle: string,
+  ): Promise<CollaboratorSummaryResponseDto> {
+    const dto: GetCollaboratorSummaryRequestDto = {
+      collaboratorId,
+      cycle,
+    };
+
+    return this.committeeService.getGenAISummary(dto);
+  }
+
+  @Get('collaborator-summaries')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Listar todos os resumos de um ciclo',
+    description: 'Retorna todos os resumos GenAI gerados para colaboradores em um ciclo específico.',
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação',
+    example: '2025.1',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de resumos retornada com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        $ref: '#/components/schemas/CollaboratorSummaryResponseDto',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas membros do comitê podem listar resumos',
+  })
+  async listCollaboratorSummariesByCycle(
+    @CurrentUser() user: User,
+    @Query('cycle') cycle: string,
+  ): Promise<CollaboratorSummaryResponseDto[]> {
+    return this.committeeService.listGenAISummariesByCycle(cycle);
+  }
+
+  @Get('collaborator-summary/:collaboratorId/exists')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verificar se resumo existe',
+    description: 'Verifica se já existe um resumo GenAI para um colaborador em um ciclo específico.',
+  })
+  @ApiParam({
+    name: 'collaboratorId',
+    description: 'ID do colaborador',
+    example: 'cmc1zy5wj0000xp8qi7awrc2s',
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação',
+    example: '2025.1',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verificação realizada com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        exists: { type: 'boolean', example: true },
+        collaboratorId: { type: 'string', example: 'cmc1zy5wj0000xp8qi7awrc2s' },
+        cycle: { type: 'string', example: '2025.1' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acesso negado - apenas membros do comitê podem verificar resumos',
+  })
+  async checkCollaboratorSummaryExists(
+    @CurrentUser() user: User,
+    @Param('collaboratorId') collaboratorId: string,
+    @Query('cycle') cycle: string,
+  ): Promise<{ exists: boolean; collaboratorId: string; cycle: string }> {
+    const exists = await this.committeeService.checkGenAISummaryExists(collaboratorId, cycle);
+    
+    return {
+      exists,
+      collaboratorId,
+      cycle,
+    };
   }
 }

@@ -187,4 +187,291 @@ export class EvaluableUsersResponseDto {
     type: [EvaluableUserDto],
   })
   mentors: EvaluableUserDto[];
+}
+
+/**
+ * DTO para informações de mentor
+ */
+export class MentorInfoDto {
+  @ApiProperty({
+    description: 'Identificador único do mentor',
+    example: 'user-123',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Nome completo do mentor',
+    example: 'João Silva',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Cargo/função do mentor',
+    example: 'Tech Lead Sênior',
+  })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Email corporativo do mentor',
+    example: 'joao.silva@rocketcorp.com',
+  })
+  email: string;
+}
+
+/**
+ * DTO para informações de mentorado
+ */
+export class MenteeInfoDto {
+  @ApiProperty({
+    description: 'Identificador único do mentorado',
+    example: 'user-456',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Nome completo do mentorado',
+    example: 'Maria Santos',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Cargo/função do mentorado',
+    example: 'Desenvolvedora Júnior',
+  })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Email corporativo do mentorado',
+    example: 'maria.santos@rocketcorp.com',
+  })
+  email: string;
+}
+
+/**
+ * DTO para subordinados gerenciados pelo usuário
+ */
+export class ManagedSubordinateDto {
+  @ApiProperty({
+    description: 'Identificador único do subordinado',
+    example: 'user-789',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Nome completo do subordinado',
+    example: 'Carlos Oliveira',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Cargo/função do subordinado',
+    example: 'Desenvolvedor Pleno',
+  })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Email corporativo do subordinado',
+    example: 'carlos.oliveira@rocketcorp.com',
+  })
+  email: string;
+}
+
+/**
+ * DTO para projeto com informações de gestão
+ */
+export class ProjectWithManagementDto extends ProjectDto {
+  @ApiProperty({
+    description: 'Roles específicas do usuário neste projeto',
+    example: ['COLLABORATOR', 'MANAGER'],
+    type: [String],
+    enum: ['COLLABORATOR', 'MANAGER', 'COMMITTEE', 'HR', 'ADMIN'],
+  })
+  userRoles: string[];
+
+  @ApiProperty({
+    description: 'Subordinados que o usuário gerencia neste projeto (apenas se for MANAGER)',
+    type: [ManagedSubordinateDto],
+  })
+  managedSubordinates: ManagedSubordinateDto[];
+
+  @ApiProperty({
+    description: 'Indica se o usuário é gestor neste projeto',
+    example: true,
+  })
+  isManagerInProject: boolean;
+}
+
+/**
+ * DTO para overview completo do usuário
+ */
+export class UserOverviewDto {
+  @ApiProperty({
+    description: 'Projetos que o usuário participa com informações de gestão',
+    type: [ProjectWithManagementDto],
+  })
+  projects: ProjectWithManagementDto[];
+
+  @ApiProperty({
+    description: 'Informações do mentor do usuário (se tiver)',
+    type: MentorInfoDto,
+    nullable: true,
+  })
+  mentor: MentorInfoDto | null;
+
+  @ApiProperty({
+    description: 'Lista de pessoas que o usuário mentora',
+    type: [MenteeInfoDto],
+  })
+  mentees: MenteeInfoDto[];
+
+  @ApiProperty({
+    description: 'Indica se o usuário tem mentor',
+    example: true,
+  })
+  hasMentor: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é mentor de alguém',
+    example: false,
+  })
+  isMentor: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é gestor em pelo menos um projeto',
+    example: true,
+  })
+  isManager: boolean;
+}
+
+/**
+ * DTO para informações completas de usuário (Admin)
+ */
+export class UserInfoDto {
+  @ApiProperty({
+    description: 'Identificador único do usuário',
+    example: 'user-123',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Nome completo do usuário',
+    example: 'Ana Beatriz Santos',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Email corporativo',
+    example: 'ana.santos@rocketcorp.com',
+  })
+  email: string;
+
+  @ApiProperty({
+    description: 'Roles/papéis do usuário no sistema',
+    example: ['COLLABORATOR'],
+    type: [String],
+  })
+  roles: string[];
+
+  @ApiProperty({
+    description: 'Cargo/função',
+    example: 'Desenvolvedora Frontend',
+  })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Senioridade',
+    example: 'Pleno',
+  })
+  seniority: string;
+
+  @ApiProperty({
+    description: 'Trilha de carreira',
+    example: 'Tech',
+  })
+  careerTrack: string;
+
+  @ApiProperty({
+    description: 'Unidade de negócio',
+    example: 'Digital Products',
+  })
+  businessUnit: string;
+
+  @ApiProperty({
+    description: 'Status do usuário',
+    example: true,
+  })
+  isActive: boolean;
+
+  @ApiProperty({
+    description: 'Data de criação',
+    example: '2024-12-01T10:00:00.000Z',
+  })
+  createdAt: string;
+
+  @ApiProperty({
+    description: 'Data de atualização',
+    example: '2024-12-01T10:00:00.000Z',
+  })
+  updatedAt: string;
+
+  @ApiProperty({
+    description: 'Nome do gestor direto (estrutura legada)',
+    example: 'Bruno André Mendes Carvalho',
+    nullable: true,
+  })
+  managerName: string | null;
+
+  @ApiProperty({
+    description: 'Quantidade de subordinados diretos',
+    example: 3,
+  })
+  directReportsCount: number;
+}
+
+/**
+ * DTO para overview completo do usuário para administradores
+ */
+export class AdminUserOverviewDto {
+  @ApiProperty({
+    description: 'Informações completas do usuário',
+    type: UserInfoDto,
+  })
+  user: UserInfoDto;
+
+  @ApiProperty({
+    description: 'Projetos que o usuário participa com informações de gestão',
+    type: [ProjectWithManagementDto],
+  })
+  projects: ProjectWithManagementDto[];
+
+  @ApiProperty({
+    description: 'Informações do mentor do usuário (se tiver)',
+    type: MentorInfoDto,
+    nullable: true,
+  })
+  mentor: MentorInfoDto | null;
+
+  @ApiProperty({
+    description: 'Lista de pessoas que o usuário mentora',
+    type: [MenteeInfoDto],
+  })
+  mentees: MenteeInfoDto[];
+
+  @ApiProperty({
+    description: 'Indica se o usuário tem mentor',
+    example: true,
+  })
+  hasMentor: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é mentor de alguém',
+    example: false,
+  })
+  isMentor: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é gestor em pelo menos um projeto',
+    example: true,
+  })
+  isManager: boolean;
 } 

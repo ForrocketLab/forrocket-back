@@ -1,12 +1,15 @@
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { CycleAutomationService } from './cycle-automation.service';
 import { CyclesController } from './cycles.controller';
 import { CyclesService } from './cycles.service';
+import { RoleCheckerService } from '../../auth/role-checker.service';
 
 describe('CyclesController', () => {
   let controller: CyclesController;
   let cyclesService: jest.Mocked<CyclesService>;
+  let roleCheckerService: jest.Mocked<RoleCheckerService>;
 
   const mockUser = {
     id: 'user-1',
@@ -40,6 +43,20 @@ describe('CyclesController', () => {
       getCycleDeadlinesInfo: jest.fn(),
     };
 
+    const mockCycleAutomationService = {
+      forceAutomationCheck: jest.fn(),
+      checkAndUpdateCyclePhases: jest.fn(),
+    };
+
+    const mockRoleCheckerService = {
+      isAdmin: jest.fn(),
+      isHR: jest.fn(),
+      isManager: jest.fn(),
+      isCommittee: jest.fn(),
+      userHasRole: jest.fn(),
+      userHasAnyRole: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CyclesController],
       providers: [
@@ -47,11 +64,20 @@ describe('CyclesController', () => {
           provide: CyclesService,
           useValue: mockCyclesService,
         },
+        {
+          provide: CycleAutomationService,
+          useValue: mockCycleAutomationService,
+        },
+        {
+          provide: RoleCheckerService,
+          useValue: mockRoleCheckerService,
+        },
       ],
     }).compile();
 
     controller = module.get<CyclesController>(CyclesController);
     cyclesService = module.get(CyclesService);
+    roleCheckerService = module.get(RoleCheckerService);
   });
 
   afterEach(() => {
@@ -92,6 +118,7 @@ describe('CyclesController', () => {
     it('deve criar um novo ciclo com sucesso', async () => {
       const newCycle = { ...mockCycle, id: 'cycle-3', name: 'Q3 2024' };
       (cyclesService.createEvaluationCycle as jest.Mock).mockResolvedValue(newCycle);
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       const result = await controller.createCycle(mockUser as any, createCycleDto as any);
 
@@ -103,6 +130,7 @@ describe('CyclesController', () => {
       (cyclesService.createEvaluationCycle as jest.Mock).mockRejectedValue(
         new BadRequestException('Já existe um ciclo com este nome'),
       );
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       await expect(controller.createCycle(mockUser as any, createCycleDto as any)).rejects.toThrow(
         BadRequestException,
@@ -111,6 +139,7 @@ describe('CyclesController', () => {
 
     it('deve lançar ForbiddenException quando usuário não é admin', async () => {
       const nonAdminUser = { ...mockUser, roles: ['colaborador'] };
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(false);
 
       await expect(
         controller.createCycle(nonAdminUser as any, createCycleDto as any),
@@ -136,6 +165,7 @@ describe('CyclesController', () => {
     it('deve ativar um ciclo com sucesso', async () => {
       const activatedCycle = { ...mockCycle, status: 'OPEN' };
       (cyclesService.activateCycle as jest.Mock).mockResolvedValue(activatedCycle);
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       const result = await controller.activateCycle(mockUser as any, 'cycle-1', activateDto as any);
 
@@ -150,6 +180,7 @@ describe('CyclesController', () => {
       };
       const activatedCycle = { ...mockCycle, status: 'OPEN' };
       (cyclesService.activateCycle as jest.Mock).mockResolvedValue(activatedCycle);
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       const result = await controller.activateCycle(mockUser as any, 'cycle-1', minimalDto as any);
 
@@ -161,6 +192,7 @@ describe('CyclesController', () => {
       (cyclesService.activateCycle as jest.Mock).mockRejectedValue(
         new NotFoundException('Ciclo não encontrado'),
       );
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       await expect(
         controller.activateCycle(mockUser as any, 'cycle-1', activateDto as any),
@@ -169,6 +201,7 @@ describe('CyclesController', () => {
 
     it('deve lançar ForbiddenException quando usuário não é admin', async () => {
       const nonAdminUser = { ...mockUser, roles: ['colaborador'] };
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(false);
 
       await expect(
         controller.activateCycle(nonAdminUser as any, 'cycle-1', activateDto as any),
@@ -236,6 +269,7 @@ describe('CyclesController', () => {
     it('deve atualizar status do ciclo', async () => {
       const updatedCycle = { ...mockCycle, status: 'CLOSED' };
       (cyclesService.updateCycleStatus as jest.Mock).mockResolvedValue(updatedCycle);
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       const result = await controller.updateCycleStatus(
         mockUser as any,
@@ -249,6 +283,7 @@ describe('CyclesController', () => {
 
     it('deve lançar ForbiddenException quando usuário não é admin', async () => {
       const nonAdminUser = { ...mockUser, roles: ['colaborador'] };
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(false);
 
       await expect(
         controller.updateCycleStatus(nonAdminUser as any, 'cycle-1', updateStatusDto as any),
@@ -267,6 +302,7 @@ describe('CyclesController', () => {
     it('deve atualizar fase do ciclo', async () => {
       const updatedCycle = { ...mockCycle, phase: 'MANAGER_REVIEWS' };
       (cyclesService.updateCyclePhase as jest.Mock).mockResolvedValue(updatedCycle);
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       const result = await controller.updateCyclePhase(
         mockUser as any,
@@ -282,6 +318,7 @@ describe('CyclesController', () => {
       (cyclesService.updateCyclePhase as jest.Mock).mockRejectedValue(
         new BadRequestException('Transição de fase inválida'),
       );
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(true);
 
       await expect(
         controller.updateCyclePhase(mockUser as any, 'cycle-1', updatePhaseDto as any),
@@ -290,6 +327,7 @@ describe('CyclesController', () => {
 
     it('deve lançar ForbiddenException quando usuário não é admin', async () => {
       const nonAdminUser = { ...mockUser, roles: ['colaborador'] };
+      (roleCheckerService.isAdmin as jest.Mock).mockResolvedValue(false);
 
       await expect(
         controller.updateCyclePhase(nonAdminUser as any, 'cycle-1', updatePhaseDto as any),

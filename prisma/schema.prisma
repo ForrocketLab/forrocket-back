@@ -80,6 +80,12 @@ model User {
   // Avaliações de comitê recebidas pelo usuário (como avaliado)
   committeeAssessmentsReceived CommitteeAssessment[] @relation("CommitteeAssessmentEvaluated")
 
+  // Resumos GenAI recebidos pelo usuário (como colaborador avaliado)
+  genaiSummaries GenAISummary[] @relation("GenAISummaryCollaborator")
+
+  // Resumos de equipe gerados para o usuário (como gestor)
+  managerTeamSummaries ManagerTeamSummary[] @relation("GenAIManagerTeamSummary")
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
@@ -87,6 +93,8 @@ model User {
   roleAssignments    UserRoleAssignment[]
   projectAssignments UserProjectAssignment[]
   projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
+  okrs               OKR[]              // NOVA: OKRs do colaborador
+  pdis              PDI[]              // NOVA: PDIs do colaborador
 
   @@map("users")
 }
@@ -247,6 +255,120 @@ model CommitteeAssessment {
   @@map("committee_assessments")
 }
 
+model GenAISummary {
+  id               String   @id @default(cuid())
+  collaboratorId   String   // ID do colaborador avaliado
+  cycle            String   // Ciclo de avaliação (ex: "2025.1")
+  summary          String   // Resumo completo gerado pela GenAI
+  collaboratorName String   // Nome do colaborador (cache para facilitar consultas)
+  jobTitle         String   // Cargo do colaborador (cache)
+  averageScore     Float    // Média geral das avaliações
+  totalEvaluations Int      // Total de avaliações consideradas
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relacionamentos
+  collaborator User @relation("GenAISummaryCollaborator", fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@unique([collaboratorId, cycle]) // Um colaborador só pode ter um resumo por ciclo
+  @@map("genai_summaries")
+}
+
+model ManagerTeamSummary {
+  id        String   @id @default(cuid())
+  managerId String   // ID do gestor para quem o resumo foi gerado
+  cycle     String   // Ciclo de avaliação (ex: "2025.1")
+
+  // --- Resumos Gerados pela IA ---
+  // Resumo gerado por getTeamScoreAnalysis (análise quantitativa)
+  scoreAnalysisSummary    String
+  // Resumo gerado por getTeamEvaluationSummary (análise qualitativa de feedbacks)
+  feedbackAnalysisSummary String
+
+  // --- Estatísticas Gerais da Equipe (do getTeamEvaluationData) ---
+  totalCollaborators Int     // Número total de colaboradores na análise
+  teamAverageScore   Float   // Média geral da equipe
+  highPerformers     Int     // Contagem de colaboradores de alta performance
+  lowPerformers      Int     // Contagem de colaboradores de baixa performance
+
+  // --- Métricas de Pontuação por Pilar (do getTeamScoreAnalysisData) ---
+  behaviorAverage  Float?  // Média do pilar "Behavior" (pode não existir)
+  executionAverage Float?  // Média do pilar "Execution" (pode não existir)
+  criticalPerformers Int   // Contagem de colaboradores em zona crítica de performance
+
+  // --- Metadados ---
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento com o gestor
+  manager User @relation("GenAIManagerTeamSummary", fields: [managerId], references: [id], onDelete: Cascade)
+
+  @@unique([managerId, cycle])
+  @@map("manager_team_summaries")
+}
+
+// ==========================================
+// ESTRUTURA DE PDI (PLANO DE DESENVOLVIMENTO INDIVIDUAL)
+// ==========================================
+
+model PDI {
+  id              String    @id @default(cuid())
+  collaboratorId  String    // ID do colaborador dono do PDI
+  title           String    // Título do PDI
+  description     String    // Descrição geral do plano
+  startDate       DateTime  // Data de início do PDI
+  endDate         DateTime  // Data prevista de conclusão
+  status          PDIStatus @default(NOT_STARTED)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  // Relacionamentos
+  collaborator    User        @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  actions         PDIAction[]
+
+  @@map("pdis")
+}
+
+model PDIAction {
+  id          String          @id @default(cuid())
+  pdiId       String          // ID do PDI ao qual a ação pertence
+  title       String          // Título da ação
+  description String          // Descrição detalhada da ação
+  deadline    DateTime        // Prazo para conclusão
+  status      PDIActionStatus @default(TO_DO)
+  priority    PDIPriority    @default(MEDIUM)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  completedAt DateTime?
+
+  // Relacionamentos
+  pdi         PDI             @relation(fields: [pdiId], references: [id], onDelete: Cascade)
+
+  @@map("pdi_actions")
+}
+
+enum PDIStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum PDIActionStatus {
+  TO_DO
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum PDIPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 // ==========================================
 // NOVAS ESTRUTURAS DE CONTROLE
 // ==========================================
@@ -347,6 +469,64 @@ model UserProjectRole {
 }
 
 // ==========================================
+// SISTEMA DE OKRs (OBJECTIVES AND KEY RESULTS)
+// ==========================================
+
+model OKR {
+  id          String   @id @default(cuid())
+  userId      String   // ID do colaborador dono do OKR
+  title       String   // Título do OKR
+  description String?  // Descrição opcional do OKR
+  quarter     String   // Trimestre do OKR (ex: "2025-Q1")
+  year        Int      // Ano do OKR
+  status      OKRStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  objectives  Objective[]
+
+  @@map("okrs")
+}
+
+model Objective {
+  id          String   @id @default(cuid())
+  okrId       String   // ID do OKR pai
+  title       String   // Título do objetivo
+  description String?  // Descrição do objetivo
+  status      ObjectiveStatus @default(NOT_STARTED)
+  progress    Float    @default(0.0) // Progresso de 0 a 100%
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  okr         OKR         @relation(fields: [okrId], references: [id], onDelete: Cascade)
+  keyResults  KeyResult[]
+
+  @@map("objectives")
+}
+
+model KeyResult {
+  id           String   @id @default(cuid())
+  objectiveId  String   // ID do objetivo pai
+  title        String   // Título do key result
+  description  String?  // Descrição do key result
+  type         KeyResultType @default(PERCENTAGE) // Tipo de métrica
+  targetValue  Float    // Valor alvo
+  currentValue Float    @default(0.0) // Valor atual
+  unit         String?  // Unidade de medida (opcional)
+  status       KeyResultStatus @default(NOT_STARTED)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  objective    Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+
+  @@map("key_results")
+}
+
+// ==========================================
 // ENUMS
 // ==========================================
 
@@ -385,6 +565,32 @@ enum EvaluationPhase {
   EQUALIZATION     // Fase 3: Equalização (ainda não implementada)
 }
 
+enum OKRStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ObjectiveStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum KeyResultStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum KeyResultType {
+  PERCENTAGE
+  NUMBER
+  BINARY
+}
 
   // ==========================================
   // TABELAS DE IMPORTADOS

@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 import { EvaluableUserDto, EvaluableUsersResponseDto } from './dto';
 import { PrismaService } from '../database/prisma.service';
@@ -563,5 +565,414 @@ export class ProjectsService {
     });
 
     return result;
+  }
+
+  /**
+   * Busca overview completo do usuário incluindo projetos, gestão e mentoria
+   */
+  async getUserOverview(userId: string) {
+    // 1. Buscar informações básicas do usuário
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        mentorId: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // 2. Buscar projetos do usuário com suas roles
+    const userProjectAssignments = await this.prisma.userProjectAssignment.findMany({
+      where: { userId },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    // 3. Para cada projeto, buscar roles e subordinados gerenciados
+    const projectsWithManagement = await Promise.all(
+      userProjectAssignments
+        .filter((assignment) => assignment.project.isActive)
+        .map(async (assignment) => {
+          const project = assignment.project;
+          
+          // Buscar roles do usuário neste projeto
+          const userRoles = await this.getUserRolesInProject(userId, project.id);
+          
+          // Verificar se é gestor neste projeto
+          const isManagerInProject = userRoles.includes('MANAGER');
+          
+                     // Buscar subordinados gerenciados neste projeto (se for gestor)
+           let managedSubordinates: Array<{
+             id: string;
+             name: string;
+             email: string;
+             jobTitle: string;
+           }> = [];
+           if (isManagerInProject) {
+             const subordinates = await this.prisma.userProjectRole.findMany({
+               where: {
+                 projectId: project.id,
+                 userId: { not: userId },
+               },
+               include: {
+                 user: {
+                   select: {
+                     id: true,
+                     name: true,
+                     email: true,
+                     jobTitle: true,
+                   },
+                 },
+               },
+             });
+
+             managedSubordinates = subordinates.map(sub => ({
+               id: sub.user.id,
+               name: sub.user.name,
+               email: sub.user.email,
+               jobTitle: sub.user.jobTitle,
+             }));
+           }
+
+          return {
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            isActive: project.isActive,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            userRoles,
+            managedSubordinates,
+            isManagerInProject,
+          };
+        })
+    );
+
+         // 4. Buscar informações do mentor (se tiver)
+     let mentor: {
+       id: string;
+       name: string;
+       email: string;
+       jobTitle: string;
+     } | null = null;
+     if (user.mentorId) {
+       const mentorData = await this.prisma.user.findUnique({
+         where: { id: user.mentorId },
+         select: {
+           id: true,
+           name: true,
+           email: true,
+           jobTitle: true,
+         },
+       });
+
+       if (mentorData) {
+         mentor = {
+           id: mentorData.id,
+           name: mentorData.name,
+           email: mentorData.email,
+           jobTitle: mentorData.jobTitle,
+         };
+       }
+     }
+
+    // 5. Buscar pessoas que o usuário mentora
+    const mentees = await this.prisma.user.findMany({
+      where: {
+        mentorId: userId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobTitle: true,
+      },
+    });
+
+    const menteesFormatted = mentees.map(mentee => ({
+      id: mentee.id,
+      name: mentee.name,
+      email: mentee.email,
+      jobTitle: mentee.jobTitle,
+    }));
+
+    // 6. Verificar se é gestor em pelo menos um projeto
+    const isManager = await this.isManager(userId);
+
+    // 7. Montar resposta
+    return {
+      projects: projectsWithManagement.sort((a, b) => a.name.localeCompare(b.name)),
+      mentor,
+      mentees: menteesFormatted,
+      hasMentor: !!mentor,
+      isMentor: mentees.length > 0,
+      isManager,
+    };
+  }
+
+  /**
+   * Busca overview completo de qualquer usuário para administradores
+   * Inclui informações pessoais completas do usuário
+   */
+  async getAdminUserOverview(userId: string) {
+    // 1. Buscar informações completas do usuário
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobTitle: true,
+        seniority: true,
+        careerTrack: true,
+        businessUnit: true,
+        roles: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        mentorId: true,
+        managerId: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    // 2. Buscar projetos do usuário com suas roles
+    const userProjectAssignments = await this.prisma.userProjectAssignment.findMany({
+      where: { userId },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    // 3. Para cada projeto, buscar roles e subordinados gerenciados
+    const projectsWithManagement = await Promise.all(
+      userProjectAssignments
+        .filter((assignment) => assignment.project.isActive)
+        .map(async (assignment) => {
+          const project = assignment.project;
+          
+          // Buscar roles do usuário neste projeto
+          const userRoles = await this.getUserRolesInProject(userId, project.id);
+          
+          // Verificar se é gestor neste projeto
+          const isManagerInProject = userRoles.includes('MANAGER');
+          
+          // Buscar subordinados gerenciados neste projeto (se for gestor)
+          let managedSubordinates: Array<{
+            id: string;
+            name: string;
+            email: string;
+            jobTitle: string;
+          }> = [];
+          if (isManagerInProject) {
+            const subordinates = await this.prisma.userProjectRole.findMany({
+              where: {
+                projectId: project.id,
+                userId: { not: userId },
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    jobTitle: true,
+                  },
+                },
+              },
+            });
+
+            managedSubordinates = subordinates.map(sub => ({
+              id: sub.user.id,
+              name: sub.user.name,
+              email: sub.user.email,
+              jobTitle: sub.user.jobTitle,
+            }));
+          }
+
+          return {
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            isActive: project.isActive,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            userRoles,
+            managedSubordinates,
+            isManagerInProject,
+          };
+        })
+    );
+
+    // 4. Buscar informações do mentor (se tiver)
+    let mentor: {
+      id: string;
+      name: string;
+      email: string;
+      jobTitle: string;
+    } | null = null;
+    if (user.mentorId) {
+      const mentorData = await this.prisma.user.findUnique({
+        where: { id: user.mentorId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          jobTitle: true,
+        },
+      });
+
+      if (mentorData) {
+        mentor = {
+          id: mentorData.id,
+          name: mentorData.name,
+          email: mentorData.email,
+          jobTitle: mentorData.jobTitle,
+        };
+      }
+    }
+
+    // 5. Buscar pessoas que o usuário mentora
+    const mentees = await this.prisma.user.findMany({
+      where: {
+        mentorId: userId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobTitle: true,
+      },
+    });
+
+    const menteesFormatted = mentees.map(mentee => ({
+      id: mentee.id,
+      name: mentee.name,
+      email: mentee.email,
+      jobTitle: mentee.jobTitle,
+    }));
+
+    // 6. Verificar se é gestor em pelo menos um projeto
+    const isManager = await this.isManager(userId);
+
+    // 7. Buscar manager name e direct reports count para compatibilidade
+    let managerName: string | null = null;
+    let directReportsCount = 0;
+
+    try {
+      // Parse roles for compatibility
+      const rolesArray = user.roles ? JSON.parse(user.roles) : [];
+      
+      // Count direct reports
+      const directReports = await this.prisma.user.findMany({
+        where: {
+          managerId: userId,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      directReportsCount = directReports.length;
+
+      // Get manager name if managerId exists in old structure
+      if (user.managerId) {
+        const managerData = await this.prisma.user.findUnique({
+          where: { id: user.managerId },
+          select: { name: true },
+        });
+        managerName = managerData?.name || null;
+      }
+    } catch (error) {
+      console.warn('Erro ao processar dados legados:', error);
+    }
+
+    // 8. Montar resposta com dados completos do usuário
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roles: user.roles ? JSON.parse(user.roles) : [],
+        jobTitle: user.jobTitle,
+        seniority: user.seniority,
+        careerTrack: user.careerTrack,
+        businessUnit: user.businessUnit,
+        isActive: user.isActive,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+        managerName,
+        directReportsCount,
+      },
+      projects: projectsWithManagement.sort((a, b) => a.name.localeCompare(b.name)),
+      mentor,
+      mentees: menteesFormatted,
+      hasMentor: !!mentor,
+      isMentor: mentees.length > 0,
+      isManager,
+    };
+  }
+
+  /**
+   * @description Obtém as notas de um projeto específico a partir do arquivo evaluations.json.
+   * @param {string} projectId O ID do projeto.
+   * @returns {Promise<any>} As notas do projeto específico.
+   */
+  async getProjectScores(projectId: string): Promise<any> {
+    const dataPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
+    try {
+      const fileContent = await fs.readFile(dataPath, 'utf-8');
+      const data = JSON.parse(fileContent);
+
+      if (!data.projetos || !Array.isArray(data.projetos) || data.projetos.length === 0) {
+        throw new NotFoundException('Seção "projetos" não encontrada ou vazia no arquivo evaluations.json.');
+      }
+
+      // As notas estão dentro do primeiro elemento do array "projetos"
+      const allProjectScores = data.projetos[0];
+
+      if (!allProjectScores || typeof allProjectScores !== 'object') {
+        throw new InternalServerErrorException('Formato de dados de projetos inválido.');
+      }
+
+      const projectScores = allProjectScores[projectId];
+
+      if (projectScores === undefined) {
+        throw new NotFoundException(`Projeto com ID "${projectId}" não encontrado no arquivo de avaliações.`);
+      }
+
+      return projectScores;
+    } catch (error) {
+      if (error.code === 'ENOENT') throw new NotFoundException('Arquivo evaluations.json não encontrado.');
+      if (error instanceof NotFoundException || error instanceof InternalServerErrorException) throw error;
+      console.error('Erro ao ler ou processar o arquivo de avaliações:', error);
+      throw new InternalServerErrorException('Falha ao extrair as notas do projeto.');
+    }
   }
 }
