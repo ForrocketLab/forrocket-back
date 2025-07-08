@@ -9,6 +9,7 @@ import { GenAiService } from '../gen-ai/gen-ai.service';
 
 import {
   CreateSelfAssessmentDto,
+  UpdateSelfAssessmentDto,
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
@@ -231,6 +232,133 @@ export class EvaluationsService {
     });
 
     return selfAssessment;
+  }
+
+  /**
+   * Atualiza incrementalmente uma autoavaliação existente ou cria uma nova se não existir
+   */
+  async updateSelfAssessment(userId: string, dto: UpdateSelfAssessmentDto) {
+    console.log('📝 Recebida requisição de atualização:', { userId, dto });
+    
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    console.log('🔄 Ciclo ativo:', activeCycle);
+
+    // Buscar autoavaliação existente
+    let existingAssessment = await this.prisma.selfAssessment.findFirst({
+      where: {
+        authorId: userId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        answers: true,
+      },
+    });
+    console.log('🔍 Autoavaliação existente:', existingAssessment);
+
+    // Se não existir autoavaliação, criar uma nova em branco
+    if (!existingAssessment) {
+      console.log('⚠️ Autoavaliação não encontrada, criando nova...');
+      // Criar critérios vazios primeiro
+      const emptyCriteria = [
+        'sentimento-de-dono',
+        'resiliencia-adversidades', 
+        'organizacao-trabalho',
+        'capacidade-aprender',
+        'team-player',
+        'entregar-qualidade',
+        'atender-prazos',
+        'fazer-mais-menos',
+        'pensar-fora-caixa',
+        'gestao-gente',
+        'gestao-resultados',
+        'evolucao-rocket',
+      ].map(criterionId => ({
+        criterionId,
+        score: 1, // Score padrão para evitar null
+        justification: '', // Justificativa vazia
+      }));
+
+      existingAssessment = await this.prisma.selfAssessment.create({
+        data: {
+          authorId: userId,
+          cycle: activeCycle.name,
+          status: EvaluationStatus.DRAFT,
+          answers: {
+            create: emptyCriteria,
+          },
+        },
+        include: {
+          answers: true,
+        },
+      });
+    }
+
+    // Mapear campos do DTO para os critérios
+    const fieldToCriterionMap: Record<string, string> = {
+      sentimentoDeDonoScore: 'sentimento-de-dono',
+      sentimentoDeDonoJustification: 'sentimento-de-dono',
+      resilienciaAdversidadesScore: 'resiliencia-adversidades',
+      resilienciaAdversidadesJustification: 'resiliencia-adversidades',
+      organizacaoTrabalhoScore: 'organizacao-trabalho',
+      organizacaoTrabalhoJustification: 'organizacao-trabalho',
+      capacidadeAprenderScore: 'capacidade-aprender',
+      capacidadeAprenderJustification: 'capacidade-aprender',
+      teamPlayerScore: 'team-player',
+      teamPlayerJustification: 'team-player',
+      entregarQualidadeScore: 'entregar-qualidade',
+      entregarQualidadeJustification: 'entregar-qualidade',
+      atenderPrazosScore: 'atender-prazos',
+      atenderPrazosJustification: 'atender-prazos',
+      fazerMaisMenosScore: 'fazer-mais-menos',
+      fazerMaisMenosJustification: 'fazer-mais-menos',
+      pensarForaCaixaScore: 'pensar-fora-caixa',
+      pensarForaCaixaJustification: 'pensar-fora-caixa',
+      gestaoGenteScore: 'gestao-gente',
+      gestaoGenteJustification: 'gestao-gente',
+      gestaoResultadosScore: 'gestao-resultados',
+      gestaoResultadosJustification: 'gestao-resultados',
+      evolucaoRocketScore: 'evolucao-rocket',
+      evolucaoRocketJustification: 'evolucao-rocket',
+    };
+
+    // Atualizar apenas os campos fornecidos
+    const updates: any[] = [];
+    for (const [dtoField, value] of Object.entries(dto)) {
+      if (value !== undefined) {
+        const criterionId = fieldToCriterionMap[dtoField];
+        const isScore = dtoField.endsWith('Score');
+        const field = isScore ? 'score' : 'justification';
+
+        // Encontrar a resposta existente para este critério
+        const existingAnswer = existingAssessment.answers.find(a => a.criterionId === criterionId);
+        
+        if (existingAnswer) {
+          updates.push(
+            this.prisma.selfAssessmentAnswer.update({
+              where: { id: existingAnswer.id },
+              data: { [field]: value },
+            })
+          );
+        }
+      }
+    }
+
+    // Executar todas as atualizações em uma transação
+    if (updates.length > 0) {
+      await this.prisma.$transaction(updates);
+    }
+
+    // Retornar autoavaliação atualizada
+    return this.prisma.selfAssessment.findFirst({
+      where: {
+        authorId: userId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        answers: true,
+      },
+    });
   }
 
   /**

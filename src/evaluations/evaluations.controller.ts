@@ -20,6 +20,7 @@ import {
 
 import {
   CreateSelfAssessmentDto,
+  UpdateSelfAssessmentDto,
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
@@ -104,6 +105,31 @@ export class EvaluationsController {
     @Body() createSelfAssessmentDto: CreateSelfAssessmentDto,
   ) {
     return this.evaluationsService.createSelfAssessment(user.id, createSelfAssessmentDto);
+  }
+
+  @Patch('self-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar autoavaliação incrementalmente',
+    description: 'Permite atualizar campos específicos da autoavaliação de forma incremental. Se não existir autoavaliação, uma nova será criada.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Autoavaliação atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async updateSelfAssessment(
+    @CurrentUser() user: User,
+    @Body() updateSelfAssessmentDto: UpdateSelfAssessmentDto,
+  ) {
+    return this.evaluationsService.updateSelfAssessment(user.id, updateSelfAssessmentDto);
   }
 
   @Post('360-assessment')
