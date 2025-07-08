@@ -9,6 +9,7 @@ import { GenAiModule } from './gen-ai/gen-ai.module';
 import { OKRsModule } from './okrs/okrs.module';
 import { ProjectsModule } from './projects/projects.module';
 import { PDIsModule } from './pdis/pdis.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 /**
@@ -46,6 +47,9 @@ import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
     OKRsModule,
 
     PDIsModule,
+
+    // Módulo de monitoramento
+    MonitoringModule,
   ],
 })
 export class AppModule {}
