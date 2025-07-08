@@ -4,30 +4,12 @@ import {
   UseGuards,
   UploadedFiles,
   UseInterceptors,
-  HttpStatus,
-  Res,
-  Body,
-  Get,
-  Query,
-  Param,
-  Delete,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import {
-  ApiConsumes,
-  ApiBody,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiTags,
-  ApiQuery,
-  ApiParam,
-} from '@nestjs/swagger';
-import { Response } from 'express';
+import { ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { ImportService } from './import.service';
-import { CurrentUser } from '../auth/current-user.decorator';
-import { User } from '../auth/entities/user.entity';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -137,11 +119,54 @@ export class ImportController {
   //   }
   // }
 
-  //MEU IMPORT
+  // ENDPOINTS DE IMPORTAÇÃO
+
+  /**
+   * Importa um único arquivo Excel de dados históricos
+   */
   @Post('historical-data')
-  @UseInterceptors(FileInterceptor('file')) // 'file' é o nome do campo no form-data
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Arquivo XLS ou XLSX de histórico para importação',
+        },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Importa dados históricos de um único arquivo (Apenas RH)' })
   async uploadExcelFile(@UploadedFile() file: Express.Multer.File) {
-    // O arquivo 'file' contém o buffer de dados que precisamos
     return this.importService.processXslFile(file);
+  }
+
+  /**
+   * Importa múltiplos arquivos Excel de dados históricos
+   */
+  @Post('historical-data/bulk')
+  @UseInterceptors(FilesInterceptor('files', 20)) // Máximo de 20 arquivos
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+          description: 'Múltiplos arquivos XLS ou XLSX de histórico para importação (máximo 20)',
+        },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Importa dados históricos de múltiplos arquivos em lote (Apenas RH)' })
+  async uploadMultipleExcelFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
+    return this.importService.processMultipleXslFiles(files);
   }
 }
