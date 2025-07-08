@@ -10,12 +10,17 @@ import * as xlsx from 'xlsx';
 
 import { UserService } from '../auth/user.service';
 import { PrismaService } from '../database/prisma.service';
-// import { CriteriaMappingService } from '../evaluations/criteria-mapping/criteria-mapping.service';
 import { CriteriaService } from '../evaluations/criteria.service';
 import { CyclesService } from '../evaluations/cycles/cycles.service';
 import { EvaluationsService } from '../evaluations/evaluations.service';
 import { ProjectsService } from '../projects/projects.service';
-import { criteriaMap } from './interfaces/criteriaMap';
+import { criteriaMap } from './dto/criteriaMap';
+import {
+  CleanSelfAssessmentAnswer,
+  Feedback360Data,
+  ProfileData,
+  SelfAssessmentData,
+} from './dto/import-dtos.dto';
 
 @Injectable()
 export class ImportService {
@@ -747,11 +752,9 @@ export class ImportService {
     const feedback360Data: Feedback360Data[] = xlsx.utils.sheet_to_json(
       workbook.Sheets['Avaliação 360'],
     );
-    const referencesData: ReferenceData[] = xlsx.utils.sheet_to_json(
-      workbook.Sheets['Pesquisa de Referências'],
-    );
+    // ... faça o mesmo para as outras abas
 
-    // --- PARTE 2: EXECUTAR A LÓGICA DE BANCO DE DADOS ---
+    // --- PARTE 2: EXECUTAR A LÓGICA DE BANCO DE DADOS (que já discutimos) ---
 
     // Agora você tem os dados de cada aba em variáveis separadas e estruturadas.
     // Você pode passar esses arrays para a sua lógica transacional.
@@ -770,14 +773,24 @@ export class ImportService {
         const user = await this.processUser(tx, profileData, batch.id);
         const userCycle = profileData[0]['Ciclo (ano.semestre)'];
 
-        // Processe a autoavaliação
-        await this.processSelfAssessments(tx, selfAssessmentData, user.id, userCycle, batch.id);
+        //        // Processe a autoavaliação
+        const isUserManager = await this.processSelfAssessments(
+          tx,
+          selfAssessmentData,
+          user.id,
+          userCycle,
+          batch.id,
+        );
 
-        // Processe os feedbacks 360
-        await this.processFeedbacks360(tx, feedback360Data, user.id, userCycle, batch.id);
-
-        //
-        await this.processReferences(tx, referencesData, user.id, userCycle, batch.id);
+        //        // Processe os feedbacks 360
+        await this.processFeedbacks360(
+          tx,
+          feedback360Data,
+          user.id,
+          userCycle,
+          batch.id,
+          isUserManager,
+        );
       });
 
       // 3. Atualizar o status do lote para SUCESSO
@@ -861,6 +874,7 @@ export class ImportService {
    * @param authorId - ID do autor da avaliação (deve ser obtido no fluxo principal).
    * @param cycle - Ciclo da avaliação (deve ser obtido da planilha 'Perfil' ou contexto).
    * @param batchId - ID do lote de importação.
+   * @returns true se o usuário é gestor, false caso contrário
    */
   private async processSelfAssessments(
     tx: Prisma.TransactionClient,
@@ -868,8 +882,8 @@ export class ImportService {
     authorId: string,
     cycle: string,
     batchId: string,
-  ): Promise<void> {
-    if (data.length === 0) return;
+  ): Promise<boolean> {
+    if (data.length === 0) return false;
     this.logger.log(`Processando autoavaliação para ${authorId} no ciclo ${cycle}...`);
 
     // 1. Cria ou atualiza a entidade principal 'SelfAssessment'.
@@ -966,7 +980,16 @@ export class ImportService {
     }
 
     await Promise.all(createPromises);
+
+    // =================================================================
+    // PASSO CHAVE 4: VERIFICAR SE É GESTOR E ATUALIZAR ROLES
+    // =================================================================
+    const isManager = await this.checkAndUpdateManagerRole(tx, authorId, data);
+
     this.logger.log(`Autoavaliação para ${authorId} processada e salva com sucesso.`);
+
+    // Retorna se é gestor para uso em outras partes do código
+    return isManager;
   }
 
   /**
@@ -977,6 +1000,7 @@ export class ImportService {
    * @param authorId - ID do autor dos feedbacks (o dono da planilha).
    * @param cycle - Ciclo da avaliação.
    * @param batchId - ID do lote de importação para rastreabilidade.
+   * @param isUserManager - Se o usuário é gestor ou não (para definir role no projeto).
    */
   private async processFeedbacks360(
     tx: Prisma.TransactionClient,
@@ -984,6 +1008,7 @@ export class ImportService {
     authorId: string,
     cycle: string,
     batchId: string,
+    isUserManager: boolean,
   ): Promise<void> {
     if (!data || data.length === 0) {
       this.logger.log('Nenhum dado de Feedback 360 para processar.');
@@ -1021,6 +1046,21 @@ export class ImportService {
       const strengthsText = row['PONTOS QUE FAZ BEM E DEVE EXPLORAR'];
       const improvementsText = row['PONTOS QUE DEVE MELHORAR'];
 
+      // =================================================================
+      // CRIAR PROJETO E ASSOCIAR USUÁRIOS
+      // =================================================================
+      const projectName = row['PROJETO EM QUE ATUARAM JUNTOS - OBRIGATÓRIO TEREM ATUADOS JUNTOS'];
+      if (projectName && projectName.trim()) {
+        await this.createProjectAndAssignUsers(
+          tx,
+          projectName.trim(),
+          authorId,
+          evaluatedUser.id,
+          batchId,
+          isUserManager,
+        );
+      }
+
       // A lógica de 'upsert' do feedback continua a mesma, mas agora é garantido
       // que `evaluatedUser.id` existe.
       await tx.assessment360.upsert({
@@ -1052,6 +1092,129 @@ export class ImportService {
     }
 
     this.logger.log('Processamento de feedbacks 360 concluído.');
+  }
+
+  /**
+   * Cria um projeto se não existir e associa os usuários a ele.
+   * Evita duplicatas tanto na criação do projeto quanto na associação de usuários.
+   *
+   * REGRA IMPORTANTE: Apenas o dono da planilha (author) tem role inferida baseada na autoavaliação.
+   * Todas as pessoas avaliadas são sempre COLLABORATOR por padrão.
+   * Quando essas pessoas importarem suas próprias planilhas, suas roles serão determinadas
+   * pela análise da autoavaliação delas naquele momento.
+   *
+   * @param tx - O cliente Prisma transacional.
+   * @param projectName - Nome do projeto.
+   * @param authorId - ID do usuário autor (dono da planilha/avaliador).
+   * @param evaluatedUserId - ID do usuário avaliado.
+   * @param batchId - ID do lote de importação.
+   * @param isAuthorManager - Se o autor é gestor (baseado na autoavaliação dele).
+   */
+  private async createProjectAndAssignUsers(
+    tx: Prisma.TransactionClient,
+    projectName: string,
+    authorId: string,
+    evaluatedUserId: string,
+    batchId: string,
+    isAuthorManager: boolean,
+  ): Promise<void> {
+    this.logger.log(`Criando/verificando projeto: "${projectName}"`);
+
+    // 1. Criar ou encontrar o projeto
+    const project = await tx.project.upsert({
+      where: { name: projectName },
+      create: {
+        name: projectName,
+        description: `Projeto criado automaticamente durante importação de feedback 360`,
+        isActive: true,
+      },
+      update: {
+        // Se o projeto já existe, mantém os dados atuais
+      },
+    });
+
+    // 2. Definir a role do autor no projeto BASEADA APENAS na autoavaliação dele
+    const authorProjectRole = isAuthorManager ? 'MANAGER' : 'COLLABORATOR';
+
+    // 3. Associar o autor (dono da planilha) ao projeto
+    await tx.userProjectAssignment.upsert({
+      where: {
+        userId_projectId: {
+          userId: authorId,
+          projectId: project.id,
+        },
+      },
+      create: {
+        userId: authorId,
+        projectId: project.id,
+      },
+      update: {
+        // Se a associação já existe, mantém os dados atuais
+      },
+    });
+
+    // 4. Criar a role específica do autor no projeto (baseada na autoavaliação)
+    await tx.userProjectRole.upsert({
+      where: {
+        userId_projectId_role: {
+          userId: authorId,
+          projectId: project.id,
+          role: authorProjectRole,
+        },
+      },
+      create: {
+        userId: authorId,
+        projectId: project.id,
+        role: authorProjectRole,
+      },
+      update: {
+        // Se a role já existe, mantém os dados atuais
+      },
+    });
+
+    // 5. Associar o usuário avaliado ao projeto
+    await tx.userProjectAssignment.upsert({
+      where: {
+        userId_projectId: {
+          userId: evaluatedUserId,
+          projectId: project.id,
+        },
+      },
+      create: {
+        userId: evaluatedUserId,
+        projectId: project.id,
+      },
+      update: {
+        // Se a associação já existe, mantém os dados atuais
+      },
+    });
+
+    // 6. Criar a role do usuário avaliado no projeto (sempre COLLABORATOR - NÃO inferimos)
+    // IMPORTANTE: Quando este usuário importar sua própria planilha, sua role será determinada
+    // pela análise da autoavaliação dele naquele momento, não agora.
+    await tx.userProjectRole.upsert({
+      where: {
+        userId_projectId_role: {
+          userId: evaluatedUserId,
+          projectId: project.id,
+          role: 'COLLABORATOR',
+        },
+      },
+      create: {
+        userId: evaluatedUserId,
+        projectId: project.id,
+        role: 'COLLABORATOR',
+      },
+      update: {
+        // Se a role já existe, mantém COLLABORATOR (não sobrescreve)
+      },
+    });
+
+    this.logger.log(
+      `Usuários associados ao projeto "${projectName}": ` +
+        `${authorId} (${authorProjectRole} - baseado na autoavaliação) e ` +
+        `${evaluatedUserId} (COLLABORATOR - role padrão, não inferida)`,
+    );
   }
 
   /**
@@ -1099,127 +1262,150 @@ export class ImportService {
   }
 
   /**
-   * Processa os dados da planilha 'Pesquisa de Referências'.
-   * Para cada linha, encontra ou cria o usuário que deu a referência (autor)
-   * e cria o registro de feedback para o usuário principal (referenciado).
-   * @param tx - O cliente Prisma transacional.
-   * @param data - Array de referências da planilha.
-   * @param referencedUserId - ID do usuário principal que está sendo referenciado.
-   * @param cycle - Ciclo da avaliação.
-   * @param batchId - ID do lote de importação.
+   * Verifica se o usuário DONO DA PLANILHA é gestor baseado nos critérios de autoavaliação
+   * e atualiza suas roles no sistema.
+   *
+   * IMPORTANTE: Esta função é chamada APENAS para o usuário que está importando sua própria planilha.
+   * NÃO é usada para inferir roles de pessoas avaliadas no feedback 360.
+   *
+   * Critérios de gestão analisados:
+   * - Gestão de Pessoas*
+   * - Gestão de Projetos*
+   * - Gestão Organizacional*
+   * - Novos Clientes**
+   * - Novos Projetos**
+   * - Novos Produtos ou Serviços**
+   *
+   * @param tx - Cliente Prisma transacional
+   * @param authorId - ID do usuário dono da planilha (quem está sendo analisado)
+   * @param selfAssessmentData - Dados da autoavaliação do usuário
+   * @returns true se o usuário é gestor, false caso contrário
    */
-  private async processReferences(
+  private async checkAndUpdateManagerRole(
     tx: Prisma.TransactionClient,
-    data: ReferenceData[],
-    referencedUserId: string, // Este é o usuário principal da importação
-    cycle: string,
-    batchId: string,
-  ): Promise<void> {
-    if (!data || data.length === 0) {
-      this.logger.log('Nenhum dado de Pesquisa de Referências para processar.');
-      return;
+    authorId: string,
+    selfAssessmentData: SelfAssessmentData[],
+  ): Promise<boolean> {
+    // Critérios originais da planilha que identificam um gestor
+    const managementCriteriaFromSheet = [
+      'Gestão de Pessoas*',
+      'Gestão de Projetos*',
+      'Gestão Organizacional*',
+      'Novos Clientes**',
+      'Novos Projetos**',
+      'Novos Produtos ou Serviços**',
+    ];
+
+    // Filtra apenas os critérios de gestão da planilha e verifica se têm notas válidas
+    const managementCriteriaWithScores = selfAssessmentData
+      .filter((row) => managementCriteriaFromSheet.includes(row['CRITÉRIO']))
+      .map((row) => ({
+        criterion: row['CRITÉRIO'],
+        score: row['AUTO-AVALIAÇÃO'],
+        hasValidScore:
+          String(row['AUTO-AVALIAÇÃO']).toUpperCase() !== 'N/A' &&
+          String(row['AUTO-AVALIAÇÃO']).toUpperCase() !== 'NA' &&
+          !isNaN(Number(row['AUTO-AVALIAÇÃO'])),
+      }));
+
+    // Verifica quantos critérios de gestão têm notas válidas
+    const criteriaWithValidScores = managementCriteriaWithScores.filter(
+      (item) => item.hasValidScore,
+    );
+    const criteriaWithNAScores = managementCriteriaWithScores.filter((item) => !item.hasValidScore);
+
+    let isManager = false;
+
+    // Busca o usuário atual para atualizar roles
+    const currentUser = await tx.user.findUnique({
+      where: { id: authorId },
+      select: { roles: true },
+    });
+
+    if (!currentUser) {
+      this.logger.error(`Usuário ${authorId} não encontrado ao tentar atualizar roles.`);
+      return false;
     }
-    this.logger.log(`Processando ${data.length} registros de referência...`);
 
-    for (const row of data) {
-      // Extrai o prefixo do email da coluna com quebra de linha
-      const authorEmailPrefix = row['EMAIL DA REFERÊNCIA\n( nome.sobrenome )']?.toLowerCase();
+    let currentRoles: string[] = [];
+    try {
+      currentRoles = JSON.parse(currentUser.roles || '[]') as string[];
+    } catch {
+      this.logger.warn(`Erro ao parsear roles do usuário ${authorId}. Usando array vazio.`);
+      currentRoles = [];
+    }
 
-      if (!authorEmailPrefix) {
-        this.logger.warn('Linha de referência sem email do autor. Pulando.');
-        continue;
+    // Garante que sempre tem pelo menos a role de COLLABORATOR
+    if (!currentRoles.includes('colaborador')) {
+      currentRoles.push('colaborador');
+    }
+
+    // Se existem critérios de gestão na planilha
+    if (managementCriteriaWithScores.length > 0) {
+      // Se tem alguns com nota válida mas outros com N/A, erro
+      if (criteriaWithValidScores.length > 0 && criteriaWithNAScores.length > 0) {
+        const criteriaWithNA = criteriaWithNAScores.map((item) => item.criterion);
+        throw new BadRequestException(
+          `Não completou toda a autoavaliação do pilar de gestão. Critérios com N/A: ${criteriaWithNA.join(', ')}.`,
+        );
       }
 
-      // Constrói o email completo.
-      // Assumindo que o domínio padrão é @example.com, como em outras funções.
-      const authorEmail = `${authorEmailPrefix}@example.com`;
+      // Se todos os critérios de gestão têm notas válidas, é gestor
+      if (
+        criteriaWithValidScores.length === managementCriteriaWithScores.length &&
+        criteriaWithValidScores.length > 0
+      ) {
+        isManager = true;
+        this.logger.log(`Usuário ${authorId} identificado como gestor. Atualizando roles...`);
 
-      // 1. Encontra ou cria o usuário AUTOR da referência.
-      const author = await this.findOrCreateUser(
-        tx,
-        { email: authorEmail }, // Passamos apenas o email. O nome será gerado se o usuário for novo.
-        batchId,
+        // Adiciona MANAGER se não existir
+        if (!currentRoles.includes('gestor')) {
+          currentRoles.push('gestor');
+        }
+
+        this.logger.log(`Usuário ${authorId} será atualizado para MANAGER + COLLABORATOR.`);
+      } else {
+        // Se todos os critérios de gestão são N/A, mantém apenas como COLLABORATOR
+        this.logger.log(
+          `Usuário ${authorId} não tem critérios de gestão válidos. Mantém apenas como COLLABORATOR.`,
+        );
+      }
+    } else {
+      // Se não tem critérios de gestão na planilha, mantém apenas como COLLABORATOR
+      this.logger.log(
+        `Usuário ${authorId} não possui critérios de gestão na autoavaliação. Mantém apenas como COLLABORATOR.`,
       );
-
-      const justification = row['JUSTIFICATIVA'];
-      if (!justification) {
-        this.logger.warn(`Justificativa vazia para a referência de "${authorEmail}". Pulando.`);
-        continue;
-      }
-
-      // 2. Usa 'upsert' para criar ou atualizar o feedback de referência.
-      // A chave única previne que a mesma pessoa dê a mesma referência no mesmo ciclo mais de uma vez.
-      await tx.referenceFeedback.upsert({
-        where: {
-          authorId_referencedUserId_cycle: {
-            authorId: author.id,
-            referencedUserId: referencedUserId,
-            cycle: cycle,
-          },
-        },
-        create: {
-          authorId: author.id,
-          referencedUserId: referencedUserId,
-          cycle,
-          justification,
-          status: 'SUBMITTED',
-          isImported: true,
-          importBatchId: batchId,
-          submittedAt: new Date(),
-        },
-        update: {
-          // Se já existir, atualiza a justificativa com a da planilha mais recente.
-          justification,
-          importBatchId: batchId,
-          updatedAt: new Date(),
-        },
-      });
     }
 
-    this.logger.log('Processamento de referências concluído.');
+    // Atualiza as roles no campo JSON do usuário
+    await tx.user.update({
+      where: { id: authorId },
+      data: {
+        roles: JSON.stringify(currentRoles),
+      },
+    });
+
+    // SEMPRE cria/atualiza o UserRoleAssignment para COLLABORATOR
+    await tx.userRoleAssignment.upsert({
+      where: { userId_role: { userId: authorId, role: 'COLLABORATOR' } },
+      create: { userId: authorId, role: 'COLLABORATOR' },
+      update: {},
+    });
+
+    // Se é gestor, também cria/atualiza o UserRoleAssignment para MANAGER
+    if (isManager) {
+      await tx.userRoleAssignment.upsert({
+        where: { userId_role: { userId: authorId, role: 'MANAGER' } },
+        create: { userId: authorId, role: 'MANAGER' },
+        update: {},
+      });
+      this.logger.log(
+        `UserRoleAssignment criado/atualizado: ${authorId} como MANAGER e COLLABORATOR.`,
+      );
+    } else {
+      this.logger.log(`UserRoleAssignment criado/atualizado: ${authorId} como COLLABORATOR.`);
+    }
+
+    return isManager;
   }
-}
-
-// Supondo que você tenha os tipos para os dados de cada aba
-interface ProfileData {
-  'Nome ( nome.sobrenome )': string;
-  Email: string;
-  'Ciclo (ano.semestre)': string;
-  Unidade: string;
-}
-
-interface SelfAssessmentData {
-  CRITÉRIO: string;
-  'DESCRIÇÃO GERAL': string;
-  'AUTO-AVALIAÇÃO': number;
-  'DESCRIÇÃO NOTA': string;
-  'DADOS E FATOS DA AUTO-AVALIAÇÃO\nCITE, DE FORMA OBJETIVA, CASOS E SITUAÇÕES REAIS': string;
-}
-
-interface Feedback360Data {
-  'EMAIL DO AVALIADO ( nome.sobrenome )': string;
-  'PROJETO EM QUE ATUARAM JUNTOS - OBRIGATÓRIO TEREM ATUADOS JUNTOS': string;
-  PERÍODO: number;
-  'VOCÊ FICARIA MOTIVADO EM TRABALHAR NOVAMENTE COM ESTE COLABORADOR': string;
-  'DÊ UMA NOTA GERAL PARA O COLABORADOR': number;
-  'PONTOS QUE DEVE MELHORAR': string;
-  'PONTOS QUE FAZ BEM E DEVE EXPLORAR': string;
-}
-
-interface ReferenceData {
-  'EMAIL DA REFERÊNCIA\n( nome.sobrenome )': string;
-  JUSTIFICATIVA: string;
-}
-
-interface CleanSelfAssessmentAnswer {
-  criterion: string;
-  description?: string;
-  score?: number;
-  scoreDescription?: string;
-  justification?: string;
-}
-
-interface CleanReferenceData {
-  emailReference: string;
-  justification: string;
 }
