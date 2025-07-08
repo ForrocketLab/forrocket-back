@@ -9,6 +9,7 @@ import {
   ValidatorConstraintInterface,
   Validate,
   ValidationArguments,
+  IsBoolean,
 } from 'class-validator';
 
 // Validador customizado para garantir que uma data é posterior a outra
