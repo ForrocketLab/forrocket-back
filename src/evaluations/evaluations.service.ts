@@ -9,11 +9,15 @@ import { GenAiService } from '../gen-ai/gen-ai.service';
 
 import {
   CreateSelfAssessmentDto,
+  UpdateSelfAssessmentDto,
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
   CreateManagerAssessmentDto,
   SelfAssessmentCompletionByPillarDto,
+  Update360AssessmentDto,
+  PillarProgressDto,
+  UpdateMentoringAssessmentDto,
 } from './assessments/dto';
 import { PrismaService } from '../database/prisma.service';
 import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars } from '../models/criteria';
@@ -231,6 +235,153 @@ export class EvaluationsService {
     });
 
     return selfAssessment;
+  }
+
+  /**
+   * Atualiza incrementalmente uma autoavaliação existente ou cria uma nova se não existir
+   */
+  async updateSelfAssessment(userId: string, dto: UpdateSelfAssessmentDto) {
+    console.log('📝 Recebida requisição de atualização:', { userId, dto });
+    
+    // Validar se existe um ciclo ativo na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    console.log('🔄 Ciclo ativo:', activeCycle);
+
+    // Buscar autoavaliação existente
+    let existingAssessment = await this.prisma.selfAssessment.findFirst({
+      where: {
+        authorId: userId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        answers: true,
+      },
+    });
+    console.log('🔍 Autoavaliação existente:', existingAssessment);
+
+    // Se não existir autoavaliação, criar uma nova em branco
+    if (!existingAssessment) {
+      console.log('⚠️ Autoavaliação não encontrada, criando nova...');
+      // Criar critérios vazios primeiro
+      const emptyCriteria = [
+        'sentimento-de-dono',
+        'resiliencia-adversidades', 
+        'organizacao-trabalho',
+        'capacidade-aprender',
+        'team-player',
+        'entregar-qualidade',
+        'atender-prazos',
+        'fazer-mais-menos',
+        'pensar-fora-caixa',
+        'gestao-gente',
+        'gestao-resultados',
+        'evolucao-rocket',
+      ].map(criterionId => ({
+        criterionId,
+        score: 1, // Score padrão para evitar null
+        justification: '', // Justificativa vazia
+      }));
+
+      existingAssessment = await this.prisma.selfAssessment.create({
+        data: {
+          authorId: userId,
+          cycle: activeCycle.name,
+          status: EvaluationStatus.DRAFT,
+          answers: {
+            create: emptyCriteria,
+          },
+        },
+        include: {
+          answers: true,
+        },
+      });
+    }
+
+    // Mapear campos do DTO para os critérios
+    const fieldToCriterionMap: Record<string, string> = {
+      sentimentoDeDonoScore: 'sentimento-de-dono',
+      sentimentoDeDonoJustification: 'sentimento-de-dono',
+      resilienciaAdversidadesScore: 'resiliencia-adversidades',
+      resilienciaAdversidadesJustification: 'resiliencia-adversidades',
+      organizacaoTrabalhoScore: 'organizacao-trabalho',
+      organizacaoTrabalhoJustification: 'organizacao-trabalho',
+      capacidadeAprenderScore: 'capacidade-aprender',
+      capacidadeAprenderJustification: 'capacidade-aprender',
+      teamPlayerScore: 'team-player',
+      teamPlayerJustification: 'team-player',
+      entregarQualidadeScore: 'entregar-qualidade',
+      entregarQualidadeJustification: 'entregar-qualidade',
+      atenderPrazosScore: 'atender-prazos',
+      atenderPrazosJustification: 'atender-prazos',
+      fazerMaisMenosScore: 'fazer-mais-menos',
+      fazerMaisMenosJustification: 'fazer-mais-menos',
+      pensarForaCaixaScore: 'pensar-fora-caixa',
+      pensarForaCaixaJustification: 'pensar-fora-caixa',
+      gestaoGenteScore: 'gestao-gente',
+      gestaoGenteJustification: 'gestao-gente',
+      gestaoResultadosScore: 'gestao-resultados',
+      gestaoResultadosJustification: 'gestao-resultados',
+      evolucaoRocketScore: 'evolucao-rocket',
+      evolucaoRocketJustification: 'evolucao-rocket',
+    };
+
+    // Atualizar apenas os campos fornecidos
+    const updates: any[] = [];
+    for (const [dtoField, value] of Object.entries(dto)) {
+      if (value !== undefined) {
+        const criterionId = fieldToCriterionMap[dtoField];
+        if (!criterionId) {
+          console.warn(`⚠️ Campo não mapeado: ${dtoField}`);
+          continue;
+        }
+
+        const isScore = dtoField.endsWith('Score');
+        const field = isScore ? 'score' : 'justification';
+
+        // Encontrar a resposta existente para este critério
+        const existingAnswer = existingAssessment.answers.find(a => a.criterionId === criterionId);
+        
+        if (existingAnswer) {
+          console.log(`🔄 Atualizando critério ${criterionId}, campo ${field} com valor:`, value);
+          updates.push(
+            this.prisma.selfAssessmentAnswer.update({
+              where: { id: existingAnswer.id },
+              data: { [field]: value },
+            })
+          );
+        } else {
+          console.log(`➕ Criando novo critério ${criterionId}, campo ${field} com valor:`, value);
+          updates.push(
+            this.prisma.selfAssessmentAnswer.create({
+              data: {
+                criterionId,
+                score: isScore ? value as number : 1,
+                justification: isScore ? '' : value as string,
+                selfAssessmentId: existingAssessment.id,
+              },
+            })
+          );
+        }
+      }
+    }
+
+    // Executar todas as atualizações em uma transação
+    if (updates.length > 0) {
+      console.log(`🔄 Executando ${updates.length} atualizações...`);
+      await this.prisma.$transaction(updates);
+      console.log('✅ Atualizações concluídas com sucesso');
+    }
+
+    // Retornar autoavaliação atualizada
+    return this.prisma.selfAssessment.findFirst({
+      where: {
+        authorId: userId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        answers: true,
+      },
+    });
   }
 
   /**
@@ -729,7 +880,7 @@ export class EvaluationsService {
 
     // Calcular o progresso geral da autoavaliação (soma dos pilares)
     const totalCompleted = Object.values(selfAssessmentCompletionByPillar).reduce(
-      (acc, p) => acc + p.completed,
+      (acc, p: PillarProgressDto) => acc + p.completed,
       0,
     );
     const totalOverall = ALL_CRITERIA.length;
@@ -987,7 +1138,10 @@ export class EvaluationsService {
 
     // Adicionar o progresso de preenchimento (já que já temos a função)
     const completionStatus = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
-    const totalCompleted = Object.values(completionStatus).reduce((acc, p) => acc + p.completed, 0);
+    const totalCompleted = Object.values(completionStatus).reduce(
+      (acc, p: PillarProgressDto) => acc + p.completed,
+      0,
+    );
     const totalOverall = ALL_CRITERIA.length;
 
     return {
@@ -1967,6 +2121,194 @@ export class EvaluationsService {
             )
           : null,
       totalCollaborators: collaboratorMap.size,
+    };
+  }
+
+  /**
+   * Busca uma avaliação 360 específica para o ciclo ativo
+   * @param authorId ID do autor da avaliação
+   * @param evaluatedUserId ID do usuário avaliado
+   * @returns Avaliação 360 encontrada ou null se não existir
+   */
+  async get360Assessment(authorId: string, evaluatedUserId: string) {
+    const assessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId,
+      },
+      include: {
+        evaluatedUser: true,
+      },
+    });
+
+    if (!assessment) {
+      return null;
+    }
+
+    return {
+      evaluatedUserId: assessment.evaluatedUserId,
+      evaluatedUserName: assessment.evaluatedUser.name,
+      evaluatedUserEmail: assessment.evaluatedUser.email,
+      evaluatedUserJobTitle: assessment.evaluatedUser.jobTitle,
+      evaluatedUserSeniority: assessment.evaluatedUser.seniority,
+      evaluatedUserRoles: JSON.parse(assessment.evaluatedUser.roles),
+      overallScore: assessment.overallScore,
+      strengths: assessment.strengths,
+      improvements: assessment.improvements,
+      status: assessment.status,
+    };
+  }
+
+  async update360Assessment(authorId: string, updateDto: Update360AssessmentDto) {
+    const { evaluatedUserId, cycleId, ...updateData } = updateDto;
+
+    // Verifica se a avaliação existe
+    const existingAssessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId,
+        cycle: cycleId,
+      },
+    });
+
+    if (!existingAssessment) {
+      throw new NotFoundException('Avaliação 360 não encontrada');
+    }
+
+    // Atualiza a avaliação
+    const updatedAssessment = await this.prisma.assessment360.update({
+      where: {
+        id: existingAssessment.id,
+      },
+      data: updateData,
+    });
+
+    return updatedAssessment;
+  }
+
+  async updateMentoringAssessment(authorId: string, updateDto: UpdateMentoringAssessmentDto) {
+    const { mentorId, cycleId, ...updateData } = updateDto;
+
+    // Buscar avaliação existente
+    let existingAssessment = await this.prisma.mentoringAssessment.findFirst({
+      where: {
+        authorId,
+        mentorId,
+        cycle: cycleId,
+      },
+      include: {
+        mentor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    // Se não existir, criar uma nova avaliação em branco
+    if (!existingAssessment) {
+      existingAssessment = await this.prisma.mentoringAssessment.create({
+        data: {
+          authorId,
+          mentorId,
+          cycle: cycleId,
+          status: EvaluationStatus.DRAFT,
+          score: 1,
+          justification: '',
+        },
+        include: {
+          mentor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              jobTitle: true,
+              seniority: true,
+              roles: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Atualizar a avaliação com os novos dados
+    const updatedAssessment = await this.prisma.mentoringAssessment.update({
+      where: {
+        id: existingAssessment.id,
+      },
+      data: updateData,
+      include: {
+        mentor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    // Formatar os dados para retorno
+    return {
+      mentorId: updatedAssessment.mentorId,
+      mentorName: updatedAssessment.mentor.name,
+      mentorEmail: updatedAssessment.mentor.email,
+      mentorJobTitle: updatedAssessment.mentor.jobTitle,
+      mentorSeniority: updatedAssessment.mentor.seniority,
+      mentorRoles: JSON.parse(updatedAssessment.mentor.roles),
+      score: updatedAssessment.score,
+      justification: updatedAssessment.justification,
+      status: updatedAssessment.status,
+      cycle: updatedAssessment.cycle,
+    };
+  }
+
+  async getMentoringAssessment(authorId: string, mentorId: string) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar avaliação existente
+    const assessment = await this.prisma.mentoringAssessment.findFirst({
+      where: {
+        authorId,
+        mentorId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        mentor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    if (!assessment) {
+      return null;
+    }
+
+    return {
+      id: assessment.id,
+      score: assessment.score,
+      justification: assessment.justification,
+      status: assessment.status,
+      cycle: assessment.cycle,
+      mentor: assessment.mentor,
+      createdAt: assessment.createdAt,
+      updatedAt: assessment.updatedAt,
     };
   }
 }

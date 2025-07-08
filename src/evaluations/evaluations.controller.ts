@@ -8,6 +8,7 @@ import {
   HttpStatus,
   HttpCode,
   Patch,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,6 +21,7 @@ import {
 
 import {
   CreateSelfAssessmentDto,
+  UpdateSelfAssessmentDto,
   Create360AssessmentDto,
   CreateMentoringAssessmentDto,
   CreateReferenceFeedbackDto,
@@ -27,6 +29,9 @@ import {
   SelfAssessmentCompletionByPillarDto,
   OverallCompletionDto,
   PillarProgressDto,
+  Update360AssessmentDto,
+  UpdateMentoringAssessmentDto,
+  CreateManagerAssessmentDto,
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -106,6 +111,31 @@ export class EvaluationsController {
     return this.evaluationsService.createSelfAssessment(user.id, createSelfAssessmentDto);
   }
 
+  @Patch('self-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar autoavaliação incrementalmente',
+    description: 'Permite atualizar campos específicos da autoavaliação de forma incremental. Se não existir autoavaliação, uma nova será criada.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Autoavaliação atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async updateSelfAssessment(
+    @CurrentUser() user: User,
+    @Body() updateSelfAssessmentDto: UpdateSelfAssessmentDto,
+  ) {
+    return this.evaluationsService.updateSelfAssessment(user.id, updateSelfAssessmentDto);
+  }
+
   @Post('360-assessment')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -140,6 +170,61 @@ export class EvaluationsController {
     return this.evaluationsService.create360Assessment(user.id, create360AssessmentDto);
   }
 
+  @Get('360-assessment/:evaluatedUserId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar avaliação 360 graus',
+    description: 'Retorna a avaliação 360 de um colaborador específico para o ciclo ativo',
+  })
+  @ApiParam({
+    name: 'evaluatedUserId',
+    description: 'ID do usuário avaliado',
+    example: 'user-123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação 360 encontrada',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Avaliação não encontrada',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async get360Assessment(
+    @CurrentUser() user: User,
+    @Param('evaluatedUserId') evaluatedUserId: string,
+  ) {
+    return this.evaluationsService.get360Assessment(user.id, evaluatedUserId);
+  }
+
+  @Patch('360-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar avaliação 360 graus',
+    description: 'Permite atualizar campos específicos da avaliação 360 de forma incremental',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação 360 atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async update360Assessment(
+    @CurrentUser() user: User,
+    @Body() update360AssessmentDto: Update360AssessmentDto,
+  ) {
+    return this.evaluationsService.update360Assessment(user.id, update360AssessmentDto);
+  }
+
   @Post('mentoring-assessment')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -172,6 +257,31 @@ export class EvaluationsController {
     @Body() createMentoringAssessmentDto: CreateMentoringAssessmentDto,
   ) {
     return this.evaluationsService.createMentoringAssessment(user.id, createMentoringAssessmentDto);
+  }
+
+  @Patch('mentoring-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar avaliação de mentoring',
+    description: 'Permite atualizar campos específicos da avaliação de mentoring de forma incremental',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação de mentoring atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async updateMentoringAssessment(
+    @CurrentUser() user: User,
+    @Body() updateMentoringAssessmentDto: UpdateMentoringAssessmentDto,
+  ) {
+    return this.evaluationsService.updateMentoringAssessment(user.id, updateMentoringAssessmentDto);
   }
 
   @Post('reference-feedback')
@@ -303,6 +413,31 @@ export class EvaluationsController {
   })
   async getUserEvaluationsByCycle(@CurrentUser() user: User, @Param('cycleId') cycleId: string) {
     return this.evaluationsService.getUserEvaluationsByCycle(user.id, cycleId);
+  }
+
+  @Get('mentoring-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar avaliação de mentoring',
+    description: 'Retorna a avaliação de mentoring existente para o mentor especificado no ciclo ativo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação encontrada com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Avaliação não encontrada',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getMentoringAssessment(
+    @CurrentUser() user: User,
+    @Query('mentorId') mentorId: string,
+  ) {
+    return this.evaluationsService.getMentoringAssessment(user.id, mentorId);
   }
 
   @Get('received/cycle/:cycleId')

@@ -14,11 +14,10 @@ import { DatabaseModule } from '../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { GenAiModule } from '../gen-ai/gen-ai.module';
 import { HRModule } from './hr/hr.module';
-
-// Submódulos
+import { AssessmentsModule } from './assessments/assessments.module';
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule, HRModule],
+  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule, HRModule, AssessmentsModule],
   controllers: [
     EvaluationsController,
     ManagerController,
@@ -27,6 +26,6 @@ import { HRModule } from './hr/hr.module';
     CriteriaSimpleController,
   ],
   providers: [EvaluationsService, CyclesService, CriteriaService],
-  exports: [EvaluationsService, CyclesService, CriteriaService],
+  exports: [EvaluationsService, CyclesService, CriteriaService, AssessmentsModule],
 })
 export class EvaluationsModule {}
