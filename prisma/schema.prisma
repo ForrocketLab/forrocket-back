@@ -82,6 +82,9 @@ model User {
   // Resumos GenAI recebidos pelo usuário (como colaborador avaliado)
   genaiSummaries GenAISummary[] @relation("GenAISummaryCollaborator")
 
+  // Insights personalizados gerados para o usuário
+  personalInsights PersonalInsights[] @relation("PersonalInsightsCollaborator")
+
   // Resumos de equipe gerados para o usuário (como gestor)
   managerTeamSummaries ManagerTeamSummary[] @relation("GenAIManagerTeamSummary")
 
@@ -265,6 +268,24 @@ model GenAISummary {
 
   @@unique([collaboratorId, cycle]) // Um colaborador só pode ter um resumo por ciclo
   @@map("genai_summaries")
+}
+
+model PersonalInsights {
+  id               String   @id @default(cuid())
+  collaboratorId   String   // ID do colaborador
+  cycle            String   // Ciclo de avaliação (ex: "2025.1")
+  insights         String   // Insights personalizados gerados pela GenAI
+  collaboratorName String   // Nome do colaborador (cache)
+  jobTitle         String   // Cargo do colaborador (cache)
+  averageScore     Float    // Média geral das avaliações
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relacionamentos
+  collaborator User @relation("PersonalInsightsCollaborator", fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@unique([collaboratorId, cycle]) // Um colaborador só pode ter insights personalizados por ciclo
+  @@map("personal_insights")
 }
 
 model ManagerTeamSummary {
