@@ -327,6 +327,11 @@ export class EvaluationsService {
     for (const [dtoField, value] of Object.entries(dto)) {
       if (value !== undefined) {
         const criterionId = fieldToCriterionMap[dtoField];
+        if (!criterionId) {
+          console.warn(`⚠️ Campo não mapeado: ${dtoField}`);
+          continue;
+        }
+
         const isScore = dtoField.endsWith('Score');
         const field = isScore ? 'score' : 'justification';
 
@@ -334,10 +339,23 @@ export class EvaluationsService {
         const existingAnswer = existingAssessment.answers.find(a => a.criterionId === criterionId);
         
         if (existingAnswer) {
+          console.log(`🔄 Atualizando critério ${criterionId}, campo ${field} com valor:`, value);
           updates.push(
             this.prisma.selfAssessmentAnswer.update({
               where: { id: existingAnswer.id },
               data: { [field]: value },
+            })
+          );
+        } else {
+          console.log(`➕ Criando novo critério ${criterionId}, campo ${field} com valor:`, value);
+          updates.push(
+            this.prisma.selfAssessmentAnswer.create({
+              data: {
+                criterionId,
+                score: isScore ? value as number : 1,
+                justification: isScore ? '' : value as string,
+                selfAssessmentId: existingAssessment.id,
+              },
             })
           );
         }
@@ -346,7 +364,9 @@ export class EvaluationsService {
 
     // Executar todas as atualizações em uma transação
     if (updates.length > 0) {
+      console.log(`🔄 Executando ${updates.length} atualizações...`);
       await this.prisma.$transaction(updates);
+      console.log('✅ Atualizações concluídas com sucesso');
     }
 
     // Retornar autoavaliação atualizada
