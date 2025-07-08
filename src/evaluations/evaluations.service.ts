@@ -15,6 +15,8 @@ import {
   CreateReferenceFeedbackDto,
   CreateManagerAssessmentDto,
   SelfAssessmentCompletionByPillarDto,
+  Update360AssessmentDto,
+  PillarProgressDto,
 } from './assessments/dto';
 import { PrismaService } from '../database/prisma.service';
 import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars } from '../models/criteria';
@@ -877,7 +879,7 @@ export class EvaluationsService {
 
     // Calcular o progresso geral da autoavaliação (soma dos pilares)
     const totalCompleted = Object.values(selfAssessmentCompletionByPillar).reduce(
-      (acc, p) => acc + p.completed,
+      (acc, p: PillarProgressDto) => acc + p.completed,
       0,
     );
     const totalOverall = ALL_CRITERIA.length;
@@ -1135,7 +1137,10 @@ export class EvaluationsService {
 
     // Adicionar o progresso de preenchimento (já que já temos a função)
     const completionStatus = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
-    const totalCompleted = Object.values(completionStatus).reduce((acc, p) => acc + p.completed, 0);
+    const totalCompleted = Object.values(completionStatus).reduce(
+      (acc, p: PillarProgressDto) => acc + p.completed,
+      0,
+    );
     const totalOverall = ALL_CRITERIA.length;
 
     return {
@@ -2116,5 +2121,67 @@ export class EvaluationsService {
           : null,
       totalCollaborators: collaboratorMap.size,
     };
+  }
+
+  /**
+   * Busca uma avaliação 360 específica para o ciclo ativo
+   * @param authorId ID do autor da avaliação
+   * @param evaluatedUserId ID do usuário avaliado
+   * @returns Avaliação 360 encontrada ou null se não existir
+   */
+  async get360Assessment(authorId: string, evaluatedUserId: string) {
+    const assessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId,
+      },
+      include: {
+        evaluatedUser: true,
+      },
+    });
+
+    if (!assessment) {
+      return null;
+    }
+
+    return {
+      evaluatedUserId: assessment.evaluatedUserId,
+      evaluatedUserName: assessment.evaluatedUser.name,
+      evaluatedUserEmail: assessment.evaluatedUser.email,
+      evaluatedUserJobTitle: assessment.evaluatedUser.jobTitle,
+      evaluatedUserSeniority: assessment.evaluatedUser.seniority,
+      evaluatedUserRoles: JSON.parse(assessment.evaluatedUser.roles),
+      overallScore: assessment.overallScore,
+      strengths: assessment.strengths,
+      improvements: assessment.improvements,
+      status: assessment.status,
+    };
+  }
+
+  async update360Assessment(authorId: string, updateDto: Update360AssessmentDto) {
+    const { evaluatedUserId, cycleId, ...updateData } = updateDto;
+
+    // Verifica se a avaliação existe
+    const existingAssessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId,
+        cycle: cycleId,
+      },
+    });
+
+    if (!existingAssessment) {
+      throw new NotFoundException('Avaliação 360 não encontrada');
+    }
+
+    // Atualiza a avaliação
+    const updatedAssessment = await this.prisma.assessment360.update({
+      where: {
+        id: existingAssessment.id,
+      },
+      data: updateData,
+    });
+
+    return updatedAssessment;
   }
 }

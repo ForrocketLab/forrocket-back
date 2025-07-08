@@ -28,6 +28,7 @@ import {
   SelfAssessmentCompletionByPillarDto,
   OverallCompletionDto,
   PillarProgressDto,
+  Update360AssessmentDto,
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -164,6 +165,61 @@ export class EvaluationsController {
     @Body() create360AssessmentDto: Create360AssessmentDto,
   ) {
     return this.evaluationsService.create360Assessment(user.id, create360AssessmentDto);
+  }
+
+  @Get('360-assessment/:evaluatedUserId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar avaliação 360 graus',
+    description: 'Retorna a avaliação 360 de um colaborador específico para o ciclo ativo',
+  })
+  @ApiParam({
+    name: 'evaluatedUserId',
+    description: 'ID do usuário avaliado',
+    example: 'user-123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação 360 encontrada',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Avaliação não encontrada',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async get360Assessment(
+    @CurrentUser() user: User,
+    @Param('evaluatedUserId') evaluatedUserId: string,
+  ) {
+    return this.evaluationsService.get360Assessment(user.id, evaluatedUserId);
+  }
+
+  @Patch('360-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar avaliação 360 graus',
+    description: 'Permite atualizar campos específicos da avaliação 360 de forma incremental',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação 360 atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async update360Assessment(
+    @CurrentUser() user: User,
+    @Body() update360AssessmentDto: Update360AssessmentDto,
+  ) {
+    return this.evaluationsService.update360Assessment(user.id, update360AssessmentDto);
   }
 
   @Post('mentoring-assessment')
