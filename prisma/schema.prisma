@@ -86,6 +86,10 @@ model User {
   // Resumos de equipe gerados para o usuário (como gestor)
   managerTeamSummaries ManagerTeamSummary[] @relation("GenAIManagerTeamSummary")
 
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String? // ID do lote que criou ou modificou este usuário
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
@@ -112,6 +116,11 @@ model SelfAssessment {
   updatedAt   DateTime @updatedAt
   submittedAt DateTime?
   isImported  Boolean @default(false)
+
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
 
   // Relacionamentos
   author  User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -148,6 +157,11 @@ model Assessment360 {
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
   isImported    Boolean @default(false)
+
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
 
   // Relacionamentos
   author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
@@ -190,6 +204,11 @@ model ReferenceFeedback {
   updatedAt         DateTime @updatedAt
   submittedAt       DateTime?
   isImported   Boolean @default(false)
+
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
 
   // Relacionamentos
   author         User @relation("ReferenceFeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -687,4 +706,28 @@ model PesquisaReferenciaImportada {
   importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
 
   @@map("pesquisas_referencia_importadas")
+}
+
+model ImportBatch {
+  id         String        @id @default(cuid())
+  fileName   String        // Nome do arquivo original (ex: "avaliacoes_2024.2.xlsx")
+  status     ImportStatus  @default(PENDING) // Status do processo de importação
+  importedAt DateTime      @default(now())
+  notes      String?       // Log de erros ou observações
+
+  // Relacionamentos reversos para rastrear todos os dados criados neste lote
+  createdUsers          User[]
+  createdSelfAssessments SelfAssessment[]
+  createdAssessments360 Assessment360[]
+  createdReferenceFeedbacks ReferenceFeedback[]
+  // Adicione outros relacionamentos conforme necessário...
+  
+  @@map("import_batches")
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
