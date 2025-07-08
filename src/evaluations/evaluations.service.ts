@@ -17,6 +17,7 @@ import {
   SelfAssessmentCompletionByPillarDto,
   Update360AssessmentDto,
   PillarProgressDto,
+  UpdateMentoringAssessmentDto,
 } from './assessments/dto';
 import { PrismaService } from '../database/prisma.service';
 import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars } from '../models/criteria';
@@ -2183,5 +2184,131 @@ export class EvaluationsService {
     });
 
     return updatedAssessment;
+  }
+
+  async updateMentoringAssessment(authorId: string, updateDto: UpdateMentoringAssessmentDto) {
+    const { mentorId, cycleId, ...updateData } = updateDto;
+
+    // Buscar avaliação existente
+    let existingAssessment = await this.prisma.mentoringAssessment.findFirst({
+      where: {
+        authorId,
+        mentorId,
+        cycle: cycleId,
+      },
+      include: {
+        mentor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    // Se não existir, criar uma nova avaliação em branco
+    if (!existingAssessment) {
+      existingAssessment = await this.prisma.mentoringAssessment.create({
+        data: {
+          authorId,
+          mentorId,
+          cycle: cycleId,
+          status: EvaluationStatus.DRAFT,
+          score: 1,
+          justification: '',
+        },
+        include: {
+          mentor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              jobTitle: true,
+              seniority: true,
+              roles: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Atualizar a avaliação com os novos dados
+    const updatedAssessment = await this.prisma.mentoringAssessment.update({
+      where: {
+        id: existingAssessment.id,
+      },
+      data: updateData,
+      include: {
+        mentor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    // Formatar os dados para retorno
+    return {
+      mentorId: updatedAssessment.mentorId,
+      mentorName: updatedAssessment.mentor.name,
+      mentorEmail: updatedAssessment.mentor.email,
+      mentorJobTitle: updatedAssessment.mentor.jobTitle,
+      mentorSeniority: updatedAssessment.mentor.seniority,
+      mentorRoles: JSON.parse(updatedAssessment.mentor.roles),
+      score: updatedAssessment.score,
+      justification: updatedAssessment.justification,
+      status: updatedAssessment.status,
+      cycle: updatedAssessment.cycle,
+    };
+  }
+
+  async getMentoringAssessment(authorId: string, mentorId: string) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar avaliação existente
+    const assessment = await this.prisma.mentoringAssessment.findFirst({
+      where: {
+        authorId,
+        mentorId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        mentor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    if (!assessment) {
+      return null;
+    }
+
+    return {
+      id: assessment.id,
+      score: assessment.score,
+      justification: assessment.justification,
+      status: assessment.status,
+      cycle: assessment.cycle,
+      mentor: assessment.mentor,
+      createdAt: assessment.createdAt,
+      updatedAt: assessment.updatedAt,
+    };
   }
 }
