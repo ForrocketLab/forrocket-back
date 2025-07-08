@@ -3,10 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TestSummaryDto } from './dto/gen-ai-test.dto';
 import { GenAiController } from './gen-ai.controller';
 import { GenAiService } from './gen-ai.service';
+import { PrismaService } from '../database/prisma.service';
 
 describe('GenAiController', () => {
   let controller: GenAiController;
   let service: jest.Mocked<GenAiService>;
+  let prismaService: jest.Mocked<PrismaService>;
 
   beforeEach(async () => {
     const mockGenAiService = {
@@ -14,6 +16,32 @@ describe('GenAiController', () => {
       getTeamEvaluationSummary: jest.fn(),
       getTeamScoreAnalysis: jest.fn(),
       getCollaboratorSummaryForEqualization: jest.fn(),
+      getPersonalInsights: jest.fn(),
+    };
+
+    const mockPrismaService = {
+      personalInsights: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+      user: {
+        findUnique: jest.fn(),
+      },
+      evaluationCycle: {
+        findFirst: jest.fn(),
+      },
+      assessment360: {
+        findMany: jest.fn(),
+      },
+      selfAssessment: {
+        findFirst: jest.fn(),
+      },
+      managerAssessment: {
+        findMany: jest.fn(),
+      },
+      committeeAssessment: {
+        findFirst: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -23,11 +51,16 @@ describe('GenAiController', () => {
           provide: GenAiService,
           useValue: mockGenAiService,
         },
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
       ],
     }).compile();
 
     controller = module.get<GenAiController>(GenAiController);
     service = module.get(GenAiService);
+    prismaService = module.get(PrismaService);
   });
 
   it('should be defined', () => {

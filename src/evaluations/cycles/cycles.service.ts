@@ -46,15 +46,35 @@ export class CyclesService {
       throw new BadRequestException(`Já existe um ciclo com o nome "${dto.name}"`);
     }
 
+    // Função helper para converter strings de data para Date
+    const parseDate = (dateValue: string | undefined): Date | null => {
+      if (!dateValue) return null;
+      
+      // Se for formato YYYY-MM-DD, adicionar horário padrão
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        return new Date(dateValue + 'T00:00:00.000Z');
+      }
+      
+      // Para outros formatos, usar construtor padrão
+      const parsed = new Date(dateValue);
+      
+      // Verificar se a data é válida
+      if (isNaN(parsed.getTime())) {
+        throw new BadRequestException(`Data inválida: ${dateValue}`);
+      }
+      
+      return parsed;
+    };
+
     // Preparar dados para criação
     const createData = {
       name: dto.name,
       status: 'UPCOMING' as const,
-      startDate: dto.startDate ? new Date(dto.startDate) : null,
-      endDate: dto.endDate ? new Date(dto.endDate) : null,
-      assessmentDeadline: dto.assessmentDeadline ? new Date(dto.assessmentDeadline) : null,
-      managerDeadline: dto.managerDeadline ? new Date(dto.managerDeadline) : null,
-      equalizationDeadline: dto.equalizationDeadline ? new Date(dto.equalizationDeadline) : null,
+      startDate: parseDate(dto.startDate),
+      endDate: parseDate(dto.endDate),
+      assessmentDeadline: parseDate(dto.assessmentDeadline),
+      managerDeadline: parseDate(dto.managerDeadline),
+      equalizationDeadline: parseDate(dto.equalizationDeadline),
     };
 
     // Validar consistência de datas antes de salvar
@@ -297,8 +317,25 @@ export class CyclesService {
     
     if (!startDate) return; // Se não tem data de início, não há conflito
 
-    const newStart = startDate instanceof Date ? startDate : new Date(startDate);
-    const newEnd = endDate ? (endDate instanceof Date ? endDate : new Date(endDate)) : null;
+    // Função helper para converter strings de data para Date
+    const parseDate = (dateValue: any): Date | null => {
+      if (!dateValue) return null;
+      if (dateValue instanceof Date) return dateValue;
+      
+      const dateString = dateValue.toString();
+      
+      // Se for formato YYYY-MM-DD, adicionar horário padrão
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return new Date(dateString + 'T00:00:00.000Z');
+      }
+      
+      return new Date(dateString);
+    };
+
+    const newStart = parseDate(startDate);
+    const newEnd = parseDate(endDate);
+    
+    if (!newStart) return;
 
     // Buscar ciclo ativo
     const activeCycle = await this.getActiveCycle();
@@ -342,12 +379,36 @@ export class CyclesService {
       equalizationDeadline,
     } = data;
 
+    // Função helper para converter strings de data para Date
+    const parseDate = (dateValue: any): Date | null => {
+      if (!dateValue) return null;
+      if (dateValue instanceof Date) return dateValue;
+      
+      // Se for string, tentar converter
+      const dateString = dateValue.toString();
+      
+      // Se for formato YYYY-MM-DD, adicionar horário padrão
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return new Date(dateString + 'T00:00:00.000Z');
+      }
+      
+      // Para outros formatos, usar construtor padrão
+      const parsed = new Date(dateString);
+      
+      // Verificar se a data é válida
+      if (isNaN(parsed.getTime())) {
+        throw new BadRequestException(`Data inválida: ${dateString}`);
+      }
+      
+      return parsed;
+    };
+
     // Converter strings para Date se necessário
-    const start = startDate ? (startDate instanceof Date ? startDate : new Date(startDate)) : null;
-    const end = endDate ? (endDate instanceof Date ? endDate : new Date(endDate)) : null;
-    const assessment = assessmentDeadline ? (assessmentDeadline instanceof Date ? assessmentDeadline : new Date(assessmentDeadline)) : null;
-    const manager = managerDeadline ? (managerDeadline instanceof Date ? managerDeadline : new Date(managerDeadline)) : null;
-    const equalization = equalizationDeadline ? (equalizationDeadline instanceof Date ? equalizationDeadline : new Date(equalizationDeadline)) : null;
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
+    const assessment = parseDate(assessmentDeadline);
+    const manager = parseDate(managerDeadline);
+    const equalization = parseDate(equalizationDeadline);
 
     // Validar se endDate é posterior a startDate
     if (start && end && end <= start) {
