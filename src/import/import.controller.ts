@@ -4,10 +4,13 @@ import {
   Get,
   Delete,
   Param,
+  Query,
   UseGuards,
   UploadedFiles,
   UseInterceptors,
   UploadedFile,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -17,11 +20,13 @@ import {
   ApiBearerAuth,
   ApiTags,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 
-import { ImportService } from './import.service';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { PaginationQueryDto, PaginatedResponseDto } from './dto/pagination.dto';
+import { ImportService } from './import.service';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -188,11 +193,35 @@ export class ImportController {
   // ENDPOINTS DE CONSULTA DE LOTES
 
   /**
-   * Lista todos os lotes de importação do usuário atual
+   * Lista todos os lotes de importação do usuário atual com paginação
    */
   @Get('batches/my')
-  @ApiOperation({ summary: 'Lista os lotes de importação do usuário atual' })
-  async getMyImportBatches(@CurrentUser() user: User) {
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({ summary: 'Lista os lotes de importação do usuário atual com paginação' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número da página (começando em 1)', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Número de itens por página (máximo 100)', example: 10 })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['importedAt', 'fileName', 'status'], description: 'Campo para ordenação', example: 'importedAt' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Ordem da ordenação', example: 'desc' })
+  async getMyImportBatches(
+    @CurrentUser() user: User,
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<any>> {
+    const { page, limit, sortBy, sortOrder } = query;
+    return this.importService.getImportBatchesByUserPaginated(
+      user.id,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    );
+  }
+
+  /**
+   * Lista todos os lotes de importação do usuário atual (sem paginação - compatibilidade)
+   */
+  @Get('batches/my/all')
+  @ApiOperation({ summary: 'Lista todos os lotes de importação do usuário atual sem paginação' })
+  async getMyImportBatchesAll(@CurrentUser() user: User) {
     return this.importService.getImportBatchesByUser(user.id);
   }
 
