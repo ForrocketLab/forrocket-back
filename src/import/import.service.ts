@@ -19,6 +19,7 @@ import {
   CleanSelfAssessmentAnswer,
   Feedback360Data,
   ProfileData,
+  ReferenceData,
   SelfAssessmentData,
 } from './dto/import-dtos.dto';
 import { motivationMapping } from './dto/work-again-motivation-map';
@@ -861,6 +862,9 @@ export class ImportService {
     const feedback360Data: Feedback360Data[] = xlsx.utils.sheet_to_json(
       workbook.Sheets['Avaliação 360'],
     );
+    const referenceData: ReferenceData[] = xlsx.utils.sheet_to_json(
+      workbook.Sheets['Pesquisa de Referências'],
+    );
 
     // --- PARTE 2: EXECUTAR A LÓGICA DE BANCO DE DADOS ---
 
@@ -910,6 +914,8 @@ export class ImportService {
           batch.id,
           isUserManager,
         );
+
+        await this.processReferences(tx, referenceData, user.id, userCycle, batch.id);
       });
 
       // 3. Atualizar status para sucesso (apenas se for lote individual)
@@ -1252,6 +1258,86 @@ export class ImportService {
     }
 
     this.logger.log('Processamento de feedbacks 360 concluído.');
+  }
+
+  /**
+   * Processa os dados da planilha 'Pesquisa de Referências'.
+   * Para cada linha, encontra ou cria o usuário que deu a referência (autor)
+   * e cria o registro de feedback para o usuário principal (referenciado).
+   * @param tx - O cliente Prisma transacional.
+   * @param data - Array de referências da planilha.
+   * @param referencedUserId - ID do usuário principal que está sendo referenciado.
+   * @param cycle - Ciclo da avaliação.
+   * @param batchId - ID do lote de importação.
+   */
+  private async processReferences(
+    tx: Prisma.TransactionClient,
+    data: ReferenceData[],
+    authorId: string, // Este é o usuário principal da importação
+    cycle: string,
+    batchId: string,
+  ): Promise<void> {
+    if (!data || data.length === 0) {
+      this.logger.log('Nenhum dado de Pesquisa de Referências para processar.');
+      return;
+    }
+    this.logger.log(`Processando ${data.length} registros de referência...`);
+
+    for (const row of data) {
+      // Extrai o prefixo do email da coluna com quebra de linha
+      const referencedEmailPrefix = row['EMAIL DA REFERÊNCIA\n( nome.sobrenome )']?.toLowerCase();
+
+      if (!referencedEmailPrefix) {
+        this.logger.warn('Linha de referência sem email do autor. Pulando.');
+        continue;
+      }
+
+      // Constrói o email completo.
+      // Assumindo que o domínio padrão é @example.com, como em outras funções.
+      const referencedEmail = `${referencedEmailPrefix}@example.com`;
+
+      // 1. Encontra ou cria o usuário AUTOR da referência.
+      const referencedUser = await this.findOrCreateUser(
+        tx,
+        { email: referencedEmail }, // Passamos apenas o email. O nome será gerado se o usuário for novo.
+        batchId,
+      );
+
+      const justification = row['JUSTIFICATIVA'];
+      if (!justification) {
+        this.logger.warn(`Justificativa vazia para a referência de "${referencedEmail}". Pulando.`);
+        continue;
+      }
+
+      // 2. Usa 'upsert' para criar ou atualizar o feedback de referência.
+      // A chave única previne que a mesma pessoa dê a mesma referência no mesmo ciclo mais de uma vez.
+      await tx.referenceFeedback.upsert({
+        where: {
+          authorId_referencedUserId_cycle: {
+            authorId: authorId,
+            referencedUserId: referencedUser.id,
+            cycle: cycle,
+          },
+        },
+        create: {
+          authorId: authorId,
+          referencedUserId: referencedUser.id,
+          cycle,
+          justification,
+          status: 'SUBMITTED',
+          importBatchId: batchId,
+          submittedAt: new Date(),
+        },
+        update: {
+          // Se já existir, atualiza a justificativa com a da planilha mais recente.
+          justification,
+          importBatchId: batchId,
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    this.logger.log('Processamento de referências concluído.');
   }
 
   /**
