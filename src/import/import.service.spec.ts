@@ -16,6 +16,11 @@ import { ProjectsService } from '../projects/projects.service';
 describe('ImportService', () => {
   let service: ImportService;
   let prismaService: jest.Mocked<PrismaService>;
+  let userService: jest.Mocked<UserService>;
+  let cyclesService: jest.Mocked<CyclesService>;
+  let projectsService: jest.Mocked<ProjectsService>;
+  let criteriaService: jest.Mocked<CriteriaService>;
+  let evaluationsService: jest.Mocked<EvaluationsService>;
 
   const mockUser: User = {
     id: 'user-1',
@@ -152,6 +157,11 @@ describe('ImportService', () => {
 
     service = module.get<ImportService>(ImportService);
     prismaService = module.get(PrismaService);
+    userService = module.get(UserService);
+    cyclesService = module.get(CyclesService);
+    projectsService = module.get(ProjectsService);
+    criteriaService = module.get(CriteriaService);
+    evaluationsService = module.get(EvaluationsService);
   });
 
   it('should be defined', () => {
@@ -160,7 +170,7 @@ describe('ImportService', () => {
 
   describe('processXslFile', () => {
     it('should process a single Excel file successfully', async () => {
-      // Mock the Excel file content to have the required sheets
+      // Mock Excel file content with realistic data
       const mockWorkbook = {
         SheetNames: ['Perfil', 'Autoavaliação', 'Avaliação 360', 'Pesquisa de Referências'],
         Sheets: {
@@ -171,26 +181,63 @@ describe('ImportService', () => {
         },
       };
 
+      const mockProfileData = [
+        {
+          'Nome ( nome.sobrenome )': 'João Silva',
+          'Email': 'joao.silva@company.com',
+          'Unidade': 'Technology',
+          'Ciclo (ano.semestre)': '2025.1',
+        },
+      ];
+
       // Mock xlsx methods
       const xlsxReadSpy = jest.spyOn(xlsx, 'read').mockReturnValue(mockWorkbook);
-      const xlsxSheetToJsonSpy = jest.spyOn(xlsx.utils, 'sheet_to_json').mockReturnValue([]);
+      const xlsxSheetToJsonSpy = jest.spyOn(xlsx.utils, 'sheet_to_json')
+        .mockReturnValueOnce(mockProfileData)      // Perfil sheet
+        .mockReturnValueOnce([])                   // Autoavaliação sheet
+        .mockReturnValueOnce([])                   // Avaliação 360 sheet
+        .mockReturnValueOnce([]);                  // Pesquisa de Referências sheet
 
-      // Mock all Prisma operations to succeed
+      // Mock database operations with proper return values
+      const mockUserCreated = { ...mockUser, email: 'joao.silva@company.com', name: 'João Silva' };
+
+      // Setup Prisma mocks using Jest Mock cast
       (prismaService.importBatch.create as jest.Mock).mockResolvedValue(mockImportBatch);
       (prismaService.importBatch.update as jest.Mock).mockResolvedValue({
         ...mockImportBatch,
         status: ImportStatus.COMPLETED,
       });
-      (prismaService.user.findMany as jest.Mock).mockResolvedValue([]);
-      (prismaService.user.createMany as jest.Mock).mockResolvedValue({ count: 0 });
-      (prismaService.selfAssessment.createMany as jest.Mock).mockResolvedValue({ count: 0 });
-      (prismaService.assessment360.createMany as jest.Mock).mockResolvedValue({ count: 0 });
-      (prismaService.referenceFeedback.createMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+      // Mock transaction to execute the callback immediately
+      (prismaService.$transaction as jest.Mock).mockImplementation((callback) => {
+        const txMock = {
+          user: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue(mockUserCreated),
+            findMany: jest.fn().mockResolvedValue([]),
+            upsert: jest.fn().mockResolvedValue(mockUserCreated),
+          },
+          selfAssessment: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          assessment360: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          referenceFeedback: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          userProjectRole: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return callback(txMock);
+      });
 
       const result = await service.processXslFile(mockFile, mockUser);
 
       expect(result).toBeDefined();
       expect(result.batchId).toEqual(mockImportBatch.id);
+      expect(result.message).toBe('Arquivo importado com sucesso!');
 
       // Clean up
       xlsxReadSpy.mockRestore();
@@ -216,15 +263,15 @@ describe('ImportService', () => {
     it('should process multiple Excel files successfully', async () => {
       const files = [mockFile, { ...mockFile, originalname: 'test-file-2.xlsx' }];
       const mockSingleResult = {
-        message: 'Arquivo processado com sucesso',
+        message: 'Arquivo importado com sucesso!',
         userId: mockUser.id,
         userName: mockUser.name,
         batchId: mockImportBatch.id,
       };
 
-      // Mock processXslFile to return success for all files
-      const processXslFileSpy = jest
-        .spyOn(service, 'processXslFile')
+      // Mock processSingleFile method directly
+      const processSingleFileSpy = jest
+        .spyOn(service, 'processSingleFile' as any)
         .mockResolvedValue(mockSingleResult);
 
       const result = await service.processMultipleXslFiles(files, mockUser);
@@ -234,9 +281,13 @@ describe('ImportService', () => {
       expect(result.successfulFiles).toBe(2);
       expect(result.failedFiles).toBe(0);
       expect(result.totalFiles).toBe(2);
+      expect(result.message).toContain('2/2 arquivos processados com sucesso');
+
+      // Verify processSingleFile was called twice
+      expect(processSingleFileSpy).toHaveBeenCalledTimes(2);
 
       // Clean up
-      processXslFileSpy.mockRestore();
+      processSingleFileSpy.mockRestore();
     });
 
     it('should throw BadRequestException for empty file array', async () => {
