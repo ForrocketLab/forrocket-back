@@ -9,6 +9,7 @@ import {
   HttpCode,
   Patch,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,10 +39,13 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
+import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluation-decryption.interceptor';
+import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
 
 @ApiTags('Avaliações')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(EvaluationInputInterceptor, EvaluationDecryptionInterceptor)
 @ApiExtraModels(SelfAssessmentCompletionByPillarDto, OverallCompletionDto, PillarProgressDto)
 @Controller('api/evaluations/collaborator')
 export class EvaluationsController {

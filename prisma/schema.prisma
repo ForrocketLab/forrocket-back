@@ -140,7 +140,7 @@ model SelfAssessmentAnswer {
   selfAssessmentId String
   criterionId      String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
   score            Int // Nota de 1 a 5
-  justification    String // Justificativa textual
+  justification    String // Justificativa textual (criptografada)
 
   // Relacionamentos
   selfAssessment SelfAssessment @relation(fields: [selfAssessmentId], references: [id], onDelete: Cascade)
@@ -155,11 +155,11 @@ model Assessment360 {
   authorId         String   // ID do usuário que criou a avaliação
   evaluatedUserId  String   // ID do usuário sendo avaliado
   overallScore     Int      // Nota geral de 1 a 5
-  strengths        String   // Pontos fortes
-  improvements     String   // Pontos de melhoria
-  periodWorked     String? // Período de trabalho avaliado (opcional)
+  strengths        String   // Pontos fortes (criptografados)
+  improvements     String   // Pontos de melhoria (criptografados)
+  periodWorked     String?  // Período de trabalho avaliado (opcional)
   motivationToWorkAgain WorkAgainMotivation?
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
+  status           AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
@@ -167,7 +167,6 @@ model Assessment360 {
   //ATUALIZACAO DE IMPORTACAO
   importBatchId String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
-
 
   // Relacionamentos
   author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
@@ -183,7 +182,7 @@ model MentoringAssessment {
   authorId      String   // ID do mentorado que criou a avaliação
   mentorId      String   // ID do mentor sendo avaliado
   score         Int      // Nota de 1 a 5
-  justification String   // Justificativa da avaliação
+  justification String   // Justificativa da avaliação (criptografada)
   status        AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -246,7 +245,7 @@ model ManagerAssessmentAnswer {
   managerAssessmentId String
   criterionId         String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
   score               Int // Nota de 1 a 5
-  justification       String // Justificativa textual
+  justification       String // Justificativa textual (criptografada)
 
   // Relacionamentos
   managerAssessment ManagerAssessment @relation(fields: [managerAssessmentId], references: [id], onDelete: Cascade)
