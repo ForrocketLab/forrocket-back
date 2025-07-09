@@ -517,6 +517,36 @@ describe('UserService', () => {
     });
   });
 
+  describe('createUser - Validação de Projetos Duplicados', () => {
+    it('deve rejeitar usuário com projetos duplicados', async () => {
+      // Limpar todos os mocks
+      jest.clearAllMocks();
+
+      const duplicateProjectData = {
+        name: 'Usuário Teste',
+        email: 'teste@rocketcorp.com',
+        password: 'password123',
+        jobTitle: 'Developer',
+        seniority: 'Pleno',
+        careerTrack: 'Tech',
+        businessUnit: 'Digital Products',
+        userType: UserType.PROJECT_MEMBER,
+        projectAssignments: [
+          { projectId: 'projeto-1', roleInProject: 'colaborador' as 'colaborador' },
+          { projectId: 'projeto-1', roleInProject: 'lider' as 'lider' }, // Projeto duplicado!
+        ],
+      };
+
+      // Mock: email não existe (primeira validação)
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
+
+      // Act & Assert
+      await expect(service.createUser(duplicateProjectData))
+        .rejects
+        .toThrow('Não é possível atribuir o mesmo projeto múltiplas vezes ao usuário. Remova projetos duplicados.');
+    });
+  });
+
   describe('createUser - Sucesso', () => {
     it('deve criar usuário colaborador com sucesso', async () => {
       // Limpar todos os mocks

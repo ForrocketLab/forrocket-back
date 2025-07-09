@@ -94,6 +94,14 @@ export class UserService {
         throw new BadRequestException('Membros de projeto devem ter pelo menos uma atribuição de projeto');
       }
 
+      // 🎯 NOVA VALIDAÇÃO: Verificar se há projetos duplicados na lista
+      const projectIds = createUserDto.projectAssignments.map(assignment => assignment.projectId);
+      const uniqueProjectIds = new Set(projectIds);
+      
+      if (projectIds.length !== uniqueProjectIds.size) {
+        throw new BadRequestException('Não é possível atribuir o mesmo projeto múltiplas vezes ao usuário. Remova projetos duplicados.');
+      }
+
       // Verificar se projetos existem e validar regras de gestão
       for (const assignment of createUserDto.projectAssignments) {
         const project = await this.prisma.project.findUnique({
@@ -905,6 +913,7 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
         managerId: true,
+        mentorId: true,
         directReports: true,
       },
       orderBy: [
@@ -913,17 +922,18 @@ export class UserService {
       ]
     });
 
-    // Buscar nomes dos managers para cada usuário
-    const managerIds = users
-      .map(user => user.managerId)
-      .filter(id => id !== null) as string[];
+    // Buscar nomes dos managers e mentores para cada usuário
+    const relatedUserIds = [
+      ...users.map(user => user.managerId).filter(id => id !== null) as string[],
+      ...users.map(user => user.mentorId).filter(id => id !== null) as string[]
+    ];
 
-    const managers = await this.prisma.user.findMany({
-      where: { id: { in: managerIds } },
+    const relatedUsers = await this.prisma.user.findMany({
+      where: { id: { in: relatedUserIds } },
       select: { id: true, name: true }
     });
 
-    const managerMap = new Map(managers.map(m => [m.id, m.name]));
+    const relatedUsersMap = new Map(relatedUsers.map(u => [u.id, u.name]));
 
     // Buscar informações de liderança para cada usuário usando SQL direto
     const usersWithLeadership = await Promise.all(
@@ -970,7 +980,8 @@ export class UserService {
           isActive: user.isActive,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
-          managerName: user.managerId ? managerMap.get(user.managerId) || null : null,
+          managerName: user.managerId ? relatedUsersMap.get(user.managerId) || null : null,
+          mentorName: user.mentorId ? relatedUsersMap.get(user.mentorId) || null : null,
           leaderName,
           directReportsCount: user.directReports ? JSON.parse(user.directReports).length : 0,
           directLeadershipCount,
