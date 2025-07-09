@@ -198,10 +198,34 @@ export class ImportController {
   @Get('batches/my')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @ApiOperation({ summary: 'Lista os lotes de importação do usuário atual com paginação' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número da página (começando em 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Número de itens por página (máximo 100)', example: 10 })
-  @ApiQuery({ name: 'sortBy', required: false, enum: ['importedAt', 'fileName', 'status'], description: 'Campo para ordenação', example: 'importedAt' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Ordem da ordenação', example: 'desc' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página (começando em 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Número de itens por página (máximo 100)',
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['importedAt', 'fileName', 'status'],
+    description: 'Campo para ordenação',
+    example: 'importedAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Ordem da ordenação',
+    example: 'desc',
+  })
   async getMyImportBatches(
     @CurrentUser() user: User,
     @Query() query: PaginationQueryDto,
