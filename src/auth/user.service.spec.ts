@@ -92,6 +92,9 @@ describe('UserService', () => {
     evaluationCycle: {
       findFirst: jest.fn(),
     },
+    // Métodos SQL diretos
+    $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -113,6 +116,29 @@ describe('UserService', () => {
     
     // Configurar mock do bcrypt
     mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
+
+    // Configurar mocks SQL queries padrão
+    mockPrismaService.$queryRaw.mockImplementation((query: any) => {
+      // Mock para buscar leaderId do projeto
+      if (query && query.strings && query.strings[0].includes('SELECT leaderId FROM projects')) {
+        return Promise.resolve([{ leaderId: null }]); // Projeto sem líder por padrão
+      }
+      // Mock para buscar dados do usuário líder
+      if (query && query.strings && query.strings[0].includes('SELECT id, name, isActive, directLeadership FROM users')) {
+        return Promise.resolve([]);
+      }
+      // Mock para buscar leaderId do usuário
+      if (query && query.strings && query.strings[0].includes('SELECT leaderId FROM users')) {
+        return Promise.resolve([{ leaderId: null }]);
+      }
+      // Mock para buscar directLeadership
+      if (query && query.strings && query.strings[0].includes('SELECT directLeadership FROM users')) {
+        return Promise.resolve([{ directLeadership: null }]);
+      }
+      return Promise.resolve([]);
+    });
+    
+    mockPrismaService.$executeRaw.mockResolvedValue({ count: 1 });
   });
 
   describe('createUser - Validações Básicas', () => {

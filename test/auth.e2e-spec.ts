@@ -194,7 +194,7 @@ describe('Sistema de Autenticação (e2e)', () => {
           })
         ]),
         managerId: expect.any(String),
-        mentorId: null,
+        mentorId: expect.any(String), // Ana agora tem Lucas como mentor
         directReports: [],
         isActive: true,
         createdAt: expect.any(String),

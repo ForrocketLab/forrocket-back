@@ -446,6 +446,20 @@ export class ProjectsService {
   }
 
   /**
+   * Verifica se um usuário é líder de pelo menos um projeto
+   */
+  async isLeader(userId: string): Promise<boolean> {
+    const leaderRole = await this.prisma.userProjectRole.findFirst({
+      where: {
+        userId,
+        role: 'LEADER' as any, // Temporário até regenerar Prisma client
+      },
+    });
+
+    return !!leaderRole;
+  }
+
+  /**
    * Verifica se um gestor pode avaliar um liderado específico
    * - O gestor deve ser MANAGER em pelo menos um projeto
    * - O liderado deve estar no mesmo projeto onde o gestor é MANAGER
@@ -602,7 +616,7 @@ export class ProjectsService {
       },
     });
 
-    // 3. Para cada projeto, buscar roles e subordinados gerenciados
+    // 3. Para cada projeto, buscar roles, subordinados gerenciados e liderados
     const projectsWithManagement = await Promise.all(
       userProjectAssignments
         .filter((assignment) => assignment.project.isActive)
@@ -615,38 +629,74 @@ export class ProjectsService {
           // Verificar se é gestor neste projeto
           const isManagerInProject = userRoles.includes('MANAGER');
           
-                     // Buscar subordinados gerenciados neste projeto (se for gestor)
-           let managedSubordinates: Array<{
-             id: string;
-             name: string;
-             email: string;
-             jobTitle: string;
-           }> = [];
-           if (isManagerInProject) {
-             const subordinates = await this.prisma.userProjectRole.findMany({
-               where: {
-                 projectId: project.id,
-                 userId: { not: userId },
-               },
-               include: {
-                 user: {
-                   select: {
-                     id: true,
-                     name: true,
-                     email: true,
-                     jobTitle: true,
-                   },
-                 },
-               },
-             });
+          // Verificar se é líder neste projeto
+          const isLeaderInProject = userRoles.includes('LEADER');
+          
+          // Buscar subordinados gerenciados neste projeto (se for gestor)
+          let managedSubordinates: Array<{
+            id: string;
+            name: string;
+            email: string;
+            jobTitle: string;
+          }> = [];
+          if (isManagerInProject) {
+            const subordinates = await this.prisma.userProjectRole.findMany({
+              where: {
+                projectId: project.id,
+                userId: { not: userId },
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    jobTitle: true,
+                  },
+                },
+              },
+            });
 
-             managedSubordinates = subordinates.map(sub => ({
-               id: sub.user.id,
-               name: sub.user.name,
-               email: sub.user.email,
-               jobTitle: sub.user.jobTitle,
-             }));
-           }
+            managedSubordinates = subordinates.map(sub => ({
+              id: sub.user.id,
+              name: sub.user.name,
+              email: sub.user.email,
+              jobTitle: sub.user.jobTitle,
+            }));
+          }
+
+          // Buscar pessoas lideradas neste projeto (se for líder)
+          let ledSubordinates: Array<{
+            id: string;
+            name: string;
+            email: string;
+            jobTitle: string;
+          }> = [];
+          if (isLeaderInProject) {
+            const ledPeople = await this.prisma.userProjectRole.findMany({
+              where: {
+                projectId: project.id,
+                userId: { not: userId },
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    jobTitle: true,
+                  },
+                },
+              },
+            });
+
+            ledSubordinates = ledPeople.map(led => ({
+              id: led.user.id,
+              name: led.user.name,
+              email: led.user.email,
+              jobTitle: led.user.jobTitle,
+            }));
+          }
 
           return {
             id: project.id,
@@ -657,7 +707,9 @@ export class ProjectsService {
             updatedAt: project.updatedAt,
             userRoles,
             managedSubordinates,
+            ledSubordinates,
             isManagerInProject,
+            isLeaderInProject,
           };
         })
     );
@@ -714,7 +766,10 @@ export class ProjectsService {
     // 6. Verificar se é gestor em pelo menos um projeto
     const isManager = await this.isManager(userId);
 
-    // 7. Montar resposta
+    // 7. Verificar se é líder em pelo menos um projeto
+    const isLeader = await this.isLeader(userId);
+
+    // 8. Montar resposta
     return {
       projects: projectsWithManagement.sort((a, b) => a.name.localeCompare(b.name)),
       mentor,
@@ -722,6 +777,7 @@ export class ProjectsService {
       hasMentor: !!mentor,
       isMentor: mentees.length > 0,
       isManager,
+      isLeader,
     };
   }
 
@@ -771,7 +827,7 @@ export class ProjectsService {
       },
     });
 
-    // 3. Para cada projeto, buscar roles e subordinados gerenciados
+    // 3. Para cada projeto, buscar roles, subordinados gerenciados e liderados
     const projectsWithManagement = await Promise.all(
       userProjectAssignments
         .filter((assignment) => assignment.project.isActive)
@@ -783,6 +839,9 @@ export class ProjectsService {
           
           // Verificar se é gestor neste projeto
           const isManagerInProject = userRoles.includes('MANAGER');
+          
+          // Verificar se é líder neste projeto
+          const isLeaderInProject = userRoles.includes('LEADER');
           
           // Buscar subordinados gerenciados neste projeto (se for gestor)
           let managedSubordinates: Array<{
@@ -817,6 +876,39 @@ export class ProjectsService {
             }));
           }
 
+          // Buscar pessoas lideradas neste projeto (se for líder)
+          let ledSubordinates: Array<{
+            id: string;
+            name: string;
+            email: string;
+            jobTitle: string;
+          }> = [];
+          if (isLeaderInProject) {
+            const ledPeople = await this.prisma.userProjectRole.findMany({
+              where: {
+                projectId: project.id,
+                userId: { not: userId },
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    jobTitle: true,
+                  },
+                },
+              },
+            });
+
+            ledSubordinates = ledPeople.map(led => ({
+              id: led.user.id,
+              name: led.user.name,
+              email: led.user.email,
+              jobTitle: led.user.jobTitle,
+            }));
+          }
+
           return {
             id: project.id,
             name: project.name,
@@ -826,7 +918,9 @@ export class ProjectsService {
             updatedAt: project.updatedAt,
             userRoles,
             managedSubordinates,
+            ledSubordinates,
             isManagerInProject,
+            isLeaderInProject,
           };
         })
     );
@@ -883,9 +977,14 @@ export class ProjectsService {
     // 6. Verificar se é gestor em pelo menos um projeto
     const isManager = await this.isManager(userId);
 
-    // 7. Buscar manager name e direct reports count para compatibilidade
+    // 7. Verificar se é líder em pelo menos um projeto
+    const isLeader = await this.isLeader(userId);
+
+    // 8. Buscar manager name, leader name e contadores para compatibilidade
     let managerName: string | null = null;
+    let leaderName: string | null = null;
     let directReportsCount = 0;
+    let directLeadershipCount = 0;
 
     try {
       // Parse roles for compatibility
@@ -909,11 +1008,34 @@ export class ProjectsService {
         });
         managerName = managerData?.name || null;
       }
+
+      // Get leader name if leaderId exists in new structure
+      const userWithLeader = await this.prisma.$queryRaw`
+        SELECT leaderId FROM users WHERE id = ${userId}
+      ` as any[];
+      
+      if (userWithLeader[0]?.leaderId) {
+        const leaderData = await this.prisma.user.findUnique({
+          where: { id: userWithLeader[0].leaderId },
+          select: { name: true },
+        });
+        leaderName = leaderData?.name || null;
+      }
+
+      // Count direct leadership using raw SQL
+      const directLeadershipResult = await this.prisma.$queryRaw`
+        SELECT directLeadership FROM users WHERE id = ${userId}
+      ` as any[];
+      
+      if (directLeadershipResult[0]?.directLeadership) {
+        const directLeadershipIds = JSON.parse(directLeadershipResult[0].directLeadership) as string[];
+        directLeadershipCount = directLeadershipIds.length;
+      }
     } catch (error) {
       console.warn('Erro ao processar dados legados:', error);
     }
 
-    // 8. Montar resposta com dados completos do usuário
+    // 9. Montar resposta com dados completos do usuário
     return {
       user: {
         id: user.id,
@@ -928,7 +1050,9 @@ export class ProjectsService {
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
         managerName,
+        leaderName,
         directReportsCount,
+        directLeadershipCount,
       },
       projects: projectsWithManagement.sort((a, b) => a.name.localeCompare(b.name)),
       mentor,
@@ -936,6 +1060,7 @@ export class ProjectsService {
       hasMentor: !!mentor,
       isMentor: mentees.length > 0,
       isManager,
+      isLeader,
     };
   }
 

@@ -925,21 +925,60 @@ export class UserService {
 
     const managerMap = new Map(managers.map(m => [m.id, m.name]));
 
-    return users.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      roles: JSON.parse(user.roles) as string[],
-      jobTitle: user.jobTitle,
-      seniority: user.seniority,
-      careerTrack: user.careerTrack,
-      businessUnit: user.businessUnit,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      managerName: user.managerId ? managerMap.get(user.managerId) || null : null,
-      directReportsCount: user.directReports ? JSON.parse(user.directReports).length : 0
-    }));
+    // Buscar informações de liderança para cada usuário usando SQL direto
+    const usersWithLeadership = await Promise.all(
+      users.map(async (user) => {
+        let leaderName: string | null = null;
+        let directLeadershipCount = 0;
+
+        try {
+          // Buscar leaderId do usuário
+          const userWithLeader = await this.prisma.$queryRaw`
+            SELECT leaderId FROM users WHERE id = ${user.id}
+          ` as any[];
+
+          if (userWithLeader[0]?.leaderId) {
+            const leaderData = await this.prisma.user.findUnique({
+              where: { id: userWithLeader[0].leaderId },
+              select: { name: true },
+            });
+            leaderName = leaderData?.name || null;
+          }
+
+          // Buscar directLeadership do usuário
+          const userWithDirectLeadership = await this.prisma.$queryRaw`
+            SELECT directLeadership FROM users WHERE id = ${user.id}
+          ` as any[];
+
+          if (userWithDirectLeadership[0]?.directLeadership) {
+            const directLeadershipIds = JSON.parse(userWithDirectLeadership[0].directLeadership) as string[];
+            directLeadershipCount = directLeadershipIds.length;
+          }
+        } catch (error) {
+          console.warn(`Erro ao buscar dados de liderança para usuário ${user.id}:`, error);
+        }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          roles: JSON.parse(user.roles) as string[],
+          jobTitle: user.jobTitle,
+          seniority: user.seniority,
+          careerTrack: user.careerTrack,
+          businessUnit: user.businessUnit,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          managerName: user.managerId ? managerMap.get(user.managerId) || null : null,
+          leaderName,
+          directReportsCount: user.directReports ? JSON.parse(user.directReports).length : 0,
+          directLeadershipCount,
+        };
+      })
+    );
+
+    return usersWithLeadership;
   }
 
   /**
