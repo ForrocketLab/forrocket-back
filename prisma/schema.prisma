@@ -23,10 +23,11 @@ model User {
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
   // ==========================================
-  jobTitle     String // Cargo/Posição do colaborador
-  seniority    String // Nível de senioridade
-  careerTrack  String // Trilha de carreira
-  businessUnit String // Unidade de negócio
+  jobTitle     String   // Cargo/Posição do colaborador
+  seniority    String   // Nível de senioridade
+  careerTrack  String   // Trilha de carreira
+  businessUnit String   // Unidade de negócio
+  businessHub String?    // Polo
 
   // ==========================================
   // DADOS DE ALOCAÇÃO E RELACIONAMENTO
@@ -88,15 +89,22 @@ model User {
   // Resumos de equipe gerados para o usuário (como gestor)
   managerTeamSummaries ManagerTeamSummary[] @relation("GenAIManagerTeamSummary")
 
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String? // ID do lote que criou ou modificou este usuário
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
   // ==========================================
   // NOVOS RELACIONAMENTOS (ESTRUTURAS MELHORADAS)
   // ==========================================
   // Relacionamentos com novas estruturas
   roleAssignments    UserRoleAssignment[]
   projectAssignments UserProjectAssignment[]
-  projectRoles       UserProjectRole[] // NOVA: Roles específicas por projeto
-  okrs               OKR[] // NOVA: OKRs do colaborador
-  pdis               PDI[] // NOVA: PDIs do colaborador
+  projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
+  okrs               OKR[]              // NOVA: OKRs do colaborador
+  pdis              PDI[]              // NOVA: PDIs do colaborador
+  
+  // Lotes de importação criados por este usuário
+  uploadedBatches   ImportBatch[] @relation("ImportBatchUploadedBy")
 
   @@map("users")
 }
@@ -113,6 +121,11 @@ model SelfAssessment {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   submittedAt DateTime?
+
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
 
   // Relacionamentos
   author  User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -137,17 +150,23 @@ model SelfAssessmentAnswer {
 }
 
 model Assessment360 {
-  id              String    @id @default(cuid())
-  cycle           String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId        String // ID do usuário que criou a avaliação
-  evaluatedUserId String // ID do usuário sendo avaliado
-  overallScore    Int // Nota geral de 1 a 5
-  strengths       String // Pontos fortes (criptografados)
-  improvements    String // Pontos de melhoria (criptografados)
-  status          String    @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  submittedAt     DateTime?
+  id               String   @id @default(cuid())
+  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId         String   // ID do usuário que criou a avaliação
+  evaluatedUserId  String   // ID do usuário sendo avaliado
+  overallScore     Int      // Nota geral de 1 a 5
+  strengths        String   // Pontos fortes (criptografados)
+  improvements     String   // Pontos de melhoria (criptografados)
+  periodWorked     String?  // Período de trabalho avaliado (opcional)
+  motivationToWorkAgain WorkAgainMotivation?
+  status           AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  submittedAt      DateTime?
+
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   // Relacionamentos
   author        User @relation("Assessment360Author", fields: [authorId], references: [id], onDelete: Cascade)
@@ -158,15 +177,15 @@ model Assessment360 {
 }
 
 model MentoringAssessment {
-  id            String    @id @default(cuid())
-  cycle         String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId      String // ID do mentorado que criou a avaliação
-  mentorId      String // ID do mentor sendo avaliado
-  score         Int // Nota de 1 a 5
-  justification String // Justificativa da avaliação (criptografada)
-  status        String    @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id            String   @id @default(cuid())
+  cycle         String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId      String   // ID do mentorado que criou a avaliação
+  mentorId      String   // ID do mentor sendo avaliado
+  score         Int      // Nota de 1 a 5
+  justification String   // Justificativa da avaliação (criptografada)
+  status        AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   submittedAt   DateTime?
 
   // Relacionamentos
@@ -178,16 +197,21 @@ model MentoringAssessment {
 }
 
 model ReferenceFeedback {
-  id               String    @id @default(cuid())
-  cycle            String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId         String // ID do usuário que criou o feedback
-  referencedUserId String // ID do usuário sendo referenciado
-  topic            String? // Tópico do feedback (NOVO CAMPO)
-  justification    String // Feedback textual
-  status           String    @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  submittedAt      DateTime?
+  id                String   @id @default(cuid())
+  cycle             String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId          String   // ID do usuário que criou o feedback
+  referencedUserId  String   // ID do usuário sendo referenciado
+  topic             String?  // Tópico do feedback (NOVO CAMPO)
+  justification     String   // Feedback textual
+  status            AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  submittedAt       DateTime?
+
+  //ATUALIZACAO DE IMPORTACAO
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
 
   // Relacionamentos
   author         User @relation("ReferenceFeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -198,14 +222,14 @@ model ReferenceFeedback {
 }
 
 model ManagerAssessment {
-  id              String    @id @default(cuid())
-  cycle           String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId        String // ID do gestor que criou a avaliação
-  evaluatedUserId String // ID do liderado sendo avaliado
-  status          String    @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  submittedAt     DateTime?
+  id               String   @id @default(cuid())
+  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId         String   // ID do gestor que criou a avaliação
+  evaluatedUserId  String   // ID do liderado sendo avaliado
+  status           AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  submittedAt      DateTime?
 
   // Relacionamentos
   author        User                      @relation("ManagerAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -231,17 +255,17 @@ model ManagerAssessmentAnswer {
 }
 
 model CommitteeAssessment {
-  id              String    @id @default(cuid())
-  cycle           String // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
-  authorId        String // ID do membro do comitê que criou a avaliação
-  evaluatedUserId String // ID do colaborador sendo avaliado
-  finalScore      Int // Nota final de equalização (1 a 5)
-  justification   String // Justificativa da equalização
-  observations    String? // Observações adicionais
-  status          String    @default("DRAFT") // DRAFT | SUBMITTED
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  submittedAt     DateTime?
+  id               String   @id @default(cuid())
+  cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
+  authorId         String   // ID do membro do comitê que criou a avaliação
+  evaluatedUserId  String   // ID do colaborador sendo avaliado
+  finalScore       Int      // Nota final de equalização (1 a 5)
+  justification    String   // Justificativa da equalização
+  observations     String?  // Observações adicionais
+  status           AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  submittedAt      DateTime?
 
   // Relacionamentos
   author        User @relation("CommitteeAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -381,6 +405,12 @@ enum PDIPriority {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+enum AssessmentStatus {
+  PENDING
+  DRAFT
+  SUBMITTED
 }
 
 // ==========================================
@@ -539,6 +569,27 @@ model KeyResult {
   @@map("key_results")
 }
 
+model ImportBatch {
+  id         String        @id @default(cuid())
+  fileName   String        // Nome do arquivo original (ex: "avaliacoes_2024.2.xlsx")
+  status     ImportStatus  @default(PENDING) // Status do processo de importação
+  importedAt DateTime      @default(now())
+  notes      String?       // Log de erros ou observações
+  
+  // Usuário que fez o upload do arquivo
+  uploadedUserId String?   // ID do usuário que fez a importação
+  uploadedUser   User?     @relation("ImportBatchUploadedBy", fields: [uploadedUserId], references: [id], onDelete: SetNull)
+
+  // Relacionamentos reversos para rastrear todos os dados criados neste lote
+  createdUsers          User[]
+  createdSelfAssessments SelfAssessment[]
+  createdAssessments360 Assessment360[]
+  createdReferenceFeedbacks ReferenceFeedback[]
+  // Adicione outros relacionamentos conforme necessário...
+  
+  @@map("import_batches")
+}
+
 // ==========================================
 // ENUMS
 // ==========================================
@@ -603,4 +654,19 @@ enum KeyResultType {
   PERCENTAGE
   NUMBER
   BINARY
+}
+
+enum WorkAgainMotivation {
+  STRONGLY_DISAGREE   // Discordo Totalmente
+  PARTIALLY_DISAGREE  // Discordo Parcialmente
+  NEUTRAL             // Neutro / Nem concordo, nem discordo
+  PARTIALLY_AGREE     // Concordo Parcialmente
+  STRONGLY_AGREE      // Concordo Totalmente
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
