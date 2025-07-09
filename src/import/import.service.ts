@@ -14,7 +14,7 @@ import { CriteriaService } from '../evaluations/criteria.service';
 import { CyclesService } from '../evaluations/cycles/cycles.service';
 import { EvaluationsService } from '../evaluations/evaluations.service';
 import { ProjectsService } from '../projects/projects.service';
-import { criteriaMap } from './dto/criteriaMap';
+import { criteriaMap } from './dto/criteria-map';
 import {
   CleanSelfAssessmentAnswer,
   Feedback360Data,
@@ -726,42 +726,34 @@ export class ImportService {
    * @param file - Arquivo Excel enviado
    * @returns Resultado da importação
    */
-  async processXslFile(file: Express.Multer.File) {
+  async processXslFile(file: Express.Multer.File, uploadedUser: User) {
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
 
-    return this.processSingleFile(file);
+    return this.processSingleFile(file, uploadedUser);
   }
 
   /**
    * Processa múltiplos arquivos Excel (.xls ou .xlsx)
    * @param files - Array de arquivos Excel enviados
+   * @param uploadedUser - Usuário que está fazendo o upload
    * @returns Resultado da importação com detalhes de cada arquivo
    */
-  async processMultipleXslFiles(files: Express.Multer.File[]) {
+  async processMultipleXslFiles(files: Express.Multer.File[], uploadedUser: User) {
     if (!files || files.length === 0) {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
 
     this.logger.log(`Iniciando processamento de ${files.length} arquivo(s)...`);
 
-    // 1. Criar um lote único para todos os arquivos
-    const batchNames = files.map((f) => f.originalname).join(', ');
-    const batch = await this.prisma.importBatch.create({
-      data: {
-        fileName: `Lote múltiplo: ${batchNames}`,
-        status: 'PROCESSING',
-      },
-    });
-
     const results = {
-      batchId: batch.id,
       totalFiles: files.length,
       successfulFiles: 0,
       failedFiles: 0,
       fileResults: [] as Array<{
         fileName: string;
+        batchId: string;
         status: 'SUCCESS' | 'FAILED';
         message: string;
         userId?: string;
@@ -770,84 +762,82 @@ export class ImportService {
       }>,
     };
 
-    try {
-      // 2. Processar cada arquivo individualmente
-      for (const file of files) {
+    // Processar cada arquivo individualmente, criando um lote separado para cada um
+    for (const file of files) {
+      try {
+        this.logger.log(`Processando arquivo: ${file.originalname}`);
+
+        // Cada arquivo terá seu próprio lote individual
+        const fileResult = await this.processSingleFile(file, uploadedUser);
+
+        results.fileResults.push({
+          fileName: file.originalname,
+          batchId: fileResult.batchId,
+          status: 'SUCCESS',
+          message: `Arquivo processado com sucesso para o usuário ${fileResult.userName}`,
+          userId: fileResult.userId,
+          userName: fileResult.userName,
+        });
+
+        results.successfulFiles++;
+        this.logger.log(`✅ Arquivo ${file.originalname} processado com sucesso`);
+      } catch (error: unknown) {
+        const errorMessage =
+          error && typeof error === 'object' && 'message' in error
+            ? String((error as { message?: unknown }).message)
+            : 'Erro desconhecido';
+
+        // Mesmo em caso de erro, vamos tentar criar um lote de falha para rastreabilidade
+        let failedBatchId = 'N/A';
         try {
-          this.logger.log(`Processando arquivo: ${file.originalname}`);
-
-          const fileResult = await this.processSingleFileInBatch(file, batch.id);
-
-          results.fileResults.push({
-            fileName: file.originalname,
-            status: 'SUCCESS',
-            message: `Arquivo processado com sucesso para o usuário ${fileResult.userName}`,
-            userId: fileResult.userId,
-            userName: fileResult.userName,
+          const failedBatch = await this.prisma.importBatch.create({
+            data: {
+              fileName: file.originalname,
+              status: 'FAILED',
+              uploadedUserId: uploadedUser.id,
+              notes: `Erro ao processar arquivo: ${errorMessage}`,
+            } as Prisma.ImportBatchCreateInput,
           });
-
-          results.successfulFiles++;
-          this.logger.log(`✅ Arquivo ${file.originalname} processado com sucesso`);
-        } catch (error: unknown) {
-          const errorMessage =
-            error && typeof error === 'object' && 'message' in error
-              ? String((error as { message?: unknown }).message)
-              : 'Erro desconhecido';
-
-          results.fileResults.push({
-            fileName: file.originalname,
-            status: 'FAILED',
-            message: `Falha ao processar arquivo`,
-            error: errorMessage,
-          });
-
-          results.failedFiles++;
-          this.logger.error(`❌ Erro ao processar arquivo ${file.originalname}: ${errorMessage}`);
+          failedBatchId = failedBatch.id;
+        } catch (batchError) {
+          this.logger.error(`Erro ao criar lote de falha para ${file.originalname}: ${batchError}`);
         }
+
+        results.fileResults.push({
+          fileName: file.originalname,
+          batchId: failedBatchId,
+          status: 'FAILED',
+          message: `Falha ao processar arquivo`,
+          error: errorMessage,
+        });
+
+        results.failedFiles++;
+        this.logger.error(`❌ Erro ao processar arquivo ${file.originalname}: ${errorMessage}`);
       }
-
-      // 3. Atualizar status do lote baseado nos resultados
-      const finalStatus = results.failedFiles === 0 ? 'COMPLETED' : 'FAILED';
-
-      await this.prisma.importBatch.update({
-        where: { id: batch.id },
-        data: {
-          status: finalStatus,
-          notes: `Processados ${results.successfulFiles}/${results.totalFiles} arquivos com sucesso`,
-        },
-      });
-
-      this.logger.log(
-        `Processamento concluído: ${results.successfulFiles}/${results.totalFiles} arquivos processados com sucesso`,
-      );
-
-      return {
-        message: `Processamento concluído: ${results.successfulFiles}/${results.totalFiles} arquivos processados com sucesso`,
-        ...results,
-      };
-    } catch (error: unknown) {
-      // 4. Em caso de erro geral, atualizar o status do lote
-      const errorMessage =
-        error && typeof error === 'object' && 'message' in error
-          ? String((error as { message?: unknown }).message)
-          : 'Erro desconhecido';
-
-      await this.prisma.importBatch.update({
-        where: { id: batch.id },
-        data: { status: 'FAILED', notes: `Erro geral: ${errorMessage}` },
-      });
-
-      throw new InternalServerErrorException(`Falha no processamento do lote: ${errorMessage}`);
     }
+
+    this.logger.log(
+      `Processamento concluído: ${results.successfulFiles}/${results.totalFiles} arquivos processados com sucesso`,
+    );
+
+    return {
+      message: `Processamento concluído: ${results.successfulFiles}/${results.totalFiles} arquivos processados com sucesso`,
+      ...results,
+    };
   }
 
   /**
    * Processa um único arquivo (usado tanto para arquivo único quanto para cada arquivo em um lote)
    * @param file - Arquivo Excel
-   * @param existingBatchId - ID de lote existente (opcional)
+   * @param uploadedUser - Usuário que fez o upload (para arquivos únicos)
+   * @param existingBatchId - ID de lote existente (para arquivos em lote múltiplo)
    * @returns Resultado da importação
    */
-  private async processSingleFile(file: Express.Multer.File, existingBatchId?: string) {
+  private async processSingleFile(
+    file: Express.Multer.File,
+    uploadedUser?: User,
+    existingBatchId?: string,
+  ) {
     // --- PARTE 1: LER O ARQUIVO EXCEL ---
     const workbook = xlsx.read(file.buffer, { type: 'buffer' });
     const sheetNames = workbook.SheetNames;
@@ -877,7 +867,11 @@ export class ImportService {
     const batch = existingBatchId
       ? await this.prisma.importBatch.findUnique({ where: { id: existingBatchId } })
       : await this.prisma.importBatch.create({
-          data: { fileName: file.originalname, status: 'PROCESSING' },
+          data: {
+            fileName: file.originalname,
+            status: 'PROCESSING',
+            uploadedUserId: uploadedUser?.id,
+          } as Prisma.ImportBatchCreateInput,
         });
 
     if (!batch) {
@@ -949,16 +943,6 @@ export class ImportService {
         `Falha ao importar o arquivo ${file.originalname}: ${errorMessage}`,
       );
     }
-  }
-
-  /**
-   * Versão do processamento de arquivo único para uso em lotes múltiplos
-   * @param file - Arquivo Excel
-   * @param batchId - ID do lote
-   * @returns Resultado básico da importação
-   */
-  private async processSingleFileInBatch(file: Express.Multer.File, batchId: string) {
-    return this.processSingleFile(file, batchId);
   }
 
   /**
@@ -1491,14 +1475,18 @@ export class ImportService {
       // NOVA LÓGICA: Se tem pelo menos UM critério de gestão válido, é gestor
       if (criteriaWithValidScores.length > 0) {
         isManager = true;
-        this.logger.log(`Usuário ${authorId} identificado como gestor (${criteriaWithValidScores.length}/${managementCriteriaWithScores.length} critérios válidos). Atualizando roles...`);
+        this.logger.log(
+          `Usuário ${authorId} identificado como gestor (${criteriaWithValidScores.length}/${managementCriteriaWithScores.length} critérios válidos). Atualizando roles...`,
+        );
 
         // Adiciona MANAGER se não existir
         if (!currentRoles.includes('gestor')) {
           currentRoles.push('gestor');
         }
 
-        this.logger.log(`Usuário ${authorId} será atualizado para MANAGER apenas (sem COLLABORATOR).`);
+        this.logger.log(
+          `Usuário ${authorId} será atualizado para MANAGER apenas (sem COLLABORATOR).`,
+        );
       } else {
         // Se TODOS os critérios de gestão são N/A, mantém apenas como COLLABORATOR
         this.logger.log(
@@ -1530,54 +1518,58 @@ export class ImportService {
 
       // Remove a role de COLLABORATOR se existir (um manager não pode ser collaborator)
       await tx.userRoleAssignment.deleteMany({
-        where: { 
-          userId: authorId, 
-          role: 'COLLABORATOR' 
+        where: {
+          userId: authorId,
+          role: 'COLLABORATOR',
         },
       });
 
       // Remove a role de COLLABORATOR de TODOS os projetos onde o usuário está
       const userProjects = await tx.userProjectRole.findMany({
-        where: { 
+        where: {
           userId: authorId,
-          role: 'COLLABORATOR'
+          role: 'COLLABORATOR',
         },
-        select: { projectId: true }
+        select: { projectId: true },
       });
 
       if (userProjects.length > 0) {
         await tx.userProjectRole.deleteMany({
           where: {
             userId: authorId,
-            role: 'COLLABORATOR'
-          }
+            role: 'COLLABORATOR',
+          },
         });
 
         // Adiciona a role de MANAGER nos projetos onde era COLLABORATOR
-        const managerRolePromises = userProjects.map(project =>
+        const managerRolePromises = userProjects.map((project) =>
           tx.userProjectRole.upsert({
             where: {
               userId_projectId_role: {
                 userId: authorId,
                 projectId: project.projectId,
-                role: 'MANAGER'
-              }
+                role: 'MANAGER',
+              },
             },
             create: {
               userId: authorId,
               projectId: project.projectId,
-              role: 'MANAGER'
+              role: 'MANAGER',
             },
-            update: {}
-          })
+            update: {},
+          }),
         );
 
         await Promise.all(managerRolePromises);
-        
-        this.logger.log(`Roles de COLLABORATOR removidas e substituídas por MANAGER em ${userProjects.length} projeto(s) para o usuário ${authorId}.`);
+
+        this.logger.log(
+          `Roles de COLLABORATOR removidas e substituídas por MANAGER em ${userProjects.length} projeto(s) para o usuário ${authorId}.`,
+        );
       }
 
-      this.logger.log(`UserRoleAssignment criado/atualizado: ${authorId} como MANAGER (COLLABORATOR removido).`);
+      this.logger.log(
+        `UserRoleAssignment criado/atualizado: ${authorId} como MANAGER (COLLABORATOR removido).`,
+      );
     } else {
       // SEMPRE cria/atualiza o UserRoleAssignment para COLLABORATOR (apenas se NÃO for manager)
       await tx.userRoleAssignment.upsert({
@@ -1590,5 +1582,189 @@ export class ImportService {
     }
 
     return isManager;
+  }
+
+  // ==========================================
+  // MÉTODOS PARA CONSULTA DE LOTES DE IMPORTAÇÃO
+  // ==========================================
+
+  /**
+   * Lista todos os lotes de importação de um usuário específico
+   * @param userId - ID do usuário que fez os uploads
+   * @returns Lista de lotes ordenados por data de importação (mais recente primeira)
+   */
+  async getImportBatchesByUser(userId: string) {
+    return this.prisma.importBatch.findMany({
+      where: { uploadedUserId: userId },
+      orderBy: { importedAt: 'desc' },
+      include: {
+        uploadedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            createdUsers: true,
+            createdSelfAssessments: true,
+            createdAssessments360: true,
+            createdReferenceFeedbacks: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Lista todos os lotes de importação do sistema (para admins/RH)
+   * @returns Lista de todos os lotes ordenados por data de importação (mais recente primeira)
+   */
+  async getAllImportBatches() {
+    return this.prisma.importBatch.findMany({
+      orderBy: { importedAt: 'desc' },
+      include: {
+        uploadedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            createdUsers: true,
+            createdSelfAssessments: true,
+            createdAssessments360: true,
+            createdReferenceFeedbacks: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Obtém detalhes completos de um lote específico
+   * @param batchId - ID do lote
+   * @returns Detalhes completos do lote incluindo dados relacionados
+   */
+  async getImportBatchDetails(batchId: string) {
+    const batch = await this.prisma.importBatch.findUnique({
+      where: { id: batchId },
+      include: {
+        uploadedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        createdUsers: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            isImported: true,
+            createdAt: true,
+          },
+        },
+        createdSelfAssessments: {
+          select: {
+            id: true,
+            cycle: true,
+            status: true,
+            createdAt: true,
+            author: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        createdAssessments360: {
+          select: {
+            id: true,
+            cycle: true,
+            overallScore: true,
+            status: true,
+            createdAt: true,
+            author: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            evaluatedUser: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        createdReferenceFeedbacks: {
+          select: {
+            id: true,
+            cycle: true,
+            status: true,
+            createdAt: true,
+            author: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            referencedUser: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!batch) {
+      throw new BadRequestException(`Lote de importação com ID '${batchId}' não encontrado.`);
+    }
+
+    return batch;
+  }
+
+  /**
+   * Remove um lote de importação e todos os dados associados
+   * @param batchId - ID do lote a ser removido
+   * @param userId - ID do usuário que está solicitando a remoção (para verificação de permissão)
+   */
+  async deleteImportBatch(batchId: string, userId: string) {
+    // Verificar se o lote existe e se o usuário tem permissão
+    const batch = await this.prisma.importBatch.findUnique({
+      where: { id: batchId },
+      include: {
+        uploadedUser: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!batch) {
+      throw new BadRequestException(`Lote de importação com ID '${batchId}' não encontrado.`);
+    }
+
+    // Verificar se é o próprio usuário que fez o upload ou se é admin/RH
+    // (Nota: aqui você pode adicionar lógica adicional para verificar roles de admin/RH)
+    if (batch.uploadedUserId !== userId) {
+      throw new BadRequestException('Você não tem permissão para excluir este lote de importação.');
+    }
+
+    // Deletar o lote (Prisma irá automaticamente deletar dados relacionados devido ao onDelete: Cascade)
+    await this.prisma.importBatch.delete({
+      where: { id: batchId },
+    });
+
+    this.logger.log(`Lote de importação ${batchId} removido com sucesso por usuário ${userId}`);
   }
 }

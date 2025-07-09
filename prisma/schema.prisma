@@ -19,7 +19,6 @@ model User {
   email        String   @unique
   passwordHash String
   roles        String   // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
-  isImported           Boolean @default(false)
 
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
@@ -28,6 +27,7 @@ model User {
   seniority    String   // Nível de senioridade
   careerTrack  String   // Trilha de carreira
   businessUnit String   // Unidade de negócio
+  businessHub String?    // Polo
 
   // ==========================================
   // DADOS DE ALOCAÇÃO E RELACIONAMENTO
@@ -99,6 +99,9 @@ model User {
   projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
   okrs               OKR[]              // NOVA: OKRs do colaborador
   pdis              PDI[]              // NOVA: PDIs do colaborador
+  
+  // Lotes de importação criados por este usuário
+  uploadedBatches   ImportBatch[] @relation("ImportBatchUploadedBy")
 
   @@map("users")
 }
@@ -115,7 +118,6 @@ model SelfAssessment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   submittedAt DateTime?
-  isImported  Boolean @default(false)
 
   //ATUALIZACAO DE IMPORTACAO
   importBatchId String?
@@ -152,11 +154,12 @@ model Assessment360 {
   overallScore     Int      // Nota geral de 1 a 5
   strengths        String   // Pontos fortes
   improvements     String   // Pontos de melhoria
+  periodWorked     String? // Período de trabalho avaliado (opcional)
+  motivationToWorkAgain WorkAgainMotivation?
   status           String   @default("DRAFT") // DRAFT | SUBMITTED
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
-  isImported    Boolean @default(false)
 
   //ATUALIZACAO DE IMPORTACAO
   importBatchId String?
@@ -178,11 +181,10 @@ model MentoringAssessment {
   mentorId      String   // ID do mentor sendo avaliado
   score         Int      // Nota de 1 a 5
   justification String   // Justificativa da avaliação
-  status        String   @default("DRAFT") // DRAFT | SUBMITTED
+  status        AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   submittedAt   DateTime?
-  isImported  Boolean @default(false)
 
   // Relacionamentos
   author User @relation("MentoringAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -199,11 +201,10 @@ model ReferenceFeedback {
   referencedUserId  String   // ID do usuário sendo referenciado
   topic             String?  // Tópico do feedback (NOVO CAMPO)
   justification     String   // Feedback textual
-  status            String   @default("DRAFT") // DRAFT | SUBMITTED
+  status            AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   submittedAt       DateTime?
-  isImported   Boolean @default(false)
 
   //ATUALIZACAO DE IMPORTACAO
   importBatchId String?
@@ -223,11 +224,10 @@ model ManagerAssessment {
   cycle            String   // Ciclo de avaliação - FUTURO: migrar para FK evaluation_cycles
   authorId         String   // ID do gestor que criou a avaliação
   evaluatedUserId  String   // ID do liderado sendo avaliado
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
+  status           AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
-  isImported    Boolean @default(false)
 
   // Relacionamentos
   author        User @relation("ManagerAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -260,11 +260,10 @@ model CommitteeAssessment {
   finalScore       Int      // Nota final de equalização (1 a 5)
   justification    String   // Justificativa da equalização
   observations     String?  // Observações adicionais
-  status           String   @default("DRAFT") // DRAFT | SUBMITTED
+  status           AssessmentStatus   @default(PENDING) // DRAFT | SUBMITTED
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   submittedAt      DateTime?
-  isImported    Boolean @default(false)
 
   // Relacionamentos
   author        User @relation("CommitteeAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -388,6 +387,12 @@ enum PDIPriority {
   CRITICAL
 }
 
+enum AssessmentStatus {
+  PENDING
+  DRAFT
+  SUBMITTED
+}
+
 // ==========================================
 // NOVAS ESTRUTURAS DE CONTROLE
 // ==========================================
@@ -399,7 +404,6 @@ model EvaluationCycle {
   phase     EvaluationPhase  @default(ASSESSMENTS) // Nova fase do ciclo
   startDate DateTime?
   endDate   DateTime?
-  isImported         Boolean @default(false)
   
   // NOVOS CAMPOS PARA DEADLINES
   assessmentDeadline    DateTime? // Prazo para autoavaliações e 360
@@ -611,102 +615,16 @@ enum KeyResultType {
   BINARY
 }
 
-  // ==========================================
-  // TABELAS DE IMPORTADOS
-  // ==========================================
-
-
-model ImportHistory {
-  id                   String   @id @default(uuid())
-  fileName             String
-  fileSize             Float?
-  uploadDate           DateTime @default(now())
-  uploadedByEmail      String?
-  overallStatus        String
-  totalSheetsProcessed Int
-  totalRecordsCreated  Int
-  totalRecordsUpdated  Int
-  totalErrors          Int
-  details              Json? 
-
-  perfisImportados      PerfilImportado[]
-  autoAvaliacoesImportadas AutoAvaliacaoImportada[]
-  avaliacoes360Importadas Avaliacao360Importada[]
-  pesquisasReferenciaImportadas PesquisaReferenciaImportada[]
-
-  @@map("import_history")
+enum WorkAgainMotivation {
+  STRONGLY_DISAGREE   // Discordo Totalmente
+  PARTIALLY_DISAGREE  // Discordo Parcialmente
+  NEUTRAL             // Neutro / Nem concordo, nem discordo
+  PARTIALLY_AGREE     // Concordo Parcialmente
+  STRONGLY_AGREE      // Concordo Totalmente
 }
-
   // ==========================================
   // TABELAS DE DADOS IMPORTADOS
   // ==========================================
-
-model PerfilImportado {
-  id      String @id @default(uuid())
-  nome    String @map("Nome ( nome.sobrenome )")
-  email   String @unique
-  ciclo   String @map("Ciclo (ano.semestre)")
-  unidade String @map("Unidade")
-
-  // Campo para a chave estrangeira
-  importHistoryId String?
-  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
-
-  @@map("perfis_importados")
-}
-
-model AutoAvaliacaoImportada {
-  id                      String   @id @default(uuid())
-  emailColaborador        String   @map("Email do Colaborador")
-  ciclo                   String   @map("Ciclo (ano.semestre)")
-  criterio                String   @map("CRITÉRIO")
-  descricaoGeral          String   @map("DESCRIÇÃO GERAL")
-  autoAvaliacao           Int?     @map("AUTO-AVALIAÇÃO")
-  descricaoNota           String?  @map("DESCRIÇÃO NOTA")
-  dadosFatosAutoAvaliacao String?  @map("DADOS E FATOS DA AUTO-AVALIAÇÃO\nCITE, DE FORMA OBJETIVA, CASOS E SITUAÇÕES REAIS")
-  dataImportacao          DateTime @default(now())
-
-  // Campo para a chave estrangeira
-  importHistoryId String? 
-  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
-
-  @@map("auto_avaliacoes_importadas")
-}
-
-model Avaliacao360Importada {
-  id                           String   @id @default(uuid())
-  emailColaborador             String   @map("Email do Colaborador")
-  ciclo                        String   @map("Ciclo (ano.semestre)")
-  emailAvaliado                String   @map("EMAIL DO AVALIADO ( nome.sobrenome )")
-  projetoAtuadoJunto           String?  @map("PROJETO EM QUE ATUARAM JUNTOS - OBRIGATÓRIO TEREM ATUADOS JUNTOS")
-  periodo                      String?  @map("PERÍODO")
-  motivadoEmTrabalharNovamente String?  @map("VOCÊ FICARIA MOTIVADO EM TRABALHAR NOVAMENTE COM ESTE COLABORADOR")
-  notaGeralColaborador         Float?   @map("DÊ UMA NOTA GERAL PARA O COLABORADOR")
-  pontosMelhorar               String?  @map("PONTOS QUE DEVE MELHORAR")
-  pontosExplorar               String?  @map("PONTOS QUE FAZ BEM E DEVE EXPLORAR")
-  dataImportacao               DateTime @default(now())
-
-  // Campo para a chave estrangeira
-  importHistoryId String? 
-  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
-
-  @@map("avaliacoes_360_importadas")
-}
-
-model PesquisaReferenciaImportada {
-  id               String   @id @default(uuid())
-  emailColaborador String   @map("Email do Colaborador")
-  ciclo            String   @map("Ciclo (ano.semestre)")
-  emailReferencia  String   @map("EMAIL DA REFERÊNCIA\n( nome.sobrenome )")
-  justificativa    String?  @map("JUSTIFICATIVA")
-  dataImportacao   DateTime @default(now())
-
-  // Campo para a chave estrangeira
-  importHistoryId String?
-  importHistory             ImportHistory? @relation(fields: [importHistoryId], references: [id], onDelete: Cascade)
-
-  @@map("pesquisas_referencia_importadas")
-}
 
 model ImportBatch {
   id         String        @id @default(cuid())
@@ -714,6 +632,10 @@ model ImportBatch {
   status     ImportStatus  @default(PENDING) // Status do processo de importação
   importedAt DateTime      @default(now())
   notes      String?       // Log de erros ou observações
+  
+  // Usuário que fez o upload do arquivo
+  uploadedUserId String?   // ID do usuário que fez a importação
+  uploadedUser   User?     @relation("ImportBatchUploadedBy", fields: [uploadedUserId], references: [id], onDelete: SetNull)
 
   // Relacionamentos reversos para rastrear todos os dados criados neste lote
   createdUsers          User[]

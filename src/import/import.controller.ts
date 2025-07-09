@@ -1,15 +1,27 @@
 import {
   Controller,
   Post,
+  Get,
+  Delete,
+  Param,
   UseGuards,
   UploadedFiles,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiConsumes,
+  ApiBody,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiTags,
+  ApiParam,
+} from '@nestjs/swagger';
+import { User } from '@prisma/client';
 
 import { ImportService } from './import.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -140,8 +152,8 @@ export class ImportController {
     },
   })
   @ApiOperation({ summary: 'Importa dados históricos de um único arquivo (Apenas RH)' })
-  async uploadExcelFile(@UploadedFile() file: Express.Multer.File) {
-    return this.importService.processXslFile(file);
+  async uploadExcelFile(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: User) {
+    return this.importService.processXslFile(file, user);
   }
 
   /**
@@ -166,7 +178,51 @@ export class ImportController {
     },
   })
   @ApiOperation({ summary: 'Importa dados históricos de múltiplos arquivos em lote (Apenas RH)' })
-  async uploadMultipleExcelFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
-    return this.importService.processMultipleXslFiles(files);
+  async uploadMultipleExcelFiles(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @CurrentUser() user: User,
+  ) {
+    return this.importService.processMultipleXslFiles(files, user);
+  }
+
+  // ENDPOINTS DE CONSULTA DE LOTES
+
+  /**
+   * Lista todos os lotes de importação do usuário atual
+   */
+  @Get('batches/my')
+  @ApiOperation({ summary: 'Lista os lotes de importação do usuário atual' })
+  async getMyImportBatches(@CurrentUser() user: User) {
+    return this.importService.getImportBatchesByUser(user.id);
+  }
+
+  /**
+   * Lista todos os lotes de importação do sistema (apenas RH)
+   */
+  @Get('batches/all')
+  @ApiOperation({ summary: 'Lista todos os lotes de importação do sistema (Apenas RH)' })
+  async getAllImportBatches() {
+    return this.importService.getAllImportBatches();
+  }
+
+  /**
+   * Obtém detalhes de um lote específico
+   */
+  @Get('batches/:batchId')
+  @ApiOperation({ summary: 'Obtém detalhes de um lote de importação específico' })
+  @ApiParam({ name: 'batchId', description: 'ID do lote de importação' })
+  async getImportBatchDetails(@Param('batchId') batchId: string) {
+    return this.importService.getImportBatchDetails(batchId);
+  }
+
+  /**
+   * Remove um lote de importação e todos os dados associados
+   */
+  @Delete('batches/:batchId')
+  @ApiOperation({ summary: 'Remove um lote de importação e todos os dados associados' })
+  @ApiParam({ name: 'batchId', description: 'ID do lote de importação a ser removido' })
+  async deleteImportBatch(@Param('batchId') batchId: string, @CurrentUser() user: User) {
+    await this.importService.deleteImportBatch(batchId, user.id);
+    return { message: 'Lote de importação removido com sucesso' };
   }
 }
