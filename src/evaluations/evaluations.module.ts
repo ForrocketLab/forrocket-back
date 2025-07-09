@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { CommitteeModule } from './committee/committee.module';
 import { CyclesModule } from './cycles/cycles.module';
@@ -15,9 +16,11 @@ import { ProjectsModule } from '../projects/projects.module';
 import { GenAiModule } from '../gen-ai/gen-ai.module';
 import { HRModule } from './hr/hr.module';
 import { AssessmentsModule } from './assessments/assessments.module';
+import { CommonModule } from '../common/common.module';
+import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluation-decryption.interceptor';
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule, HRModule, AssessmentsModule],
+  imports: [DatabaseModule, ProjectsModule, GenAiModule, CyclesModule, CommitteeModule, HRModule, AssessmentsModule, CommonModule],
   controllers: [
     EvaluationsController,
     ManagerController,
@@ -25,7 +28,15 @@ import { AssessmentsModule } from './assessments/assessments.module';
     CriteriaPublicController,
     CriteriaSimpleController,
   ],
-  providers: [EvaluationsService, CyclesService, CriteriaService],
+  providers: [
+    EvaluationsService, 
+    CyclesService, 
+    CriteriaService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: EvaluationDecryptionInterceptor,
+    },
+  ],
   exports: [EvaluationsService, CyclesService, CriteriaService, AssessmentsModule],
 })
 export class EvaluationsModule {}

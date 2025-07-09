@@ -127,7 +127,7 @@ model SelfAssessmentAnswer {
   selfAssessmentId String
   criterionId      String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
   score            Int // Nota de 1 a 5
-  justification    String // Justificativa textual
+  justification    String // Justificativa textual (criptografada)
 
   // Relacionamentos
   selfAssessment SelfAssessment @relation(fields: [selfAssessmentId], references: [id], onDelete: Cascade)
@@ -142,8 +142,8 @@ model Assessment360 {
   authorId        String // ID do usuário que criou a avaliação
   evaluatedUserId String // ID do usuário sendo avaliado
   overallScore    Int // Nota geral de 1 a 5
-  strengths       String // Pontos fortes
-  improvements    String // Pontos de melhoria
+  strengths       String // Pontos fortes (criptografados)
+  improvements    String // Pontos de melhoria (criptografados)
   status          String    @default("DRAFT") // DRAFT | SUBMITTED
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -163,7 +163,7 @@ model MentoringAssessment {
   authorId      String // ID do mentorado que criou a avaliação
   mentorId      String // ID do mentor sendo avaliado
   score         Int // Nota de 1 a 5
-  justification String // Justificativa da avaliação
+  justification String // Justificativa da avaliação (criptografada)
   status        String    @default("DRAFT") // DRAFT | SUBMITTED
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -221,7 +221,7 @@ model ManagerAssessmentAnswer {
   managerAssessmentId String
   criterionId         String // ID do critério (ex: "sentimento-de-dono") - FUTURO: migrar para FK criteria
   score               Int // Nota de 1 a 5
-  justification       String // Justificativa textual
+  justification       String // Justificativa textual (criptografada)
 
   // Relacionamentos
   managerAssessment ManagerAssessment @relation(fields: [managerAssessmentId], references: [id], onDelete: Cascade)
