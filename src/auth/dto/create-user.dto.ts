@@ -10,7 +10,6 @@ import {
   IsOptional,
   MinLength,
   Matches,
-  IsBoolean,
 } from 'class-validator';
 
 /**
@@ -187,15 +186,4 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   mentorId?: string;
-
-  @ApiProperty({
-    // NOVO CAMPO: isImported
-    description: 'Indica se o usuário está sendo importado de um sistema externo',
-    example: true,
-    required: false,
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean() // NOVO: IsBoolean
-  isImported?: boolean;
 }

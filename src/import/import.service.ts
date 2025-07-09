@@ -21,6 +21,7 @@ import {
   ProfileData,
   SelfAssessmentData,
 } from './dto/import-dtos.dto';
+import { motivationMapping } from './dto/work-again-motivation-map';
 
 @Injectable()
 export class ImportService {
@@ -992,7 +993,7 @@ export class ImportService {
       {
         email: userEmail,
         name: mainProfile['Nome ( nome.sobrenome )'],
-        businessUnit: mainProfile['Unidade'],
+        businessHub: mainProfile['Unidade'],
       },
       batchId,
     );
@@ -1178,6 +1179,31 @@ export class ImportService {
       const improvementsText = row['PONTOS QUE DEVE MELHORAR'];
 
       // =================================================================
+      // PROCESSAR NOVOS CAMPOS (PERÍODO E MOTIVAÇÃO)
+      // =================================================================
+      const periodWorked = row['PERÍODO'];
+      const motivationText =
+        row['VOCÊ FICARIA MOTIVADO EM TRABALHAR NOVAMENTE COM ESTE COLABORADOR'];
+
+      // Processar o período - converter para string se necessário
+      let periodWorkedStr: string | null = null;
+      if (periodWorked !== undefined && periodWorked !== null) {
+        periodWorkedStr =
+          typeof periodWorked === 'string' ? periodWorked.trim() : String(periodWorked);
+      }
+
+      // Mapear a motivação usando o mapeamento definido
+      let motivationToWorkAgain: import('@prisma/client').WorkAgainMotivation | undefined;
+      if (motivationText && typeof motivationText === 'string') {
+        motivationToWorkAgain = motivationMapping.get(motivationText.trim());
+        if (!motivationToWorkAgain) {
+          this.logger.warn(
+            `Valor de motivação não reconhecido: "${motivationText}" para o avaliado "${evaluatedUserEmail}". Será definido como null.`,
+          );
+        }
+      }
+
+      // =================================================================
       // CRIAR PROJETO E ASSOCIAR USUÁRIOS
       // =================================================================
       const projectName = row['PROJETO EM QUE ATUARAM JUNTOS - OBRIGATÓRIO TEREM ATUADOS JUNTOS'];
@@ -1209,14 +1235,17 @@ export class ImportService {
           overallScore,
           strengths: strengthsText,
           improvements: improvementsText,
+          periodWorked: periodWorkedStr,
+          motivationToWorkAgain: motivationToWorkAgain || null,
           status: 'SUBMITTED',
-          isImported: true,
           importBatchId: batchId,
         },
         update: {
           overallScore,
           strengths: strengthsText,
           improvements: improvementsText,
+          periodWorked: periodWorkedStr,
+          motivationToWorkAgain: motivationToWorkAgain || null,
           importBatchId: batchId,
         },
       });
@@ -1355,10 +1384,10 @@ export class ImportService {
    */
   private async findOrCreateUser(
     tx: Prisma.TransactionClient,
-    details: { email: string; name?: string; businessUnit?: string },
+    details: { email: string; name?: string; businessHub?: string },
     batchId: string,
   ): Promise<User> {
-    const { email, name, businessUnit } = details;
+    const { email, name, businessHub } = details;
 
     // Se o nome não for fornecido ou parecer um email, gera a partir do email.
     let finalName = name;
@@ -1372,19 +1401,19 @@ export class ImportService {
       update: {
         // Se o usuário já existe, podemos decidir atualizar alguns dados
         name: finalName,
-        businessUnit: businessUnit, // Atualiza se fornecido
+        businessHub: businessHub, // Atualiza se fornecido
       },
       create: {
         email,
         name: finalName,
-        businessUnit: businessUnit || 'A ser definido',
+        businessHub: businessHub || 'A ser definido',
         passwordHash: await bcrypt.hash('password123', 10), // Senha padrão segura
         roles: JSON.stringify(['colaborador']),
         jobTitle: 'A ser definido',
         seniority: 'A ser definido',
         careerTrack: 'A ser definido',
+        businessUnit: 'A ser definido',
         isActive: false, // Começa inativo
-        isImported: true,
         importBatchId: batchId,
       },
     });
@@ -1665,7 +1694,6 @@ export class ImportService {
             id: true,
             name: true,
             email: true,
-            isImported: true,
             createdAt: true,
           },
         },

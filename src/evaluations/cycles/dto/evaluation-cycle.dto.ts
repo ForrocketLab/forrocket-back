@@ -9,7 +9,6 @@ import {
   ValidatorConstraintInterface,
   Validate,
   ValidationArguments,
-  IsBoolean,
 } from 'class-validator';
 
 // Validador customizado para garantir que uma data é posterior a outra
@@ -245,16 +244,6 @@ export class CreateEvaluationCycleDto {
   @IsOptional()
   @IsDateString()
   equalizationDeadline?: string;
-
-  @ApiProperty({
-    description: 'Indica se o ciclo está sendo importado de um sistema externo',
-    example: true,
-    required: false,
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  isImported?: boolean;
 }
 
 /**

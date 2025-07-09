@@ -1,6 +1,6 @@
 import { WorkAgainMotivation } from '@prisma/client';
 
-const motivationMapping = new Map<string, WorkAgainMotivation>([
+export const motivationMapping = new Map<string, WorkAgainMotivation>([
   ['Discordo Totalmente', WorkAgainMotivation.STRONGLY_DISAGREE],
   ['Discordo Parcialmente', WorkAgainMotivation.PARTIALLY_DISAGREE],
   ['Nem concordo, nem discordo', WorkAgainMotivation.NEUTRAL],

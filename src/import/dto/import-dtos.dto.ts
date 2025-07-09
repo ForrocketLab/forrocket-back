@@ -16,7 +16,7 @@ export interface SelfAssessmentData {
 export interface Feedback360Data {
   'EMAIL DO AVALIADO ( nome.sobrenome )': string;
   'PROJETO EM QUE ATUARAM JUNTOS - OBRIGATÓRIO TEREM ATUADOS JUNTOS': string;
-  PERÍODO: number;
+  PERÍODO: string | number;
   'VOCÊ FICARIA MOTIVADO EM TRABALHAR NOVAMENTE COM ESTE COLABORADOR': string;
   'DÊ UMA NOTA GERAL PARA O COLABORADOR': number;
   'PONTOS QUE DEVE MELHORAR': string;
