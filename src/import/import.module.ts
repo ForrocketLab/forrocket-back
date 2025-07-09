@@ -4,19 +4,11 @@ import { ImportController } from './import.controller';
 import { ImportService } from './import.service';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
-import { CriteriaMappingModule } from '../evaluations/criteria-mapping/criteria-mapping.module';
 import { EvaluationsModule } from '../evaluations/evaluations.module';
 import { ProjectsModule } from '../projects/projects.module';
 
-
 @Module({
-  imports: [
-    AuthModule,
-    DatabaseModule,
-    EvaluationsModule, 
-    ProjectsModule,
-    CriteriaMappingModule,
-  ],
+  imports: [AuthModule, DatabaseModule, EvaluationsModule, ProjectsModule],
   controllers: [ImportController],
   providers: [ImportService],
 })
