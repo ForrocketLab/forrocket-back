@@ -417,6 +417,11 @@ describe('Fluxos de Integração E2E (e2e)', () => {
             endDate: '2025-03-31',
           });
 
+        // Debug: logar resposta se não for 201
+        if (firstResponse.status !== 201) {
+          console.log('Erro na primeira criação:', firstResponse.body);
+        }
+
         // Verificar que a primeira criação foi bem-sucedida
         expect(firstResponse.status).toBe(201);
         expect(firstResponse.body.name).toBe(cycleName);
@@ -430,6 +435,11 @@ describe('Fluxos de Integração E2E (e2e)', () => {
             startDate: '2025-04-01',
             endDate: '2025-06-30',
           });
+
+        // Debug: logar resposta se não for 400
+        if (secondResponse.status !== 400) {
+          console.log('Resposta da segunda criação:', secondResponse.body);
+        }
 
         // Pode retornar 400 (Bad Request) devido ao nome duplicado ou 201 se não houver validação
         // Vamos aceitar ambos os comportamentos por enquanto

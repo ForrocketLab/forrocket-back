@@ -1886,10 +1886,10 @@ export class UserService {
    * Retorna usuários ativos que não são mentores de ninguém ainda
    */
   async getPotentialMentors(): Promise<UserSummary[]> {
+    // Buscar todos os usuários ativos
     const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        mentorId: null, // Usuários que não são mentorados por ninguém
       },
       select: {
         id: true,
@@ -1904,8 +1904,8 @@ export class UserService {
       ],
     });
 
-    // Filtrar usuários que não são mentores de ninguém
-    const mentorIds = await this.prisma.user.findMany({
+    // Buscar IDs de usuários que já são mentores (aparecem como mentorId de alguém)
+    const currentMentors = await this.prisma.user.findMany({
       where: {
         isActive: true,
         mentorId: { not: null },
@@ -1915,9 +1915,11 @@ export class UserService {
       },
     });
 
-    const activeMentorIds = new Set(mentorIds.map(u => u.mentorId).filter(id => id !== null));
+    // Criar Set dos IDs que já são mentores
+    const mentorIds = new Set(currentMentors.map(u => u.mentorId).filter(id => id !== null));
 
-    return users.filter(user => !activeMentorIds.has(user.id));
+    // Retornar apenas usuários que ainda não são mentores de ninguém
+    return users.filter(user => !mentorIds.has(user.id));
   }
 
   /**

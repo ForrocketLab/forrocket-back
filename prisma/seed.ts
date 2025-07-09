@@ -487,22 +487,25 @@ async function main() {
   await prisma.$executeRaw`UPDATE projects SET managerId = ${bruno.id} WHERE id = 'projeto-alpha'`; // Bruno gerencia Alpha
   await prisma.$executeRaw`UPDATE projects SET managerId = ${bruno.id} WHERE id = 'projeto-api-core'`; // Bruno gerencia API Core
   await prisma.$executeRaw`UPDATE projects SET managerId = ${diana.id} WHERE id = 'projeto-beta'`; // Diana (RH) gerencia Beta
-  await prisma.$executeRaw`UPDATE projects SET managerId = ${lucas.id} WHERE id = 'projeto-gamma'`; // Lucas gerencia Gamma
+  // Projeto Gamma não tem gestor específico (apenas colaboradores)
   await prisma.$executeRaw`UPDATE projects SET managerId = ${rafael.id} WHERE id = 'projeto-delta'`; // Rafael gerencia Delta
   await prisma.$executeRaw`UPDATE projects SET managerId = ${ana.id} WHERE id = 'projeto-mobile-app'`; // Ana gerencia Mobile App
   
-  // Configurar Lucas como líder de Marina no projeto Gamma
-  await prisma.$executeRaw`UPDATE users SET leaderId = ${lucas.id} WHERE id = ${marina.id}`;
-  await prisma.$executeRaw`UPDATE users SET directLeadership = ${JSON.stringify([marina.id])} WHERE id = ${lucas.id}`;
-  
-  // Configurar Rafael como gestor de Marina também 
+  // ✅ CORRIGIDO: Marina tem Rafael como gestor (projeto Delta) e líder (projeto Delta)
+  // Marina não tem líder no projeto Gamma (apenas colaboradora)
   await prisma.user.update({
     where: { id: marina.id },
-    data: { managerId: rafael.id }
+    data: { 
+      managerId: rafael.id, // Rafael é gestor de Marina (projeto Delta)
+      leaderId: rafael.id   // Rafael também é líder de Marina (projeto Delta)
+    }
   });
   await prisma.user.update({
     where: { id: rafael.id },
-    data: { directReports: JSON.stringify([marina.id]) }
+    data: { 
+      directReports: JSON.stringify([marina.id]), // Rafael gerencia Marina
+      directLeadership: JSON.stringify([marina.id]) // Rafael lidera Marina
+    }
   });
   
   // Configurar relacionamentos de mentoria
