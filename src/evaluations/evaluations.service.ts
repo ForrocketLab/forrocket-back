@@ -3,9 +3,12 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { CriterionPillar, ManagerTeamSummary } from '@prisma/client';
 import { GenAiService } from '../gen-ai/gen-ai.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import {
   CreateSelfAssessmentDto,
@@ -23,6 +26,7 @@ import {
   AssessmentWithAnswers,
   PerformanceDataDto,
 } from './assessments/dto/performance-data.dto';
+import { ProjectEvaluationDto } from './dto/project-evaluation.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 import { CyclesService } from './cycles/cycles.service';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
@@ -47,6 +51,7 @@ import {
 
 @Injectable()
 export class EvaluationsService {
+  private readonly projectLogger = new Logger('ProjectEvaluations');
   constructor(
     private prisma: PrismaService,
     private projectsService: ProjectsService,
@@ -1789,6 +1794,35 @@ export class EvaluationsService {
       performanceByCycle: validPerformanceByCycle,
       totalCycles: validPerformanceByCycle.length,
     };
+  }
+
+    async getProjectEvaluations(projectId: string): Promise<ProjectEvaluationDto[]> {
+    const evaluationsPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
+
+    try {
+      const fileContent = fs.readFileSync(evaluationsPath, 'utf-8');
+      const evaluationsData = JSON.parse(fileContent);
+
+      // A estrutura do JSON é: { projetos: [ { "projeto-x": [...] } ] }
+      const projectData = evaluationsData.projetos[0]?.[projectId];
+
+      if (!projectData) {
+        throw new NotFoundException(`Avaliações para o projeto com ID '${projectId}' não encontradas.`);
+      }
+
+      // Mapear para o DTO, mudando 'reason' para 'justification'
+      return projectData.map((evalItem: any) => ({
+        cycle: evalItem.cycle,
+        score: evalItem.score,
+        justification: evalItem.reason,
+      }));
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.projectLogger.error('Erro ao ler ou analisar o arquivo evaluations.json', error);
+      throw new Error('Não foi possível carregar os dados de avaliação do projeto.');
+    }
   }
 
   /**

@@ -32,6 +32,7 @@ import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProjectEvaluationDto } from './dto/project-evaluation.dto';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
 
 @ApiTags('Avaliações')
@@ -510,5 +511,30 @@ export class EvaluationsController {
   })
   async getPerformanceHistory(@CurrentUser() user: User) {
     return this.evaluationsService.getPerformanceHistory(user.id);
+  }
+
+  @Get('projects/:projectId/details')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar avaliações detalhadas de um projeto por ciclo',
+    description:
+      'Retorna uma lista com as notas e justificativas de um projeto específico, lendo do evaluations.json.',
+  })
+  @ApiParam({
+    name: 'projectId',
+    description: 'ID do projeto (ex: projeto-api-core)',
+    example: 'projeto-mobile-app',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliações do projeto retornadas com sucesso.',
+    type: [ProjectEvaluationDto],
+  })
+  @ApiResponse({ status: 404, description: 'Projeto não encontrado.' })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente.' })
+  async getProjectEvaluations(
+    @Param('projectId') projectId: string,
+  ): Promise<ProjectEvaluationDto[]> {
+    return this.evaluationsService.getProjectEvaluations(projectId);
   }
 }

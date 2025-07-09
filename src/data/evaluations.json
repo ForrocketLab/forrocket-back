@@ -143,20 +143,49 @@
   "observacoes_equalizacao": [],
   
   "projetos": [
-  {
-   "projeto-api-core": {
-    "2024.1": 4.5,
-    "2024.2": 4.8,
-    "2025.1": 4.6
-  },
-  "projeto-mobile-app": {
-    "2024.1": 4.0,
-    "2024.2": 3.8,
-    "2025.1": 4.2
-  },
-  "projeto-alpha": {
-    "2025.1": 4.75
-  }
-}
+    {
+      "projeto-api-core": [
+        {
+          "cycle": "2024.1",
+          "score": 4.5,
+          "reason": "O projeto foi desenvolvido da melhor maneira possível."
+        },
+        {
+          "cycle": "2024.2",
+          "score": 4.8,
+          "reason": "Já havia sido uma grande experiência no ciclo passado, mas nesse todas as minhas expectativas foram superadas."
+
+        },
+        {
+          "cycle": "2025.1",
+          "score": 4.6,
+          "reason": "Mantiveram o nível e a qualidade nos entregáveis em relação ao ciclo passado."
+        }
+      ],
+      "projeto-mobile-app": [
+        {
+          "cycle": "2024.1",
+          "score": 4.0,
+          "reason": "Gostei bastante do resultado."
+        },
+        {
+          "cycle": "2024.2",
+          "score": 3.8,
+          "reason": "Senti Falta de maior comunicação, mas obtivemos um bom produto."
+        },
+        {
+          "cycle": "2025.1",
+          "score": 4.2,
+          "reason": "Os problemas de comunicação em relação ao ciclo passado foram sanados. Ótimo trabalho!."
+        }
+      ],
+      "projeto-alpha": [
+        {
+          "cycle": "2025.1",
+          "score": 4.75,
+          "reason": "Foi a melhor experiência como cliente que já tive em 15 anos como empresário!"
+        }
+     ]
+    }
   ]
 }
