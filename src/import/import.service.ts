@@ -47,6 +47,18 @@ export class ImportService {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
 
+    // Validar formato do arquivo
+    const allowedMimeTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Formato de arquivo não suportado. Apenas arquivos .xls e .xlsx são aceitos.',
+      );
+    }
+
     return this.processSingleFile(file, uploadedUser);
   }
 
