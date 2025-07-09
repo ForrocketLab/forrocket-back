@@ -820,7 +820,14 @@ export class EvaluationsService {
         where: { authorId: userId, cycle },
         include: {
           evaluatedUser: {
-            select: { id: true, name: true, email: true },
+            select: { 
+              id: true, 
+              name: true, 
+              email: true, 
+              jobTitle: true, 
+              seniority: true,
+              roles: true
+            },
           },
         },
       }),
@@ -900,7 +907,15 @@ export class EvaluationsService {
             },
           }
         : null,
-      assessments360,
+      assessments360: assessments360.map(assessment => ({
+        ...assessment,
+        evaluatedUserId: assessment.evaluatedUserId,
+        evaluatedUserName: assessment.evaluatedUser.name,
+        evaluatedUserEmail: assessment.evaluatedUser.email,
+        evaluatedUserJobTitle: assessment.evaluatedUser.jobTitle,
+        evaluatedUserSeniority: assessment.evaluatedUser.seniority,
+        evaluatedUserRoles: JSON.parse(assessment.evaluatedUser.roles || '[]'),
+      })),
       mentoringAssessments,
       referenceFeedbacks,
       managerAssessments,
