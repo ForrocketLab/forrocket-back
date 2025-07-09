@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { AuditLog } from '@prisma/client';
 
 @Injectable()
 export class MonitoringService {
@@ -69,7 +70,7 @@ export class MonitoringService {
 
     const hourlyCounts: { [key: string]: number } = {};
     apiCalls.forEach(call => {
-      const hour = call.timestamp.toISOString().substring(0, 13); // "YYYY-MM-DDTHH"
+      const hour = call.timestamp.toISOString().substring(0, 13); 
       hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1;
     });
 
@@ -94,19 +95,73 @@ export class MonitoringService {
     const endpointCounts: { [endpoint: string]: number } = {};
 
     apiLogs.forEach(log => {
-      // Garante que 'details' é um objeto e possui a propriedade 'endpoint'
       const details = log.details as { endpoint?: string };
       if (details && typeof details === 'object' && details.endpoint) {
         endpointCounts[details.endpoint] = (endpointCounts[details.endpoint] || 0) + 1;
       }
     });
 
-    // Converte para um array, ordena e pega os 'limit' primeiros
     const sortedEndpoints = Object.entries(endpointCounts)
       .map(([endpoint, count]) => ({ endpoint, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
 
     return sortedEndpoints;
+  }
+
+  /**
+   * Obtém entradas de log recentes com filtros, paginação e opção de exclusão de logs de um userId específico.
+   */
+  async getRecentLogEntries(
+    search?: string,
+    limit: number = 10,
+    offset: number = 0,
+    displayTimeframeMinutes: number = 30, // Padrão: mostrar logs dos últimos 15 minutos
+    userIdToExclude?: string, // ID do usuário cujos logs devem ser excluídos
+  ): Promise<AuditLog[]> {
+    const whereClause: any = {};
+    
+    // Filtro de tempo
+    const fifteenMinutesAgo = new Date(Date.now() - displayTimeframeMinutes * 60 * 1000);
+    whereClause.timestamp = { gte: fifteenMinutesAgo };
+
+    // Adiciona a condição para excluir logs de um usuário específico
+    if (userIdToExclude) {
+      whereClause.NOT = {
+        userId: userIdToExclude,
+      };
+    }
+
+    // Adiciona a condição de busca (se houver)
+    if (search) {
+      const searchConditions = [
+        { eventType: { contains: search } },
+        { originIp: { contains: search } },
+        { user: { name: { contains: search } } },
+        { details: { path: ['endpoint'], string_contains: search } }, 
+      ];
+      whereClause.AND = whereClause.AND ? [...whereClause.AND, { OR: searchConditions }] : [{ OR: searchConditions }];
+    }
+
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where: whereClause,
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+      skip: offset,
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    return auditLogs.map(log => ({
+      ...log,
+      userName: log.user?.name || null,
+      userId: log.userId || null,
+      user: undefined
+    })) as AuditLog[];
   }
 }
