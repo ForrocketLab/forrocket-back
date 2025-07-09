@@ -63,6 +63,16 @@ export class CriteriaService {
   }
 
   /**
+   * NOVO MÉTODO: Busca um critério por nome
+   */
+  async findByName(name: string): Promise<CriterionDto | null> {
+    const criterion = await this.prisma.criterion.findFirst({
+      where: { name: name },
+    });
+    return criterion ? this.mapToDto(criterion) : null;
+  }
+
+  /**
    * Cria um novo critério
    */
   async create(createCriterionDto: CreateCriterionDto): Promise<CriterionDto> {

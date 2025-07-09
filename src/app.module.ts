@@ -4,13 +4,14 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
+import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { GenAiModule } from './gen-ai/gen-ai.module';
+import { ImportModule } from './import/import.module';
 import { OKRsModule } from './okrs/okrs.module';
-import { ProjectsModule } from './projects/projects.module';
 import { PDIsModule } from './pdis/pdis.module';
+import { ProjectsModule } from './projects/projects.module';
 
-import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 /**
  * Módulo principal da aplicação RPE
  * Integra todos os módulos e configurações globais
@@ -38,6 +39,8 @@ import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
     // Módulo de projetos
     ProjectsModule,
 
+    // Módulo de importação de dados
+    ImportModule,
     ErpSimulationModule,
 
     // Módulo de integração com GenAI

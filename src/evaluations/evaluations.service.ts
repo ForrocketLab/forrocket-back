@@ -625,6 +625,28 @@ export class EvaluationsService {
         score: dto.teamPlayerScore,
         justification: dto.teamPlayerJustification,
       },
+
+      // Execução
+      {
+        criterionId: 'entregar-qualidade',
+        score: dto.entregarComQualidadeScore,
+        justification: dto.entregarComQualidadeJustification,
+      },
+      {
+        criterionId: 'atender-prazos',
+        score: dto.atenderPrazosScore,
+        justification: dto.atenderPrazosJustification,
+      },
+      {
+        criterionId: 'fazer-mais-menos',
+        score: dto.fazerMaisMenosScore,
+        justification: dto.fazerMaisMenosJustification,
+      },
+      {
+        criterionId: 'pensar-fora-caixa',
+        score: dto.pensarForaCaixaScore,
+        justification: dto.pensarForaCaixaJustification,
+      },
     ];
 
     // Criar a avaliação de gestor com os 5 critérios de comportamento para o ciclo ativo
