@@ -2,11 +2,15 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import { DatabaseModule } from '../database/database.module';
 import { GenAiController } from './gen-ai.controller';
 import { GenAiService } from './gen-ai.service';
 
 @Module({
   imports: [
+    // Importar DatabaseModule para ter acesso ao PrismaService
+    DatabaseModule,
+    
     // Registrando o HttpModule para fazer as requisições
     HttpModule.registerAsync({
       imports: [ConfigModule],

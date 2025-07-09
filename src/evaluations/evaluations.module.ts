@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { AssessmentsModule } from './assessments/assessments.module';
 import { CommitteeModule } from './committee/committee.module';
-import { CriteriaMappingModule } from './criteria-mapping/criteria-mapping.module'; // NOVO: Importar CriteriaMappingModule
 import { CriteriaPublicController } from './criteria-public.controller';
 import { CriteriaSimpleController } from './criteria-simple.controller';
 import { CriteriaController } from './criteria.controller';
@@ -16,8 +16,6 @@ import { GenAiModule } from '../gen-ai/gen-ai.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { HRModule } from './hr/hr.module';
 
-// Submódulos
-
 @Module({
   imports: [
     DatabaseModule,
@@ -25,8 +23,8 @@ import { HRModule } from './hr/hr.module';
     GenAiModule,
     CyclesModule,
     CommitteeModule,
-    CriteriaMappingModule,
     HRModule,
+    AssessmentsModule,
   ],
   controllers: [
     EvaluationsController,
@@ -36,6 +34,6 @@ import { HRModule } from './hr/hr.module';
     CriteriaSimpleController,
   ],
   providers: [EvaluationsService, CyclesService, CriteriaService],
-  exports: [EvaluationsService, CyclesService, CriteriaService],
+  exports: [EvaluationsService, CyclesService, CriteriaService, AssessmentsModule],
 })
 export class EvaluationsModule {}

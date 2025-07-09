@@ -10,6 +10,7 @@ import {
   TeamScoreAnalysisData,
 } from './dto/team-evaluation.dto';
 import { CollaboratorEvaluationData } from './dto/collaborator-summary.dto';
+import { PersonalInsightsData } from './dto/personal-insights.dto';
 
 function isBrutalFactsDto(obj: unknown): obj is BrutalFactsDto {
   return (
@@ -179,15 +180,25 @@ export class GenAiService {
 
       const parsedJson: unknown = JSON.parse(responseContent);
 
-      if (!this.isTeamEvaluationSummaryDto(parsedJson)) {
-        this.logger.error(
-          'O JSON retornado pela LLM não tem o formato esperado { "facts": "string" }',
-          parsedJson,
-        );
-        throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
+      // Verificar se é o formato simples { "facts": "string" }
+      if (this.isTeamEvaluationSummaryDto(parsedJson)) {
+        return parsedJson.facts || '';
       }
 
-      return parsedJson.facts || '';
+      // Verificar se é o formato estruturado e converter
+      if (this.isStructuredInsightsResponse(parsedJson)) {
+        const structuredResponse = parsedJson as any;
+        
+        // Converter o formato estruturado para texto único
+        const textInsights = this.convertStructuredInsightsToText(structuredResponse.facts);
+        return textInsights;
+      }
+        
+      this.logger.error(
+        'O JSON retornado pela LLM não tem o formato esperado { "facts": "string" } nem formato estruturado',
+        parsedJson,
+      );
+      throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
     } catch (error) {
       if (error instanceof AxiosError) {
         this.logger.error('Erro na chamada para a API da LLM:', error.response?.data);
@@ -427,6 +438,133 @@ export class GenAiService {
     }
   }
 
+  /**
+   * Gera insights personalizados para um colaborador baseado em suas avaliações
+   * @param personalData Dados completos do colaborador com todas as avaliações
+   * @returns Uma promessa que resolve para uma string com insights personalizados
+   */
+  async getPersonalInsights(personalData: PersonalInsightsData): Promise<string> {
+    const prompt = `
+    Você é um consultor especializado em desenvolvimento pessoal e carreira, focado em fornecer insights acionáveis para colaboradores.
+    Analise os dados de avaliação abaixo e gere insights personalizados e dicas práticas para o colaborador, focando em:
+
+    1. **PONTOS FORTES**: Competências que se destacam nas avaliações
+    2. **OPORTUNIDADES DE CRESCIMENTO**: Áreas específicas para desenvolvimento 
+    3. **PADRÕES COMPORTAMENTAIS**: Tendências observadas pelos avaliadores
+    4. **DICAS PRÁTICAS**: Sugestões concretas e acionáveis para melhoria
+    5. **PRÓXIMOS PASSOS**: Plano de ação para o próximo ciclo
+
+    DADOS DO COLABORADOR:
+    Nome: ${personalData.collaborator.name}
+    Cargo: ${personalData.collaborator.jobTitle} (${personalData.collaborator.seniority})
+    Unidade: ${personalData.collaborator.businessUnit}
+    Ciclo: ${personalData.cycle}
+
+    NOTAS OBTIDAS:
+    - Média geral: ${personalData.scores.averageScore.toFixed(2)}/5
+    ${personalData.scores.selfEvaluation ? `- Autoavaliação: ${personalData.scores.selfEvaluation.toFixed(2)}/5` : ''}
+    ${personalData.scores.managerEvaluation ? `- Avaliação do gestor: ${personalData.scores.managerEvaluation.toFixed(2)}/5` : ''}
+    ${personalData.scores.committeeEvaluation ? `- Avaliação do comitê: ${personalData.scores.committeeEvaluation.toFixed(2)}/5` : ''}
+
+    FEEDBACK 360° RECEBIDO (${personalData.assessments360.length} avaliações):
+    ${personalData.assessments360.map(assessment => `
+    Avaliador: ${assessment.assessorName}
+    Pontos fortes destacados: "${assessment.strengths}"
+    Sugestões de melhoria: "${assessment.improvements}"`).join('\n')}
+
+    FEEDBACK DO GESTOR:
+    ${personalData.managerAssessments.map(assessment => `
+    ${assessment.answers.map(answer => 
+      `Critério: ${answer.criterionId} - Nota: ${answer.score}/5
+      Justificativa: "${answer.justification}"`
+    ).join('\n')}`).join('\n')}
+
+    ${personalData.committeeAssessment ? `
+    AVALIAÇÃO DO COMITÊ:
+    Nota final: ${personalData.committeeAssessment.finalScore}/5
+    Justificativa: "${personalData.committeeAssessment.justification}"
+    ` : ''}
+
+    DIRETRIZES PARA OS INSIGHTS:
+    
+    **Tom e Abordagem:**
+    - Use linguagem encorajadora e construtiva
+    - Foque no crescimento e desenvolvimento, não em deficiências
+    - Seja específico e prático nas sugestões
+    - Reconheça conquistas antes de abordar melhorias
+    
+    **Estrutura dos Insights:**
+    1. **Reconhecimento**: Destaque 2-3 pontos fortes principais
+    2. **Oportunidades**: Identifique 2-3 áreas de maior potencial de crescimento
+    3. **Dicas Práticas**: Forneça 3-4 ações concretas que podem ser implementadas
+    4. **Objetivos**: Sugira metas específicas para o próximo período
+    
+    **Foco nas Avaliações 360:**
+    - Priorize insights das avaliações 360°, pois refletem a percepção dos pares
+    - Compare com feedback do gestor para identificar consensos
+    - Se há discrepâncias, ajude a entender diferentes perspectivas
+    
+    **Exemplos de Dicas Práticas:**
+    - "Para melhorar a comunicação, pratique resumir suas ideias em 3 pontos principais antes de apresentar"
+    - "Considere agendar 15 minutos semanais com cada membro da equipe para feedback contínuo"
+    - "Para desenvolver liderança, volunteer-se para liderar um projeto pequeno no próximo trimestre"
+    
+    IMPORTANTE: 
+    - Escreva na segunda pessoa (você) para falar diretamente com o colaborador
+    - Seja empático e motivador
+    - Inclua tanto reconhecimento quanto desenvolvimento
+    - Mantenha um tom profissional mas acessível
+    - Retorne EXATAMENTE no formato JSON abaixo:
+    
+    {
+      "facts": "Seus insights personalizados completos aqui..."
+    }
+    `;
+
+    const payload = {
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4, // temperatura moderada para balance entre criatividade e objetividade
+      response_format: { type: 'json_object' },
+    };
+
+    try {
+      this.logger.log(`Gerando insights personalizados para: ${personalData.collaborator.name}`);
+
+      const response: AxiosResponse<OpenAiChatCompletionResponseDto> = await firstValueFrom(
+        this.httpService.post<OpenAiChatCompletionResponseDto>('/chat/completions', payload),
+      );
+
+      this.logger.log('Insights personalizados gerados com sucesso.');
+
+      const responseContent = response.data.choices[0].message.content;
+
+      if (!responseContent) {
+        this.logger.error('A resposta da LLM não contém o conteúdo esperado.');
+        throw new InternalServerErrorException('Resposta inválida da API de IA.');
+      }
+
+      const parsedJson: unknown = JSON.parse(responseContent);
+
+      if (!this.isTeamEvaluationSummaryDto(parsedJson)) {
+        this.logger.error(
+          'O JSON retornado pela LLM não tem o formato esperado { "facts": "string" }',
+          parsedJson,
+        );
+        throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
+      }
+
+      return parsedJson.facts || '';
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        this.logger.error('Erro na chamada para a API da LLM:', error.response?.data);
+      } else {
+        this.logger.error('Erro inesperado na geração de insights pessoais:', error);
+      }
+      throw new InternalServerErrorException('Falha ao gerar insights personalizados.');
+    }
+  }
+
   private isTeamEvaluationSummaryDto(obj: unknown): obj is TeamEvaluationSummaryDto {
     return (
       typeof obj === 'object' &&
@@ -434,5 +572,43 @@ export class GenAiService {
       'facts' in obj &&
       typeof (obj as TeamEvaluationSummaryDto).facts === 'string'
     );
+  }
+
+  private isStructuredInsightsResponse(obj: unknown): boolean {
+    return (
+      typeof obj === 'object' &&
+      obj !== null &&
+      'facts' in obj &&
+      typeof (obj as any).facts === 'object'
+    );
+  }
+
+  private convertStructuredInsightsToText(structuredFacts: any): string {
+    try {
+      let result = '';
+      
+      // Se é um objeto estruturado com seções
+      if (typeof structuredFacts === 'object') {
+        for (const [section, content] of Object.entries(structuredFacts)) {
+          result += `**${section}:**\n`;
+          
+          if (Array.isArray(content)) {
+            content.forEach((item: string, index: number) => {
+              result += `${index + 1}. ${item}\n`;
+            });
+          } else if (typeof content === 'string') {
+            result += `${content}\n`;
+          }
+          result += '\n';
+        }
+      } else if (typeof structuredFacts === 'string') {
+        result = structuredFacts;
+      }
+      
+      return result.trim();
+    } catch (error) {
+      this.logger.error('Erro ao converter insights estruturados para texto:', error);
+      return 'Insights gerados com formato inesperado. Contate o suporte técnico.';
+    }
   }
 }
