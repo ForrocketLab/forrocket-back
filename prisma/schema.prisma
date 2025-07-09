@@ -35,6 +35,13 @@ model User {
   managerId     String? // ID do gestor direto
   directReports String? // Array de IDs dos liderados (JSON string)
   mentorId      String? // ID do mentor designado
+  
+  // ==========================================
+  // NOVOS CAMPOS DE LIDERANÇA E MENTORIA
+  // ==========================================
+  leaderId         String? // ID do líder direto
+  directLeadership String? // Array de IDs de quem esta pessoa lidera (JSON string)
+  mentoringIds     String? // Array de IDs de quem esta pessoa mentora (JSON string)
 
   // ==========================================
   // METADADOS DE CONTROLE
@@ -95,6 +102,8 @@ model User {
   roleAssignments    UserRoleAssignment[]
   projectAssignments UserProjectAssignment[]
   projectRoles       UserProjectRole[] // NOVA: Roles específicas por projeto
+  leaderOfProjects   Project[] @relation("ProjectLeader") // NOVA: Projetos que esta pessoa lidera
+  managerOfProjects  Project[] @relation("ProjectManager") // NOVA: Projetos que esta pessoa gerencia
   okrs               OKR[] // NOVA: OKRs do colaborador
   pdis               PDI[] // NOVA: PDIs do colaborador
 
@@ -427,7 +436,15 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // ==========================================
+  // LIDERANÇA E GESTÃO DO PROJETO
+  // ==========================================
+  leaderId  String? // ID do líder do projeto (apenas um por projeto)
+  managerId String? // ID do gestor do projeto (apenas um por projeto)
+
   // Relacionamentos
+  leader           User?                   @relation("ProjectLeader", fields: [leaderId], references: [id])
+  manager          User?                   @relation("ProjectManager", fields: [managerId], references: [id])
   userAssignments  UserProjectAssignment[]
   userProjectRoles UserProjectRole[] // NOVA: Roles específicas por projeto
 
@@ -550,6 +567,7 @@ enum UserRole {
   COMMITTEE // comite
   RH // rh
   ADMIN // admin
+  LEADER // líder
 }
 
 enum CriterionPillar {

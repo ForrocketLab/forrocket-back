@@ -27,12 +27,12 @@ export class ProjectAssignmentDto {
   @ApiProperty({
     description: 'Role do usuário no projeto',
     example: 'colaborador',
-    enum: ['colaborador', 'gestor']
+    enum: ['colaborador', 'gestor', 'lider']
   })
-  @IsEnum(['colaborador', 'gestor'], {
-    message: 'roleInProject deve ser um dos seguintes valores: colaborador, gestor'
+  @IsEnum(['colaborador', 'gestor', 'lider'], {
+    message: 'roleInProject deve ser um dos seguintes valores: colaborador, gestor, lider'
   })
-  roleInProject: 'colaborador' | 'gestor';
+  roleInProject: 'colaborador' | 'gestor' | 'lider';
 }
 
 /**
