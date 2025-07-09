@@ -184,19 +184,20 @@ describe('ImportService', () => {
       const mockProfileData = [
         {
           'Nome ( nome.sobrenome )': 'João Silva',
-          'Email': 'joao.silva@company.com',
-          'Unidade': 'Technology',
+          Email: 'joao.silva@company.com',
+          Unidade: 'Technology',
           'Ciclo (ano.semestre)': '2025.1',
         },
       ];
 
       // Mock xlsx methods
       const xlsxReadSpy = jest.spyOn(xlsx, 'read').mockReturnValue(mockWorkbook);
-      const xlsxSheetToJsonSpy = jest.spyOn(xlsx.utils, 'sheet_to_json')
-        .mockReturnValueOnce(mockProfileData)      // Perfil sheet
-        .mockReturnValueOnce([])                   // Autoavaliação sheet
-        .mockReturnValueOnce([])                   // Avaliação 360 sheet
-        .mockReturnValueOnce([]);                  // Pesquisa de Referências sheet
+      const xlsxSheetToJsonSpy = jest
+        .spyOn(xlsx.utils, 'sheet_to_json')
+        .mockReturnValueOnce(mockProfileData) // Perfil sheet
+        .mockReturnValueOnce([]) // Autoavaliação sheet
+        .mockReturnValueOnce([]) // Avaliação 360 sheet
+        .mockReturnValueOnce([]); // Pesquisa de Referências sheet
 
       // Mock database operations with proper return values
       const mockUserCreated = { ...mockUser, email: 'joao.silva@company.com', name: 'João Silva' };
