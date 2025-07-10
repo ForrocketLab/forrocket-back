@@ -64,13 +64,13 @@ export class MonitoringService {
         timestamp: true,
       },
       orderBy: {
-        timestamp: 'asc',
+          timestamp: 'asc',
       },
     });
 
     const hourlyCounts: { [key: string]: number } = {};
     apiCalls.forEach(call => {
-      const hour = call.timestamp.toISOString().substring(0, 13); 
+      const hour = call.timestamp.toISOString().substring(0, 13); // "YYYY-MM-DDTHH"
       hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1;
     });
 
@@ -95,9 +95,9 @@ export class MonitoringService {
     const endpointCounts: { [endpoint: string]: number } = {};
 
     apiLogs.forEach(log => {
-      const details = log.details as { endpoint?: string };
-      if (details && typeof details === 'object' && details.endpoint) {
-        endpointCounts[details.endpoint] = (endpointCounts[details.endpoint] || 0) + 1;
+      const detailsObj = log.details as { endpoint?: string } | undefined; // Safe cast
+      if (detailsObj && typeof detailsObj === 'object' && detailsObj.endpoint) {
+        endpointCounts[detailsObj.endpoint] = (endpointCounts[detailsObj.endpoint] || 0) + 1;
       }
     });
 
@@ -116,12 +116,12 @@ export class MonitoringService {
     search?: string,
     limit: number = 10,
     offset: number = 0,
-    displayTimeframeMinutes: number = 30, // Padrão: mostrar logs dos últimos 15 minutos
+    displayTimeframeMinutes: number = 15, // Padrão: mostrar logs dos últimos 15 minutos
     userIdToExclude?: string, // ID do usuário cujos logs devem ser excluídos
   ): Promise<AuditLog[]> {
     const whereClause: any = {};
     
-    // Filtro de tempo
+    // Filtro de tempo (ex: últimos 15 minutos)
     const fifteenMinutesAgo = new Date(Date.now() - displayTimeframeMinutes * 60 * 1000);
     whereClause.timestamp = { gte: fifteenMinutesAgo };
 
@@ -132,22 +132,25 @@ export class MonitoringService {
       };
     }
 
-    // Adiciona a condição de busca (se houver)
+    // Parte da busca que pode ser feita diretamente no banco
+    let dbSearchConditions: any[] = [];
     if (search) {
-      const searchConditions = [
+      dbSearchConditions.push(
         { eventType: { contains: search } },
         { originIp: { contains: search } },
-        { user: { name: { contains: search } } },
-        { details: { path: ['endpoint'], string_contains: search } }, 
-      ];
-      whereClause.AND = whereClause.AND ? [...whereClause.AND, { OR: searchConditions }] : [{ OR: searchConditions }];
+        { user: { name: { contains: search } } }
+      );
+    }
+    
+    if (dbSearchConditions.length > 0) {
+      whereClause.AND = whereClause.AND ? [...whereClause.AND, { OR: dbSearchConditions }] : [{ OR: dbSearchConditions }];
     }
 
     const auditLogs = await this.prisma.auditLog.findMany({
       where: whereClause,
       orderBy: { timestamp: 'desc' },
-      take: limit,
-      skip: offset,
+      take: limit + offset, // Fetch more data to filter in memory
+      skip: 0, // Start from beginning for in-memory filtering
       include: {
         user: {
           select: {
@@ -157,7 +160,28 @@ export class MonitoringService {
       },
     });
 
-    return auditLogs.map(log => ({
+    let filteredLogs = auditLogs;
+    // FILTRO EM MEMÓRIA PARA 'details.endpoint' (se a busca estiver ativa)
+    if (search) {
+      const searchTermLower = search.toLowerCase();
+      filteredLogs = auditLogs.filter(log => {
+        // CORREÇÃO AQUI: Acessar 'endpoint' de 'details' de forma segura
+        const detailsObj = log.details as { endpoint?: string } | undefined; 
+        const endpointContains = detailsObj?.endpoint?.toLowerCase().includes(searchTermLower);
+        
+        const eventTypeContains = log.eventType.toLowerCase().includes(searchTermLower);
+        const originIpContains = log.originIp?.toLowerCase().includes(searchTermLower);
+        const userNameContains = log.user?.name?.toLowerCase().includes(searchTermLower);
+        
+        // Retorna true se qualquer parte da busca corresponder OU se o endpoint contiver o termo de busca
+        return endpointContains || eventTypeContains || originIpContains || userNameContains;
+      });
+    }
+
+    // Aplicar paginação APÓS o filtro em memória
+    const paginatedLogs = filteredLogs.slice(offset, offset + limit);
+
+    return paginatedLogs.map(log => ({
       ...log,
       userName: log.user?.name || null,
       userId: log.userId || null,
