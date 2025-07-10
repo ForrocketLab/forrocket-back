@@ -18,7 +18,9 @@ model User {
   name         String
   email        String @unique
   passwordHash String
-  roles        String // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
+  roles        String   // Armazenado como JSON string (array de UserRole) - DEPRECATED: migrar para UserRoleAssignment
+  lastActivityAt DateTime? @map("last_activity_at") // Última vez que o usuário interagiu com o sistema
+  auditLogs  AuditLog[]
 
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
@@ -588,6 +590,26 @@ model ImportBatch {
   // Adicione outros relacionamentos conforme necessário...
   
   @@map("import_batches")
+}
+
+// ==========================================
+// SISTEMA DE AuditLog
+// ==========================================
+
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  timestamp   DateTime  @default(now())
+  eventType   String    
+  userId      String?   
+  details     Json?     
+  originIp    String?  
+  durationMs  Int? 
+  
+  // Relacionamento com a tabela User
+  user        User?     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
 }
 
 // ==========================================

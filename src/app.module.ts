@@ -11,6 +11,7 @@ import { ImportModule } from './import/import.module';
 import { OKRsModule } from './okrs/okrs.module';
 import { PDIsModule } from './pdis/pdis.module';
 import { ProjectsModule } from './projects/projects.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -49,6 +50,9 @@ import { ProjectsModule } from './projects/projects.module';
     OKRsModule,
 
     PDIsModule,
+
+    // Módulo de monitoramento
+    MonitoringModule,
   ],
 })
 export class AppModule {}

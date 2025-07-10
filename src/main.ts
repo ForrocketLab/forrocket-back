@@ -6,6 +6,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { PrismaService } from './database/prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -23,6 +25,10 @@ async function bootstrap() {
     transform: true,
     validateCustomDecorators: true,
   }));
+
+  // Configurar o interceptor global
+  const prismaService = app.get(PrismaService); 
+  app.useGlobalInterceptors(new AuditInterceptor(prismaService));
 
   // Configuração do Swagger/OpenAPI
   const config = new DocumentBuilder()
