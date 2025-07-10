@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, UserProfileDto, UserType } from './dto';
+import { UpdateUserData } from '../common/types/user.types';
 import * as bcrypt from 'bcryptjs';
 
 export interface UserSummary {
@@ -71,6 +72,62 @@ export class UserService {
 
     console.log('✅ Usuário criado com sucesso:', createUserDto.email);
     return completeUser;
+  }
+
+  /**
+   * Busca um usuário pelo email
+   * @param email - Email do usuário
+   * @returns Usuário encontrado ou null
+   */
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async updateUser(userId: string, data: Partial<{ name: string; businessUnit: string }>) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
+  /**
+   * @param userId - ID do usuário a ser atualizado
+   * @param updateUserData - Dados para atualização do usuário
+   * @returns Usuário atualizado (sem o passwordHash)
+   */
+  async update(userId: string, updateUserData: UpdateUserData): Promise<UserProfileDto> {
+    console.log('🔄 Iniciando atualização de usuário:', userId);
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException(`Usuário com ID ${userId} não encontrado.`);
+    }
+    const dataToUpdate: any = { 
+      name: updateUserData.name,
+      email: updateUserData.email,
+      jobTitle: updateUserData.jobTitle,
+      seniority: updateUserData.seniority,
+      careerTrack: updateUserData.careerTrack,
+      businessUnit: updateUserData.businessUnit,
+      isActive: updateUserData.isActive,
+      managerId: updateUserData.managerId,
+      mentorId: updateUserData.mentorId,
+      passwordHash: updateUserData.password ? await bcrypt.hash(updateUserData.password, 12) : existingUser.passwordHash,
+      updatedAt: new Date(),
+    };
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+    });
+
+    console.log('✅ Usuário atualizado com sucesso:', userId);
+    return this.getUserProfile(updatedUser.id);
   }
 
   /**

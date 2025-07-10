@@ -10,6 +10,7 @@ import {
   HttpStatus,
   HttpCode,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 
@@ -30,10 +31,13 @@ import {
   CollaboratorSummaryResponseDto,
   GetCollaboratorSummaryRequestDto 
 } from '../../gen-ai/dto/collaborator-summary.dto';
+import { EvaluationInputInterceptor } from '../../common/interceptors/evaluation-input.interceptor';
+import { EvaluationDecryptionInterceptor } from '../../common/interceptors/evaluation-decryption.interceptor';
 
 @ApiTags('Avaliações de Comitê')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(EvaluationInputInterceptor, EvaluationDecryptionInterceptor)
 @Controller('api/evaluations/committee')
 export class CommitteeController {
   constructor(

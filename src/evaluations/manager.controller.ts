@@ -10,6 +10,7 @@ import {
   BadRequestException,
   Query,
   Param,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +25,8 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GenAiService } from '../gen-ai/gen-ai.service';
+import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
+import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluation-decryption.interceptor';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateManagerAssessmentDto } from './assessments/dto';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
@@ -41,6 +44,7 @@ import { TeamHistoricalPerformanceResponseDto } from './manager/dto/team-histori
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(EvaluationInputInterceptor, EvaluationDecryptionInterceptor)
 @Controller('api/evaluations/manager')
 export class ManagerController {
   constructor(

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { CriterionPillar, ManagerTeamSummary } from '@prisma/client';
 import { GenAiService } from '../gen-ai/gen-ai.service';
+import { EncryptionService } from '../common/services/encryption.service';
 
 import {
   CreateSelfAssessmentDto,
@@ -56,6 +57,7 @@ export class EvaluationsService {
     private projectsService: ProjectsService,
     private cyclesService: CyclesService,
     private genAiService: GenAiService,
+    private encryptionService: EncryptionService,
   ) {}
 
   /**
@@ -150,72 +152,72 @@ export class EvaluationsService {
       );
     }
 
-    // Mapear os dados do DTO para o formato do banco
+    // Mapear os dados do DTO para o formato do banco (com criptografia das justificativas)
     const answers = [
       // Comportamento
       {
         criterionId: 'sentimento-de-dono',
         score: dto.sentimentoDeDonoScore,
-        justification: dto.sentimentoDeDonoJustification,
+        justification: this.encryptionService.encrypt(dto.sentimentoDeDonoJustification),
       },
       {
         criterionId: 'resiliencia-adversidades',
         score: dto.resilienciaAdversidadesScore,
-        justification: dto.resilienciaAdversidadesJustification,
+        justification: this.encryptionService.encrypt(dto.resilienciaAdversidadesJustification),
       },
       {
         criterionId: 'organizacao-trabalho',
         score: dto.organizacaoTrabalhoScore,
-        justification: dto.organizacaoTrabalhoJustification,
+        justification: this.encryptionService.encrypt(dto.organizacaoTrabalhoJustification),
       },
       {
         criterionId: 'capacidade-aprender',
         score: dto.capacidadeAprenderScore,
-        justification: dto.capacidadeAprenderJustification,
+        justification: this.encryptionService.encrypt(dto.capacidadeAprenderJustification),
       },
       {
         criterionId: 'team-player',
         score: dto.teamPlayerScore,
-        justification: dto.teamPlayerJustification,
+        justification: this.encryptionService.encrypt(dto.teamPlayerJustification),
       },
 
       // Execução
       {
         criterionId: 'entregar-qualidade',
         score: dto.entregarQualidadeScore,
-        justification: dto.entregarQualidadeJustification,
+        justification: this.encryptionService.encrypt(dto.entregarQualidadeJustification),
       },
       {
         criterionId: 'atender-prazos',
         score: dto.atenderPrazosScore,
-        justification: dto.atenderPrazosJustification,
+        justification: this.encryptionService.encrypt(dto.atenderPrazosJustification),
       },
       {
         criterionId: 'fazer-mais-menos',
         score: dto.fazerMaisMenosScore,
-        justification: dto.fazerMaisMenosJustification,
+        justification: this.encryptionService.encrypt(dto.fazerMaisMenosJustification),
       },
       {
         criterionId: 'pensar-fora-caixa',
         score: dto.pensarForaCaixaScore,
-        justification: dto.pensarForaCaixaJustification,
+        justification: this.encryptionService.encrypt(dto.pensarForaCaixaJustification),
       },
 
       // Gestão e Liderança
       {
         criterionId: 'gestao-gente',
         score: dto.gestaoGenteScore,
-        justification: dto.gestaoGenteJustification,
+        justification: this.encryptionService.encrypt(dto.gestaoGenteJustification),
       },
       {
         criterionId: 'gestao-resultados',
         score: dto.gestaoResultadosScore,
-        justification: dto.gestaoResultadosJustification,
+        justification: this.encryptionService.encrypt(dto.gestaoResultadosJustification),
       },
       {
         criterionId: 'evolucao-rocket',
         score: dto.evolucaoRocketScore,
-        justification: dto.evolucaoRocketJustification,
+        justification: this.encryptionService.encrypt(dto.evolucaoRocketJustification),
       },
     ];
 
@@ -431,7 +433,7 @@ export class EvaluationsService {
       );
     }
 
-    // Criar a avaliação 360 para o ciclo ativo
+    // Criar a avaliação 360 para o ciclo ativo (com criptografia)
     const assessment360 = await this.prisma.assessment360.create({
       data: {
         authorId: userId,
@@ -439,8 +441,8 @@ export class EvaluationsService {
         status: EvaluationStatus.DRAFT, // Usando o enum aqui
         evaluatedUserId: dto.evaluatedUserId,
         overallScore: dto.overallScore,
-        strengths: dto.strengths,
-        improvements: dto.improvements,
+        strengths: this.encryptionService.encrypt(dto.strengths),
+        improvements: this.encryptionService.encrypt(dto.improvements),
       },
     });
 
@@ -492,7 +494,7 @@ export class EvaluationsService {
       );
     }
 
-    // Criar a avaliação de mentoring para o ciclo ativo
+    // Criar a avaliação de mentoring para o ciclo ativo (com criptografia)
     const mentoringAssessment = await this.prisma.mentoringAssessment.create({
       data: {
         authorId: userId,
@@ -500,7 +502,7 @@ export class EvaluationsService {
         status: EvaluationStatus.DRAFT, // Usando o enum aqui
         mentorId: dto.mentorId,
         score: dto.score,
-        justification: dto.justification,
+        justification: this.encryptionService.encrypt(dto.justification),
       },
     });
 
@@ -543,15 +545,15 @@ export class EvaluationsService {
       );
     }
 
-    // Criar o feedback de referência para o ciclo ativo
+    // Criar o feedback de referência para o ciclo ativo (com criptografia)
     const referenceFeedback = await this.prisma.referenceFeedback.create({
       data: {
         authorId: userId,
         cycle: activeCycle.name,
         status: EvaluationStatus.DRAFT, // Usando o enum aqui
         referencedUserId: dto.referencedUserId,
-        topic: dto.topic, // Campo opcional
-        justification: dto.justification,
+        topic: this.encryptionService.encrypt(dto.topic || ''), // Campo opcional
+        justification: this.encryptionService.encrypt(dto.justification),
       },
     });
 
@@ -624,6 +626,28 @@ export class EvaluationsService {
         criterionId: 'team-player',
         score: dto.teamPlayerScore,
         justification: dto.teamPlayerJustification,
+      },
+
+      // Execução
+      {
+        criterionId: 'entregar-qualidade',
+        score: dto.entregarComQualidadeScore,
+        justification: dto.entregarComQualidadeJustification,
+      },
+      {
+        criterionId: 'atender-prazos',
+        score: dto.atenderPrazosScore,
+        justification: dto.atenderPrazosJustification,
+      },
+      {
+        criterionId: 'fazer-mais-menos',
+        score: dto.fazerMaisMenosScore,
+        justification: dto.fazerMaisMenosJustification,
+      },
+      {
+        criterionId: 'pensar-fora-caixa',
+        score: dto.pensarForaCaixaScore,
+        justification: dto.pensarForaCaixaJustification,
       },
     ];
 
@@ -818,7 +842,14 @@ export class EvaluationsService {
         where: { authorId: userId, cycle },
         include: {
           evaluatedUser: {
-            select: { id: true, name: true, email: true },
+            select: { 
+              id: true, 
+              name: true, 
+              email: true, 
+              jobTitle: true, 
+              seniority: true,
+              roles: true
+            },
           },
         },
       }),
@@ -898,7 +929,15 @@ export class EvaluationsService {
             },
           }
         : null,
-      assessments360,
+      assessments360: assessments360.map(assessment => ({
+        ...assessment,
+        evaluatedUserId: assessment.evaluatedUserId,
+        evaluatedUserName: assessment.evaluatedUser.name,
+        evaluatedUserEmail: assessment.evaluatedUser.email,
+        evaluatedUserJobTitle: assessment.evaluatedUser.jobTitle,
+        evaluatedUserSeniority: assessment.evaluatedUser.seniority,
+        evaluatedUserRoles: JSON.parse(assessment.evaluatedUser.roles || '[]'),
+      })),
       mentoringAssessments,
       referenceFeedbacks,
       managerAssessments,
