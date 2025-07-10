@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { EvaluationsController } from './evaluations.controller';
 import { EvaluationsService } from './evaluations.service';
+import { EncryptionService } from '../common/services/encryption.service';
+import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
 
 describe('EvaluationsController', () => {
   let controller: EvaluationsController;
@@ -85,6 +87,11 @@ describe('EvaluationsController', () => {
       getReceivedEvaluationsByCycle: jest.fn(),
     };
 
+    const mockEncryptionService = {
+      encrypt: jest.fn((text) => `encrypted_${text}`),
+      decrypt: jest.fn((text) => text.replace('encrypted_', '')),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EvaluationsController],
       providers: [
@@ -92,8 +99,17 @@ describe('EvaluationsController', () => {
           provide: EvaluationsService,
           useValue: mockEvaluationsService,
         },
+        {
+          provide: EncryptionService,
+          useValue: mockEncryptionService,
+        },
       ],
-    }).compile();
+    })
+    .overrideInterceptor(EvaluationInputInterceptor)
+    .useValue({
+      intercept: jest.fn().mockImplementation((context, next) => next.handle()),
+    })
+    .compile();
 
     controller = module.get<EvaluationsController>(EvaluationsController);
     evaluationsService = module.get(EvaluationsService);

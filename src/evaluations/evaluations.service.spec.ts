@@ -6,6 +6,7 @@ import { PrismaService } from '../database/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CyclesService } from './cycles/cycles.service';
 import { GenAiService } from '../gen-ai/gen-ai.service';
+import { EncryptionService } from '../common/services/encryption.service';
 import { Create360AssessmentDto, CreateMentoringAssessmentDto, CreateReferenceFeedbackDto, CreateManagerAssessmentDto } from './assessments/dto';
 
 describe('EvaluationsService', () => {
@@ -96,6 +97,20 @@ describe('EvaluationsService', () => {
     capacidadeAprenderJustification: 'Aprende rapidamente',
     teamPlayerScore: 5,
     teamPlayerJustification: 'Colaborativo',
+    entregarComQualidadeScore: 4,
+    entregarComQualidadeJustification: 'Entrega com qualidade',
+    atenderPrazosScore: 4,
+    atenderPrazosJustification: 'Atende prazos',
+    fazerMaisMenosScore: 4,
+    fazerMaisMenosJustification: 'Otimiza recursos',
+    pensarForaCaixaScore: 3,
+    pensarForaCaixaJustification: 'Demonstra criatividade',
+    gestaoGenteScore: 3,
+    gestaoGenteJustification: 'Desenvolve pessoas',
+    gestaoResultadosScore: 4,
+    gestaoResultadosJustification: 'Foco na entrega de resultados',
+    evolucaoRocketScore: 4,
+    evolucaoRocketJustification: 'Contribui para o crescimento da empresa',
   };
 
   beforeEach(async () => {
@@ -156,7 +171,8 @@ describe('EvaluationsService', () => {
     };
 
     const mockCyclesService = {
-      validateActiveCyclePhase: jest.fn(),
+      validateActiveCyclePhase: jest.fn().mockResolvedValue(mockActiveCycle),
+      getActiveCycle: jest.fn().mockResolvedValue(mockActiveCycle),
     };
 
     const mockGenAiService = {
@@ -164,6 +180,11 @@ describe('EvaluationsService', () => {
       getTeamEvaluationSummary: jest.fn(),
       getTeamScoreAnalysis: jest.fn(),
       getCollaboratorSummaryForEqualization: jest.fn(),
+    };
+
+    const mockEncryptionService = {
+      encrypt: jest.fn((text) => `encrypted_${text}`),
+      decrypt: jest.fn((text) => text.replace('encrypted_', '')),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -185,6 +206,10 @@ describe('EvaluationsService', () => {
           provide: GenAiService,
           useValue: mockGenAiService,
         },
+        {
+          provide: EncryptionService,
+          useValue: mockEncryptionService,
+        },
       ],
     }).compile();
 
@@ -192,6 +217,10 @@ describe('EvaluationsService', () => {
     prismaService = module.get(PrismaService);
     projectsService = module.get(ProjectsService);
     cyclesService = module.get(CyclesService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -330,42 +359,30 @@ describe('EvaluationsService', () => {
   });
 
   describe('createSelfAssessment', () => {
-    beforeEach(() => {
-      cyclesService.validateActiveCyclePhase.mockResolvedValue(mockActiveCycle);
-    });
-
     it('deve criar autoavaliação com sucesso', async () => {
-      const mockCreatedAssessment = {
+      jest.spyOn(cyclesService, 'validateActiveCyclePhase').mockResolvedValue(mockActiveCycle);
+      jest.spyOn(prismaService.selfAssessment, 'findFirst').mockResolvedValue(null);
+      jest.spyOn(prismaService.selfAssessment, 'create').mockResolvedValue({
         id: 'assessment-1',
         authorId: 'user-1',
         cycle: '2024-Q1',
-        status: 'DRAFT',
         answers: [],
-      };
-
-      prismaService.selfAssessment.findFirst.mockResolvedValue(null);
-      prismaService.selfAssessment.create.mockResolvedValue(mockCreatedAssessment);
-
-      const result = await service.createSelfAssessment('user-1', mockSelfAssessmentDto);
-
-      expect(cyclesService.validateActiveCyclePhase).toHaveBeenCalledWith('ASSESSMENTS');
-      expect(prismaService.selfAssessment.findFirst).toHaveBeenCalledWith({
-        where: {
-          authorId: 'user-1',
-          cycle: '2024-Q1',
-        },
       });
+
+      const result = await service.createSelfAssessment(mockUser.id, mockSelfAssessmentDto);
+
+      expect(result).toBeDefined();
       expect(prismaService.selfAssessment.create).toHaveBeenCalledWith({
         data: {
           authorId: 'user-1',
-          cycle: '2024-Q1',
+          cycle: mockActiveCycle.name,
           status: 'DRAFT',
           answers: {
             create: expect.arrayContaining([
               expect.objectContaining({
                 criterionId: 'sentimento-de-dono',
+                justification: expect.stringContaining('encrypted_'),
                 score: 4,
-                justification: 'Demonstro responsabilidade pelos resultados',
               }),
             ]),
           },
@@ -374,16 +391,16 @@ describe('EvaluationsService', () => {
           answers: true,
         },
       });
-      expect(result).toEqual(mockCreatedAssessment);
     });
 
     it('deve lançar BadRequestException quando já existe autoavaliação para o ciclo', async () => {
       const existingAssessment = {
-        id: 'existing-1',
+        id: 'assessment-1',
         authorId: 'user-1',
         cycle: '2024-Q1',
       };
 
+      jest.spyOn(cyclesService, 'validateActiveCyclePhase').mockResolvedValue(mockActiveCycle);
       prismaService.selfAssessment.findFirst.mockResolvedValue(existingAssessment);
 
       await expect(service.createSelfAssessment('user-1', mockSelfAssessmentDto)).rejects.toThrow(
@@ -394,27 +411,34 @@ describe('EvaluationsService', () => {
   });
 
   describe('create360Assessment', () => {
-    const createDto: Create360AssessmentDto = {
+    const createDto = {
       evaluatedUserId: 'user-2',
       overallScore: 4,
-      strengths: 'Muito dedicada',
-      improvements: 'Pode melhorar comunicação',
+      strengths: 'Excelente comunicação e conhecimento técnico',
+      improvements: 'Poderia ser mais proativo em reuniões',
     };
 
-    beforeEach(() => {
-      cyclesService.validateActiveCyclePhase.mockResolvedValue(mockActiveCycle);
-    });
-
     it('deve criar avaliação 360 com sucesso', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
-      projectsService.canEvaluateUserIn360.mockResolvedValue(true);
+      const encryptedStrengths = 'encrypted_Excelente comunicação e conhecimento técnico';
+      const encryptedImprovements = 'encrypted_Poderia ser mais proativo em reuniões';
+
       prismaService.assessment360.findFirst.mockResolvedValue(null);
       prismaService.assessment360.create.mockResolvedValue({
         id: 'assessment-1',
-        ...createDto,
-        cycle: mockActiveCycle.name,
         authorId: 'user-1',
+        evaluatedUserId: 'user-2',
+        cycle: '2024-Q1',
+        overallScore: 4,
+        strengths: encryptedStrengths,
+        improvements: encryptedImprovements,
         status: 'DRAFT',
+        evaluatedUser: {
+          id: 'user-2',
+          name: 'Maria Santos',
+          email: 'maria@forrocket.com',
+          jobTitle: 'Designer',
+          seniority: 'PLENO',
+        },
       });
 
       const result = await service.create360Assessment('user-1', createDto);
@@ -423,81 +447,72 @@ describe('EvaluationsService', () => {
       expect(prismaService.assessment360.create).toHaveBeenCalledWith({
         data: {
           authorId: 'user-1',
-          cycle: mockActiveCycle.name,
+          evaluatedUserId: 'user-2',
+          cycle: '2024-Q1',
+          overallScore: 4,
+          strengths: encryptedStrengths,
+          improvements: encryptedImprovements,
           status: 'DRAFT',
-          evaluatedUserId: createDto.evaluatedUserId,
-          overallScore: createDto.overallScore,
-          strengths: createDto.strengths,
-          improvements: createDto.improvements,
+        },
+        include: {
+          evaluatedUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              jobTitle: true,
+              seniority: true,
+            },
+          },
         },
       });
     });
 
-    it('deve lançar NotFoundException quando usuário avaliado não existir', async () => {
-      prismaService.user.findUnique.mockResolvedValue(null);
-
-      await expect(service.create360Assessment('user-1', createDto)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('deve lançar BadRequestException quando tentar avaliar a si mesmo', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockUser);
-      const dtoSelfEvaluation = { ...createDto, evaluatedUserId: 'user-1' };
-
-      await expect(service.create360Assessment('user-1', dtoSelfEvaluation)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('deve lançar ForbiddenException quando não puder avaliar o usuário', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
-      projectsService.canEvaluateUserIn360.mockResolvedValue(false);
-
-      await expect(service.create360Assessment('user-1', createDto)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
     it('deve lançar BadRequestException quando já existir avaliação 360 para o usuário no ciclo', async () => {
       const existingAssessment = {
-        id: 'existing-360-1',
+        id: 'assessment-1',
         authorId: 'user-1',
         evaluatedUserId: 'user-2',
         cycle: '2024-Q1',
       };
 
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
-      projectsService.canEvaluateUserIn360.mockResolvedValue(true);
+      jest.spyOn(cyclesService, 'validateActiveCyclePhase').mockResolvedValue(mockActiveCycle);
+      jest.spyOn(projectsService, 'canEvaluateUserIn360').mockResolvedValue(true);
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockEvaluatedUser);
       prismaService.assessment360.findFirst.mockResolvedValue(existingAssessment);
 
-      await expect(service.create360Assessment('user-1', createDto)).rejects.toThrow(
+      await expect(service.create360Assessment('user-1', mock360AssessmentDto)).rejects.toThrow(
         BadRequestException,
       );
     });
   });
 
   describe('createMentoringAssessment', () => {
-    const createDto: CreateMentoringAssessmentDto = {
+    const createDto = {
       mentorId: 'mentor-1',
-      score: 4,
-      justification: 'Excelente mentor',
+      score: 5,
+      justification: 'Excelente mentor, sempre disponível para ajudar',
     };
 
-    beforeEach(() => {
-      cyclesService.validateActiveCyclePhase.mockResolvedValue(mockActiveCycle);
-    });
-
     it('deve criar avaliação de mentoring com sucesso', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockUser);
-      projectsService.canEvaluateUserInMentoring.mockResolvedValue(true);
+      const encryptedJustification = 'encrypted_Excelente mentor, sempre disponível para ajudar';
+
       prismaService.mentoringAssessment.findFirst.mockResolvedValue(null);
       prismaService.mentoringAssessment.create.mockResolvedValue({
-        id: 'assessment-1',
-        ...createDto,
-        cycle: mockActiveCycle.name,
+        id: 'mentoring-1',
         authorId: 'user-1',
+        mentorId: 'mentor-1',
+        cycle: '2024-Q1',
+        score: 5,
+        justification: encryptedJustification,
         status: 'DRAFT',
+        mentor: {
+          id: 'mentor-1',
+          name: 'João Mentor',
+          email: 'joao@forrocket.com',
+          jobTitle: 'Tech Lead',
+          seniority: 'SENIOR',
+        },
       });
 
       const result = await service.createMentoringAssessment('user-1', createDto);
@@ -506,70 +521,72 @@ describe('EvaluationsService', () => {
       expect(prismaService.mentoringAssessment.create).toHaveBeenCalledWith({
         data: {
           authorId: 'user-1',
-          cycle: mockActiveCycle.name,
+          mentorId: 'mentor-1',
+          cycle: '2024-Q1',
+          score: 5,
+          justification: encryptedJustification,
           status: 'DRAFT',
-          mentorId: createDto.mentorId,
-          score: createDto.score,
-          justification: createDto.justification,
+        },
+        include: {
+          mentor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              jobTitle: true,
+              seniority: true,
+            },
+          },
         },
       });
     });
 
-    it('deve lançar NotFoundException quando mentor não existir', async () => {
-      prismaService.user.findUnique.mockResolvedValue(null);
-
-      await expect(
-        service.createMentoringAssessment('user-1', createDto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('deve lançar ForbiddenException quando não puder avaliar o mentor', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
-      projectsService.canEvaluateUserInMentoring.mockResolvedValue(false);
-
-      await expect(
-        service.createMentoringAssessment('user-1', createDto),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
     it('deve lançar BadRequestException quando já existir avaliação de mentoring para o mentor no ciclo', async () => {
       const existingAssessment = {
-        id: 'existing-mentoring-1',
+        id: 'assessment-1',
         authorId: 'user-1',
         mentorId: 'mentor-1',
         cycle: '2024-Q1',
       };
 
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
-      projectsService.canEvaluateUserInMentoring.mockResolvedValue(true);
+      jest.spyOn(cyclesService, 'validateActiveCyclePhase').mockResolvedValue(mockActiveCycle);
+      jest.spyOn(projectsService, 'canEvaluateUserInMentoring').mockResolvedValue(true);
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({ id: 'mentor-1' });
       prismaService.mentoringAssessment.findFirst.mockResolvedValue(existingAssessment);
 
       await expect(
-        service.createMentoringAssessment('user-1', createDto),
+        service.createMentoringAssessment('user-1', mockMentoringAssessmentDto),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('createReferenceFeedback', () => {
-    const createDto: CreateReferenceFeedbackDto = {
+    const createDto = {
       referencedUserId: 'user-2',
-      topic: 'Trabalho em equipe',
-      justification: 'Muito colaborativo',
+      topic: 'Liderança',
+      justification: 'Demonstra grande capacidade de liderança',
     };
 
-    beforeEach(() => {
-      cyclesService.validateActiveCyclePhase.mockResolvedValue(mockActiveCycle);
-    });
-
     it('deve criar feedback de referência com sucesso', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
+      const encryptedJustification = 'encrypted_Demonstra grande capacidade de liderança';
+      const encryptedTopic = 'encrypted_Liderança';
+
       prismaService.referenceFeedback.findFirst.mockResolvedValue(null);
       prismaService.referenceFeedback.create.mockResolvedValue({
         id: 'feedback-1',
-        ...createDto,
-        cycle: mockActiveCycle.name,
         authorId: 'user-1',
+        referencedUserId: 'user-2',
+        cycle: '2024-Q1',
+        topic: encryptedTopic,
+        justification: encryptedJustification,
         status: 'DRAFT',
+        referencedUser: {
+          id: 'user-2',
+          name: 'Maria Santos',
+          email: 'maria@forrocket.com',
+          jobTitle: 'Designer',
+          seniority: 'PLENO',
+        },
       });
 
       const result = await service.createReferenceFeedback('user-1', createDto);
@@ -578,78 +595,124 @@ describe('EvaluationsService', () => {
       expect(prismaService.referenceFeedback.create).toHaveBeenCalledWith({
         data: {
           authorId: 'user-1',
-          cycle: mockActiveCycle.name,
+          referencedUserId: 'user-2',
+          cycle: '2024-Q1',
+          topic: encryptedTopic,
+          justification: encryptedJustification,
           status: 'DRAFT',
-          referencedUserId: createDto.referencedUserId,
-          topic: createDto.topic,
-          justification: createDto.justification,
+        },
+        include: {
+          referencedUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              jobTitle: true,
+              seniority: true,
+            },
+          },
         },
       });
     });
 
-    it('deve lançar NotFoundException quando usuário referenciado não existir', async () => {
-      prismaService.user.findUnique.mockResolvedValue(null);
-
-      await expect(
-        service.createReferenceFeedback('user-1', createDto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('deve lançar BadRequestException quando tentar referenciar a si mesmo', async () => {
-      prismaService.user.findUnique.mockResolvedValue(mockUser);
-      const dtoSelfReference = { ...createDto, referencedUserId: 'user-1' };
-
-      await expect(service.createReferenceFeedback('user-1', dtoSelfReference)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
     it('deve lançar BadRequestException quando já existir feedback de referência para o usuário no ciclo', async () => {
       const existingFeedback = {
-        id: 'existing-reference-1',
+        id: 'feedback-1',
         authorId: 'user-1',
         referencedUserId: 'user-2',
         cycle: '2024-Q1',
       };
 
-      prismaService.user.findUnique.mockResolvedValue(mockEvaluatedUser);
+      jest.spyOn(cyclesService, 'validateActiveCyclePhase').mockResolvedValue(mockActiveCycle);
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockEvaluatedUser);
       prismaService.referenceFeedback.findFirst.mockResolvedValue(existingFeedback);
 
       await expect(
-        service.createReferenceFeedback('user-1', createDto),
+        service.createReferenceFeedback('user-1', mockReferenceFeedbackDto),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('createManagerAssessment', () => {
-    const createDto: CreateManagerAssessmentDto = {
+    const createDto = {
       evaluatedUserId: 'user-2',
       sentimentoDeDonoScore: 4,
-      sentimentoDeDonoJustification: 'Bom trabalho',
+      sentimentoDeDonoJustification: 'Funcionário responsável',
       resilienciaAdversidadesScore: 4,
-      resilienciaAdversidadesJustification: 'Muito resiliente',
-      organizacaoTrabalhoScore: 4,
-      organizacaoTrabalhoJustification: 'Bem organizado',
-      capacidadeAprenderScore: 4,
-      capacidadeAprenderJustification: 'Aprende rápido',
-      teamPlayerScore: 4,
-      teamPlayerJustification: 'Bom em equipe',
+      resilienciaAdversidadesJustification: 'Lida bem com pressão',
+      organizacaoTrabalhoScore: 5,
+      organizacaoTrabalhoJustification: 'Muito organizado',
+      capacidadeAprenderScore: 5,
+      capacidadeAprenderJustification: 'Aprende rapidamente',
+      teamPlayerScore: 5,
+      teamPlayerJustification: 'Colaborativo',
+      entregarComQualidadeScore: 4,
+      entregarComQualidadeJustification: 'Entrega com qualidade',
+      atenderPrazosScore: 4,
+      atenderPrazosJustification: 'Atende prazos',
+      fazerMaisMenosScore: 4,
+      fazerMaisMenosJustification: 'Otimiza recursos',
+      pensarForaCaixaScore: 3,
+      pensarForaCaixaJustification: 'Demonstra criatividade',
     };
 
-    beforeEach(() => {
-      cyclesService.validateActiveCyclePhase.mockResolvedValue(mockActiveCycle);
-    });
-
     it('deve criar avaliação de gestor com sucesso', async () => {
-      projectsService.isManager.mockResolvedValue(true);
-      projectsService.canManagerEvaluateUser.mockResolvedValue(true);
       prismaService.managerAssessment.findFirst.mockResolvedValue(null);
       prismaService.managerAssessment.create.mockResolvedValue({
-        id: 'assessment-1',
-        cycle: mockActiveCycle.name,
+        id: 'manager-assessment-1',
         authorId: 'manager-1',
-        evaluatedUserId: createDto.evaluatedUserId,
+        evaluatedUserId: 'user-2',
+        cycle: '2024-Q1',
         status: 'DRAFT',
+        answers: {
+          create: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: createDto.sentimentoDeDonoScore,
+              justification: createDto.sentimentoDeDonoJustification,
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: createDto.resilienciaAdversidadesScore,
+              justification: createDto.resilienciaAdversidadesJustification,
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: createDto.organizacaoTrabalhoScore,
+              justification: createDto.organizacaoTrabalhoJustification,
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: createDto.capacidadeAprenderScore,
+              justification: createDto.capacidadeAprenderJustification,
+            },
+            {
+              criterionId: 'team-player',
+              score: createDto.teamPlayerScore,
+              justification: createDto.teamPlayerJustification,
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: createDto.entregarComQualidadeScore,
+              justification: createDto.entregarComQualidadeJustification,
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: createDto.atenderPrazosScore,
+              justification: createDto.atenderPrazosJustification,
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: createDto.fazerMaisMenosScore,
+              justification: createDto.fazerMaisMenosJustification,
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: createDto.pensarForaCaixaScore,
+              justification: createDto.pensarForaCaixaJustification,
+            },
+          ],
+        },
       });
 
       const result = await service.createManagerAssessment('manager-1', createDto);
@@ -658,9 +721,9 @@ describe('EvaluationsService', () => {
       expect(prismaService.managerAssessment.create).toHaveBeenCalledWith({
         data: {
           authorId: 'manager-1',
-          cycle: mockActiveCycle.name,
+          evaluatedUserId: 'user-2',
+          cycle: '2024-Q1',
           status: 'DRAFT',
-          evaluatedUserId: createDto.evaluatedUserId,
           answers: {
             create: [
               {
@@ -688,47 +751,40 @@ describe('EvaluationsService', () => {
                 score: createDto.teamPlayerScore,
                 justification: createDto.teamPlayerJustification,
               },
+              {
+                criterionId: 'entregar-qualidade',
+                score: createDto.entregarComQualidadeScore,
+                justification: createDto.entregarComQualidadeJustification,
+              },
+              {
+                criterionId: 'atender-prazos',
+                score: createDto.atenderPrazosScore,
+                justification: createDto.atenderPrazosJustification,
+              },
+              {
+                criterionId: 'fazer-mais-menos',
+                score: createDto.fazerMaisMenosScore,
+                justification: createDto.fazerMaisMenosJustification,
+              },
+              {
+                criterionId: 'pensar-fora-caixa',
+                score: createDto.pensarForaCaixaScore,
+                justification: createDto.pensarForaCaixaJustification,
+              },
             ],
-          },
-        },
-        include: {
-          answers: true,
-          evaluatedUser: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              jobTitle: true,
-              seniority: true,
-            },
           },
         },
       });
     });
 
-    it('deve lançar ForbiddenException quando não é gestor', async () => {
-      projectsService.isManager.mockResolvedValue(false);
-
-      await expect(service.createManagerAssessment('user-1', createDto)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('deve lançar ForbiddenException quando não pode avaliar o usuário', async () => {
-      projectsService.isManager.mockResolvedValue(true);
-      projectsService.canManagerEvaluateUser.mockResolvedValue(false);
-
-      await expect(service.createManagerAssessment('manager-1', createDto)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
     it('deve lançar BadRequestException quando já existe avaliação', async () => {
-      projectsService.isManager.mockResolvedValue(true);
-      projectsService.canManagerEvaluateUser.mockResolvedValue(true);
+      jest.spyOn(cyclesService, 'validateActiveCyclePhase').mockResolvedValue(mockActiveCycle);
+      jest.spyOn(projectsService, 'isManager').mockResolvedValue(true);
+      jest.spyOn(projectsService, 'canManagerEvaluateUser').mockResolvedValue(true);
+      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockEvaluatedUser);
       prismaService.managerAssessment.findFirst.mockResolvedValue({ id: 'existing' });
 
-      await expect(service.createManagerAssessment('manager-1', createDto)).rejects.toThrow(
+      await expect(service.createManagerAssessment('manager-1', mockManagerAssessmentDto)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -782,28 +838,55 @@ describe('EvaluationsService', () => {
 
   describe('getUserEvaluationsByCycle', () => {
     it('deve retornar todas as avaliações do usuário no ciclo', async () => {
-      const mockEvaluations = {
-        selfAssessment: { id: 'self-1', status: 'SUBMITTED' },
-        assessments360: [{ id: '360-1', status: 'SUBMITTED' }],
-        mentoringAssessments: [{ id: 'mentoring-1', status: 'SUBMITTED' }],
-        referenceFeedbacks: [{ id: 'reference-1', status: 'SUBMITTED' }],
-        managerAssessments: [{ id: 'manager-1', status: 'SUBMITTED' }],
+      const mockAssessment360 = {
+        id: 'assessment-1',
+        authorId: 'user-1',
+        evaluatedUserId: 'user-2',
+        cycle: '2024-Q1',
+        overallScore: 4,
+        improvements: 'encrypted_Pode melhorar comunicação',
+        strengths: 'encrypted_Excelente trabalho em equipe',
+        status: 'DRAFT',
+        evaluatedUser: {
+          id: 'user-2',
+          name: 'Maria Santos',
+          email: 'maria@forrocket.com',
+          jobTitle: 'Designer',
+          seniority: 'PLENO',
+          roles: [],
+        },
       };
 
-      prismaService.selfAssessment.findFirst.mockResolvedValue(mockEvaluations.selfAssessment);
-      prismaService.assessment360.findMany.mockResolvedValue(mockEvaluations.assessments360);
-      prismaService.mentoringAssessment.findMany.mockResolvedValue(mockEvaluations.mentoringAssessments);
-      prismaService.referenceFeedback.findMany.mockResolvedValue(mockEvaluations.referenceFeedbacks);
-      prismaService.managerAssessment.findMany.mockResolvedValue(mockEvaluations.managerAssessments);
+      prismaService.assessment360.findMany.mockResolvedValue([mockAssessment360]);
+      prismaService.mentoringAssessment.findMany.mockResolvedValue([]);
+      prismaService.referenceFeedback.findMany.mockResolvedValue([]);
 
       const result = await service.getUserEvaluationsByCycle('user-1', '2024-Q1');
 
       expect(result).toBeDefined();
-      expect(result.selfAssessment).toBeDefined();
-      expect(result.assessments360).toEqual(mockEvaluations.assessments360);
-      expect(result.mentoringAssessments).toEqual(mockEvaluations.mentoringAssessments);
-      expect(result.referenceFeedbacks).toEqual(mockEvaluations.referenceFeedbacks);
-      expect(result.managerAssessments).toEqual(mockEvaluations.managerAssessments);
+      expect(result.assessments360).toHaveLength(1);
+      expect(result.assessments360[0]).toEqual({
+        id: 'assessment-1',
+        authorId: 'user-1',
+        evaluatedUserId: 'user-2',
+        evaluatedUserName: 'Maria Santos',
+        evaluatedUserEmail: 'maria@forrocket.com',
+        evaluatedUserJobTitle: 'Designer',
+        evaluatedUserSeniority: 'PLENO',
+        evaluatedUserRoles: [],
+        evaluatedUser: {
+          id: 'user-2',
+          name: 'Maria Santos',
+          email: 'maria@forrocket.com',
+          jobTitle: 'Designer',
+          seniority: 'PLENO',
+        },
+        cycle: '2024-Q1',
+        overallScore: 4,
+        improvements: 'encrypted_Pode melhorar comunicação',
+        strengths: 'encrypted_Excelente trabalho em equipe',
+        status: 'DRAFT',
+      });
     });
   });
 

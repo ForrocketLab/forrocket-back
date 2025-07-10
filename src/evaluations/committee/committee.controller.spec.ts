@@ -10,6 +10,7 @@ import {
 } from './dto/committee-assessment.dto';
 import { User } from '../../auth/entities/user.entity';
 import { GenAiService } from '../../gen-ai/gen-ai.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 
 describe('CommitteeController', () => {
   let controller: CommitteeController;
@@ -25,11 +26,18 @@ describe('CommitteeController', () => {
     seniority: 'Senior',
     careerTrack: 'LEADERSHIP',
     businessUnit: 'MANAGEMENT',
-    projects: ['projeto-geral'],
+    businessHub: 'Management Hub',
+    projects: '["projeto-geral"]',
     isActive: true,
-    roles: ['comite'],
+    roles: '["comite"]',
     managerId: undefined,
     mentorId: undefined,
+    leaderId: null,
+    directReports: '[]',
+    directLeadership: '[]',
+    mentoringIds: '[]',
+    importBatchId: null,
+    lastActivityAt: new Date(),
     passwordHash: 'hashed-password',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -175,6 +183,10 @@ describe('CommitteeController', () => {
         {
           provide: GenAiService,
           useValue: mockGenAiService,
+        },
+        {
+          provide: EncryptionService,
+          useValue: {},
         },
       ],
     }).compile();

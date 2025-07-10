@@ -26,10 +26,17 @@ export class User {
   passwordHash: string;
 
   @ApiProperty({
-    description: 'Papéis/funções do usuário no sistema',
-    example: ['colaborador', 'gestor']
+    description: 'Papéis/funções do usuário no sistema (JSON string)',
+    example: '["colaborador", "gestor"]'
   })
-  roles: string[];
+  roles: string;
+
+  @ApiProperty({
+    description: 'Data da última atividade do usuário',
+    example: '2024-01-15T10:30:00Z',
+    required: false
+  })
+  lastActivityAt: Date | null;
 
   // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
@@ -59,15 +66,21 @@ export class User {
   })
   businessUnit: string;
 
+  @ApiProperty({
+    description: 'Hub de negócio',
+    example: 'Technology Hub'
+  })
+  businessHub: string;
+
   // ==========================================
   // DADOS DE ALOCAÇÃO E RELACIONAMENTO
   // ==========================================
 
   @ApiProperty({
-    description: 'Projetos em que o usuário está alocado',
-    example: ['projeto-app-mobile', 'projeto-dashboard']
+    description: 'Projetos em que o usuário está alocado (JSON string)',
+    example: '["projeto-app-mobile", "projeto-dashboard"]'
   })
-  projects: string[];
+  projects: string;
 
   @ApiProperty({
     description: 'ID do gestor direto',
@@ -77,11 +90,11 @@ export class User {
   managerId?: string;
 
   @ApiProperty({
-    description: 'IDs dos liderados diretos (apenas para gestores)',
-    example: ['liderado-1', 'liderado-2'],
+    description: 'IDs dos liderados diretos (apenas para gestores, JSON string)',
+    example: '["liderado-1", "liderado-2"]',
     required: false
   })
-  directReports?: string[];
+  directReports?: string;
 
   @ApiProperty({
     description: 'ID do mentor designado',
@@ -89,6 +102,34 @@ export class User {
     required: false
   })
   mentorId?: string;
+
+  @ApiProperty({
+    description: 'ID do líder designado',
+    example: 'lider-id-123',
+    required: false
+  })
+  leaderId?: string | null;
+
+  @ApiProperty({
+    description: 'IDs dos colaboradores sob liderança direta (JSON string)',
+    example: '["colaborador-1", "colaborador-2"]',
+    required: false
+  })
+  directLeadership?: string;
+
+  @ApiProperty({
+    description: 'IDs dos mentorados (JSON string)',
+    example: '["mentorado-1", "mentorado-2"]',
+    required: false
+  })
+  mentoringIds?: string;
+
+  @ApiProperty({
+    description: 'ID do lote de importação',
+    example: 'batch-id-123',
+    required: false
+  })
+  importBatchId?: string | null;
 
   // ==========================================
   // METADADOS DE CONTROLE

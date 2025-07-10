@@ -16,19 +16,25 @@ describe('AuthController', () => {
     name: 'Ana Oliveira',
     email: 'ana.oliveira@rocketcorp.com',
     passwordHash: '$2a$10$mockHashedPassword',
-    roles: ['colaborador'],
+    roles: '["colaborador"]',
 
     // Dados organizacionais
     jobTitle: 'Desenvolvedora Frontend',
     seniority: 'Pleno',
     careerTrack: 'Tech',
     businessUnit: 'Digital Products',
+    businessHub: 'Digital Hub',
 
     // Relacionamentos
-    projects: ['projeto-app-mobile', 'projeto-dashboard'],
+    projects: '["projeto-app-mobile", "projeto-dashboard"]',
     managerId: 'gestor-id-123',
-    directReports: [],
+    directReports: '[]',
     mentorId: 'mentor-id-123',
+    leaderId: null,
+    directLeadership: '[]',
+    mentoringIds: '[]',
+    importBatchId: null,
+    lastActivityAt: new Date(),
 
     // Metadados
     isActive: true,
@@ -101,7 +107,7 @@ describe('AuthController', () => {
           id: mockUser.id,
           name: mockUser.name,
           email: mockUser.email,
-          roles: mockUser.roles,
+          roles: ["colaborador"],
         },
       };
       mockAuthService.login.mockResolvedValue(expectedResponse);
@@ -148,18 +154,18 @@ describe('AuthController', () => {
         id: mockUser.id,
         name: mockUser.name,
         email: mockUser.email,
-        roles: mockUser.roles,
+        roles: ["colaborador"],
         jobTitle: mockUser.jobTitle,
         seniority: mockUser.seniority,
         careerTrack: mockUser.careerTrack,
         businessUnit: mockUser.businessUnit,
         projectRoles: mockProjectRoles,
         managerId: mockUser.managerId,
-        directReports: mockUser.directReports,
+        directReports: [],
         mentorId: mockUser.mentorId,
         isActive: mockUser.isActive,
-        createdAt: mockUser.createdAt,
-        updatedAt: mockUser.updatedAt,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
       };
 
       mockAuthService.getUserProjectRoles.mockResolvedValue(mockProjectRoles);

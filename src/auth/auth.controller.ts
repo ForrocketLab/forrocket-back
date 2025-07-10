@@ -33,6 +33,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './public.decorator';
 import { RoleCheckerService } from './role-checker.service';
 import { UserService, UserSummary } from './user.service';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 /**
  * Controlador responsável pelos endpoints de autenticação
@@ -490,23 +491,27 @@ export class AuthController {
     // Buscar roles específicas do usuário por projeto
     const projectRoles = await this.authService.getUserProjectRoles(user.id);
 
-    // Retorna o perfil completo do usuário
+    // Deserializar roles e directReports de JSON strings para arrays
+    const roles = typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles;
+    const directReports = typeof user.directReports === 'string' ? JSON.parse(user.directReports) : user.directReports;
+
+    // Retorna o perfil completo do usuário com datas serializadas
     return {
       id: user.id,
       name: user.name,
       email: user.email,
-      roles: user.roles,
+      roles,
       jobTitle: user.jobTitle,
       seniority: user.seniority,
       careerTrack: user.careerTrack,
       businessUnit: user.businessUnit,
       projectRoles,
       managerId: user.managerId,
-      directReports: user.directReports,
+      directReports,
       mentorId: user.mentorId,
       isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      createdAt: DateSerializer.toISOString(user.createdAt) as any,
+      updatedAt: DateSerializer.toISOString(user.updatedAt) as any,
     };
   }
 

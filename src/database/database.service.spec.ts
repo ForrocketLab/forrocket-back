@@ -308,7 +308,7 @@ describe('DatabaseService', () => {
       newUser.name = 'Novo Usuário';
       newUser.email = 'novo@rocketcorp.com';
       newUser.passwordHash = '$2a$10$test.hash.very.long.hash.string.that.is.more.than.50.characters';
-      newUser.roles = ['colaborador'];
+      newUser.roles = '["colaborador"]';
       newUser.isActive = true;
 
       prismaService.user.upsert.mockResolvedValue({

@@ -54,7 +54,7 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
-      roles: user.roles
+      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles
     };
 
     console.log('✅ Login realizado com sucesso para:', email);
@@ -103,7 +103,7 @@ export class AuthService {
       userId: user.id,
       name: user.name,
       email: user.email,
-      roles: user.roles,
+      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles,
     };
 
     console.log('🔐 Gerando token JWT para payload:', payload);
@@ -137,7 +137,8 @@ export class AuthService {
    * @returns True se o usuário tem a função
    */
   hasRole(user: User, role: string): boolean {
-    return user.roles.includes(role);
+    const userRoles = typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles;
+    return userRoles.includes(role);
   }
 
   /**
@@ -147,7 +148,8 @@ export class AuthService {
    * @returns True se o usuário tem pelo menos uma das funções
    */
   hasAnyRole(user: User, roles: string[]): boolean {
-    return roles.some(role => user.roles.includes(role));
+    const userRoles = typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles;
+    return roles.some(role => userRoles.includes(role));
   }
 
   /**

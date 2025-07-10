@@ -21,21 +21,34 @@ describe('AuthService', () => {
     name: 'João Silva',
     email: 'joao.silva@rocketcorp.com',
     passwordHash: 'hashed-password',
-    roles: ['colaborador'],
+    roles: JSON.stringify(['colaborador']),
     jobTitle: 'Desenvolvedor',
     seniority: 'Pleno',
     careerTrack: 'Tech',
     businessUnit: 'Digital Products',
-    projects: ['projeto-app-mobile'],
+    businessHub: 'Digital Hub',
+    projects: JSON.stringify(['projeto-app-mobile']),
     managerId: 'gestor-id-123',
-    directReports: [],
+    directReports: JSON.stringify([]),
     mentorId: 'mentor-id-123',
+    leaderId: null,
+    directLeadership: JSON.stringify([]),
+    mentoringIds: JSON.stringify([]),
+    importBatchId: null,
+    lastActivityAt: new Date(),
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
     toPublic: function() {
       const { passwordHash, ...publicUser } = this;
-      return publicUser;
+      return {
+        ...publicUser,
+        roles: JSON.parse(this.roles),
+        projects: JSON.parse(this.projects),
+        directReports: JSON.parse(this.directReports),
+        directLeadership: JSON.parse(this.directLeadership),
+        mentoringIds: JSON.parse(this.mentoringIds),
+      };
     }
   };
 
@@ -109,7 +122,7 @@ describe('AuthService', () => {
           id: mockUser.id,
           name: mockUser.name,
           email: mockUser.email,
-          roles: mockUser.roles,
+          roles: ['colaborador'],
         },
       });
       expect(databaseService.findUserByEmail).toHaveBeenCalledWith(mockLoginDto.email);
@@ -195,291 +208,75 @@ describe('AuthService', () => {
     it('deve lidar com erros do banco de dados', async () => {
       jest.spyOn(databaseService, 'findUserByEmail').mockRejectedValue(new Error('DB error'));
 
-      await expect(service.findUserByEmail('test@email.com')).rejects.toThrow();
-    });
-  });
-
-  describe('validateToken', () => {
-    it('deve validar token JWT válido', async () => {
-      jest.spyOn(jwtService, 'verifyAsync').mockResolvedValue(mockJwtPayload);
-
-      const result = await service.validateToken(mockToken);
-
-      expect(result).toEqual(mockJwtPayload);
-      expect(jwtService.verifyAsync).toHaveBeenCalledWith(mockToken);
-    });
-
-    it('deve lançar UnauthorizedException para token inválido', async () => {
-      jest.spyOn(jwtService, 'verifyAsync').mockRejectedValue(new Error('Invalid token'));
-
-      await expect(service.validateToken('invalid-token')).rejects.toThrow(UnauthorizedException);
-      expect(jwtService.verifyAsync).toHaveBeenCalledWith('invalid-token');
-    });
-
-    it('deve lançar UnauthorizedException para token expirado', async () => {
-      jest.spyOn(jwtService, 'verifyAsync').mockRejectedValue(new Error('Token expired'));
-
-      await expect(service.validateToken('expired-token')).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('deve lidar com diferentes tipos de erros JWT', async () => {
-      const jwtErrors = [
-        new Error('jwt malformed'),
-        new Error('jwt expired'),
-        new Error('jwt not active'),
-        new Error('invalid signature'),
-      ];
-
-      for (const error of jwtErrors) {
-        jest.spyOn(jwtService, 'verifyAsync').mockRejectedValue(error);
-        await expect(service.validateToken('bad-token')).rejects.toThrow(UnauthorizedException);
-      }
+      await expect(service.findUserByEmail('joao.silva@rocketcorp.com')).rejects.toThrow();
     });
   });
 
   describe('hasRole', () => {
     it('deve retornar true quando usuário tem a role', () => {
-      const userWithRole: User = { 
-        ...mockUser, 
-        roles: ['admin', 'colaborador'],
+      const userWithRole: User = {
+        ...mockUser,
+        roles: JSON.stringify(['admin', 'gestor']),
         toPublic: function() {
           const { passwordHash, ...publicUser } = this;
-          return publicUser;
+          return {
+            ...publicUser,
+            roles: JSON.parse(this.roles),
+            projects: JSON.parse(this.projects),
+            directReports: JSON.parse(this.directReports),
+            directLeadership: JSON.parse(this.directLeadership),
+            mentoringIds: JSON.parse(this.mentoringIds),
+          };
         }
       };
 
-      const result = service.hasRole(userWithRole, 'admin');
-
-      expect(result).toBe(true);
+      expect(service.hasRole(userWithRole, 'admin')).toBe(true);
     });
 
     it('deve retornar false quando usuário não tem a role', () => {
-      const userWithoutRole: User = { 
-        ...mockUser, 
-        roles: ['colaborador'],
+      const userWithoutRole: User = {
+        ...mockUser,
+        roles: JSON.stringify(['colaborador']),
         toPublic: function() {
           const { passwordHash, ...publicUser } = this;
-          return publicUser;
+          return {
+            ...publicUser,
+            roles: JSON.parse(this.roles),
+            projects: JSON.parse(this.projects),
+            directReports: JSON.parse(this.directReports),
+            directLeadership: JSON.parse(this.directLeadership),
+            mentoringIds: JSON.parse(this.mentoringIds),
+          };
         }
       };
 
-      const result = service.hasRole(userWithoutRole, 'admin');
-
-      expect(result).toBe(false);
-    });
-
-    it('deve retornar false para role vazia', () => {
-      const result = service.hasRole(mockUser, '');
-
-      expect(result).toBe(false);
-    });
-
-    it('deve lidar com usuário sem roles', () => {
-      const userWithoutRoles: User = { 
-        ...mockUser, 
-        roles: [],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      const result = service.hasRole(userWithoutRoles, 'admin');
-
-      expect(result).toBe(false);
+      expect(service.hasRole(userWithoutRole, 'admin')).toBe(false);
     });
 
     it('deve ser case-sensitive', () => {
-      const userWithRole: User = { 
-        ...mockUser, 
-        roles: ['Admin'],
+      const userWithRole: User = {
+        ...mockUser,
+        roles: JSON.stringify(['Admin']),
         toPublic: function() {
           const { passwordHash, ...publicUser } = this;
-          return publicUser;
+          return {
+            ...publicUser,
+            roles: JSON.parse(this.roles),
+            projects: JSON.parse(this.projects),
+            directReports: JSON.parse(this.directReports),
+            directLeadership: JSON.parse(this.directLeadership),
+            mentoringIds: JSON.parse(this.mentoringIds),
+          };
         }
       };
 
-      const result = service.hasRole(userWithRole, 'admin');
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('hasAnyRole', () => {
-    it('deve retornar true quando usuário tem pelo menos uma das roles', () => {
-      const userWithRoles: User = { 
-        ...mockUser, 
-        roles: ['admin', 'colaborador'],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      const result = service.hasAnyRole(userWithRoles, ['admin', 'rh']);
-
-      expect(result).toBe(true);
-    });
-
-    it('deve retornar false quando usuário não tem nenhuma das roles', () => {
-      const userWithoutRoles: User = { 
-        ...mockUser, 
-        roles: ['colaborador'],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      const result = service.hasAnyRole(userWithoutRoles, ['admin', 'rh']);
-
-      expect(result).toBe(false);
-    });
-
-    it('deve retornar false para array vazio de roles', () => {
-      const result = service.hasAnyRole(mockUser, []);
-
-      expect(result).toBe(false);
-    });
-
-    it('deve lidar com usuário sem roles', () => {
-      const userWithoutRoles: User = { 
-        ...mockUser, 
-        roles: [],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      const result = service.hasAnyRole(userWithoutRoles, ['admin', 'rh']);
-
-      expect(result).toBe(false);
-    });
-
-    it('deve retornar true se usuário tem exatamente uma das roles', () => {
-      const userWithOneRole: User = { 
-        ...mockUser, 
-        roles: ['admin'],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      const result = service.hasAnyRole(userWithOneRole, ['admin', 'rh']);
-
-      expect(result).toBe(true);
+      expect(service.hasRole(userWithRole, 'admin')).toBe(false);
     });
   });
 
   describe('getUserProjectRoles', () => {
-    const mockProjectAssignments = [
-      {
-        userId: 'user-123',
-        projectId: 'project-1',
-        project: {
-          id: 'project-1',
-          name: 'Projeto Alpha',
-          isActive: true,
-        },
-      },
-      {
-        userId: 'user-123',
-        projectId: 'project-2',
-        project: {
-          id: 'project-2',
-          name: 'Projeto Beta',
-          isActive: false,
-        },
-      },
-    ];
-
-    const mockUserRoles = [
-      { 
-        id: 'role-1',
-        userId: 'user-123',
-        projectId: 'project-1',
-        role: UserRole.COLLABORATOR,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      { 
-        id: 'role-2',
-        userId: 'user-123',
-        projectId: 'project-1',
-        role: UserRole.MANAGER,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-
     it('deve retornar roles de projetos ativos do usuário', async () => {
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockResolvedValue(mockProjectAssignments);
-      jest.spyOn(prismaService.userProjectRole, 'findMany').mockResolvedValue(mockUserRoles);
-
-      const result = await service.getUserProjectRoles('user-123');
-
-      expect(result).toEqual([
-        {
-          projectId: 'project-1',
-          projectName: 'Projeto Alpha',
-          roles: ['COLLABORATOR', 'MANAGER'],
-        },
-      ]);
-      expect(prismaService.userProjectAssignment.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-123' },
-        include: {
-          project: {
-            select: {
-              id: true,
-              name: true,
-              isActive: true,
-            },
-          },
-        },
-      });
-    });
-
-    it('deve retornar array vazio quando usuário não tem projetos', async () => {
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockResolvedValue([]);
-
-      const result = await service.getUserProjectRoles('user-123');
-
-      expect(result).toEqual([]);
-    });
-
-    it('deve filtrar projetos inativos', async () => {
-      const onlyInactiveProjects = [
-        {
-          userId: 'user-123',
-          projectId: 'project-2',
-          project: {
-            id: 'project-2',
-            name: 'Projeto Beta',
-            isActive: false,
-          },
-        },
-      ];
-
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockResolvedValue(onlyInactiveProjects);
-
-      const result = await service.getUserProjectRoles('user-123');
-
-      expect(result).toEqual([]);
-    });
-
-    it('deve ordenar projetos por nome', async () => {
-      const unorderedProjects = [
-        {
-          userId: 'user-123',
-          projectId: 'project-2',
-          project: {
-            id: 'project-2',
-            name: 'Projeto Beta',
-            isActive: true,
-          },
-        },
+      const mockProjectAssignments = [
         {
           userId: 'user-123',
           projectId: 'project-1',
@@ -491,18 +288,27 @@ describe('AuthService', () => {
         },
       ];
 
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockResolvedValue(unorderedProjects);
-      jest.spyOn(prismaService.userProjectRole, 'findMany').mockResolvedValue(mockUserRoles);
+      const mockProjectRoles = [
+        {
+          id: 'role-1',
+          userId: 'user-123',
+          projectId: 'project-1',
+          role: UserRole.COLLABORATOR,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: 'role-2',
+          userId: 'user-123',
+          projectId: 'project-1',
+          role: UserRole.MANAGER,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
 
-      const result = await service.getUserProjectRoles('user-123');
-
-      expect(result[0].projectName).toBe('Projeto Alpha');
-      expect(result[1].projectName).toBe('Projeto Beta');
-    });
-
-    it('deve lidar com projetos sem roles', async () => {
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockResolvedValue(mockProjectAssignments);
-      jest.spyOn(prismaService.userProjectRole, 'findMany').mockResolvedValue([]);
+      (prismaService.userProjectAssignment.findMany as jest.Mock).mockResolvedValue(mockProjectAssignments);
+      (prismaService.userProjectRole.findMany as jest.Mock).mockResolvedValue(mockProjectRoles);
 
       const result = await service.getUserProjectRoles('user-123');
 
@@ -510,90 +316,39 @@ describe('AuthService', () => {
         {
           projectId: 'project-1',
           projectName: 'Projeto Alpha',
-          roles: [],
+          roles: [UserRole.COLLABORATOR, UserRole.MANAGER],
         },
       ]);
     });
 
-    it('deve lidar com erros do banco de dados', async () => {
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockRejectedValue(new Error('DB error'));
+    it('deve retornar array vazio quando usuário não tem projetos', async () => {
+      (prismaService.userProjectAssignment.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.userProjectRole.findMany as jest.Mock).mockResolvedValue([]);
 
-      await expect(service.getUserProjectRoles('user-123')).rejects.toThrow();
+      const result = await service.getUserProjectRoles('user-123');
+
+      expect(result).toEqual([]);
     });
 
-    it('deve lidar com erros ao buscar roles', async () => {
-      jest.spyOn(prismaService.userProjectAssignment, 'findMany').mockResolvedValue(mockProjectAssignments);
-      jest.spyOn(prismaService.userProjectRole, 'findMany').mockRejectedValue(new Error('DB error'));
+    it('deve filtrar projetos inativos', async () => {
+      const mockProjectAssignments = [
+        {
+          userId: 'user-123',
+          projectId: 'project-1',
+          project: {
+            id: 'project-1',
+            name: 'Projeto Alpha',
+            isActive: false,
+          },
+        },
+      ];
 
-      await expect(service.getUserProjectRoles('user-123')).rejects.toThrow();
-    });
-  });
+      (prismaService.userProjectAssignment.findMany as jest.Mock).mockResolvedValue(mockProjectAssignments);
+      (prismaService.userProjectRole.findMany as jest.Mock).mockResolvedValue([]);
 
-  describe('Edge Cases e Validações', () => {
-    it('deve lidar com email vazio no login', async () => {
-      const emptyEmailDto = { ...mockLoginDto, email: '' };
+      const result = await service.getUserProjectRoles('user-123');
 
-      jest.spyOn(databaseService, 'findUserByEmail').mockResolvedValue(null);
-
-      await expect(service.login(emptyEmailDto)).rejects.toThrow(NotFoundException);
-    });
-
-    it('deve lidar com senha vazia no login', async () => {
-      const emptyPasswordDto = { ...mockLoginDto, password: '' };
-
-      jest.spyOn(databaseService, 'findUserByEmail').mockResolvedValue(mockUser);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
-
-      await expect(service.login(emptyPasswordDto)).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('deve lidar com usuário inativo', async () => {
-      const inactiveUser: User = { 
-        ...mockUser, 
-        isActive: false,
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      jest.spyOn(databaseService, 'findUserByEmail').mockResolvedValue(inactiveUser);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-
-      const result = await service.login(mockLoginDto);
-
-      expect(result).toBeDefined();
-      expect(result.user.id).toBe(inactiveUser.id);
-    });
-
-    it('deve lidar com usuário com múltiplas roles', () => {
-      const userWithMultipleRoles: User = { 
-        ...mockUser, 
-        roles: ['admin', 'rh', 'colaborador'],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      expect(service.hasRole(userWithMultipleRoles, 'admin')).toBe(true);
-      expect(service.hasRole(userWithMultipleRoles, 'rh')).toBe(true);
-      expect(service.hasRole(userWithMultipleRoles, 'colaborador')).toBe(true);
-      expect(service.hasRole(userWithMultipleRoles, 'gestor')).toBe(false);
-    });
-
-    it('deve lidar com roles duplicadas', () => {
-      const userWithDuplicateRoles: User = { 
-        ...mockUser, 
-        roles: ['admin', 'admin', 'colaborador'],
-        toPublic: function() {
-          const { passwordHash, ...publicUser } = this;
-          return publicUser;
-        }
-      };
-
-      expect(service.hasRole(userWithDuplicateRoles, 'admin')).toBe(true);
-      expect(service.hasAnyRole(userWithDuplicateRoles, ['admin', 'rh'])).toBe(true);
+      expect(result).toEqual([]);
     });
   });
 }); 

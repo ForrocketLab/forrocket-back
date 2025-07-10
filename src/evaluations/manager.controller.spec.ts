@@ -8,6 +8,8 @@ import { ManagerController } from './manager.controller';
 import { User } from '../auth/entities/user.entity';
 import { UserRole } from '../common/enums/user-role.enum';
 import { GenAiService } from '../gen-ai/gen-ai.service';
+import { EncryptionService } from '../common/services/encryption.service';
+import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
 
 describe('ManagerController', () => {
   let controller: ManagerController;
@@ -22,11 +24,18 @@ describe('ManagerController', () => {
     seniority: 'Senior',
     careerTrack: 'TECHNICAL',
     businessUnit: 'TECHNOLOGY',
-    projects: ['projeto-alpha'],
+    businessHub: 'Technology Hub',
+    projects: '["projeto-alpha"]',
     isActive: true,
-    roles: ['gestor'],
+    roles: '["gestor"]',
     managerId: undefined,
     mentorId: undefined,
+    leaderId: null,
+    directReports: '[]',
+    directLeadership: '[]',
+    mentoringIds: '[]',
+    importBatchId: null,
+    lastActivityAt: new Date(),
     passwordHash: 'hashed-password',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -49,6 +58,14 @@ describe('ManagerController', () => {
     capacidadeAprenderJustification: 'Demonstra grande capacidade de aprendizado.',
     teamPlayerScore: 4,
     teamPlayerJustification: 'Trabalha muito bem em equipe.',
+    entregarComQualidadeScore: 5,
+    entregarComQualidadeJustification: 'Entrega trabalhos com alta qualidade.',
+    atenderPrazosScore: 4,
+    atenderPrazosJustification: 'Cumpre prazos estabelecidos.',
+    fazerMaisMenosScore: 4,
+    fazerMaisMenosJustification: 'Otimiza recursos eficientemente.',
+    pensarForaCaixaScore: 5,
+    pensarForaCaixaJustification: 'Demonstra criatividade e inovação.',
   };
 
   const mockManagerAssessment = {
@@ -124,6 +141,11 @@ describe('ManagerController', () => {
       generateTeamEvaluationSummary: jest.fn(),
     };
 
+    const mockEncryptionService = {
+      encrypt: jest.fn((text) => `encrypted_${text}`),
+      decrypt: jest.fn((text) => text.replace('encrypted_', '')),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ManagerController],
       providers: [
@@ -139,8 +161,17 @@ describe('ManagerController', () => {
           provide: GenAiService,
           useValue: mockGenAiService,
         },
+        {
+          provide: EncryptionService,
+          useValue: mockEncryptionService,
+        },
       ],
-    }).compile();
+    })
+    .overrideInterceptor(EvaluationInputInterceptor)
+    .useValue({
+      intercept: jest.fn().mockImplementation((context, next) => next.handle()),
+    })
+    .compile();
 
     controller = module.get<ManagerController>(ManagerController);
     evaluationsService = module.get(EvaluationsService);
