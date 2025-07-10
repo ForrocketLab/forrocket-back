@@ -468,7 +468,7 @@ describe('ProjectAssignmentDto', () => {
 
   describe('Validações de roleInProject', () => {
     it('deve aceitar roles válidos', async () => {
-      const validRoles = ['colaborador', 'gestor'];
+      const validRoles = ['colaborador', 'gestor', 'lider'];
 
       for (const role of validRoles) {
         // Arrange
@@ -495,7 +495,7 @@ describe('ProjectAssignmentDto', () => {
       expect(errors).toHaveLength(1);
       expect(errors[0].property).toBe('roleInProject');
       expect(errors[0].constraints).toHaveProperty('isEnum');
-      expect(errors[0].constraints?.isEnum).toBe('roleInProject deve ser um dos seguintes valores: colaborador, gestor');
+      expect(errors[0].constraints?.isEnum).toBe('roleInProject deve ser um dos seguintes valores: colaborador, gestor, lider');
     });
   });
 }); 

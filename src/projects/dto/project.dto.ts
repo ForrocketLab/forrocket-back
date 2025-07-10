@@ -277,14 +277,43 @@ export class ManagedSubordinateDto {
 }
 
 /**
- * DTO para projeto com informações de gestão
+ * DTO para pessoas lideradas pelo usuário
+ */
+export class LedSubordinateDto {
+  @ApiProperty({
+    description: 'Identificador único da pessoa liderada',
+    example: 'user-456',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Nome completo da pessoa liderada',
+    example: 'Marina Santos',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Cargo/função da pessoa liderada',
+    example: 'Data Analyst Pleno',
+  })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Email corporativo da pessoa liderada',
+    example: 'marina.santos@rocketcorp.com',
+  })
+  email: string;
+}
+
+/**
+ * DTO para projeto com informações de gestão e liderança
  */
 export class ProjectWithManagementDto extends ProjectDto {
   @ApiProperty({
     description: 'Roles específicas do usuário neste projeto',
     example: ['COLLABORATOR', 'MANAGER'],
     type: [String],
-    enum: ['COLLABORATOR', 'MANAGER', 'COMMITTEE', 'HR', 'ADMIN'],
+    enum: ['COLLABORATOR', 'MANAGER', 'LEADER', 'COMMITTEE', 'HR', 'ADMIN'],
   })
   userRoles: string[];
 
@@ -295,10 +324,22 @@ export class ProjectWithManagementDto extends ProjectDto {
   managedSubordinates: ManagedSubordinateDto[];
 
   @ApiProperty({
+    description: 'Pessoas que o usuário lidera neste projeto (apenas se for LEADER)',
+    type: [LedSubordinateDto],
+  })
+  ledSubordinates: LedSubordinateDto[];
+
+  @ApiProperty({
     description: 'Indica se o usuário é gestor neste projeto',
     example: true,
   })
   isManagerInProject: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é líder neste projeto',
+    example: false,
+  })
+  isLeaderInProject: boolean;
 }
 
 /**
@@ -306,7 +347,7 @@ export class ProjectWithManagementDto extends ProjectDto {
  */
 export class UserOverviewDto {
   @ApiProperty({
-    description: 'Projetos que o usuário participa com informações de gestão',
+    description: 'Projetos que o usuário participa com informações de gestão e liderança',
     type: [ProjectWithManagementDto],
   })
   projects: ProjectWithManagementDto[];
@@ -341,6 +382,12 @@ export class UserOverviewDto {
     example: true,
   })
   isManager: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é líder em pelo menos um projeto',
+    example: false,
+  })
+  isLeader: boolean;
 }
 
 /**
@@ -422,10 +469,23 @@ export class UserInfoDto {
   managerName: string | null;
 
   @ApiProperty({
+    description: 'Nome do líder direto (estrutura legada)',
+    example: 'Lucas Henrique Fernandes Souza',
+    nullable: true,
+  })
+  leaderName: string | null;
+
+  @ApiProperty({
     description: 'Quantidade de subordinados diretos',
     example: 3,
   })
   directReportsCount: number;
+
+  @ApiProperty({
+    description: 'Quantidade de pessoas lideradas diretamente',
+    example: 2,
+  })
+  directLeadershipCount: number;
 }
 
 /**
@@ -439,7 +499,7 @@ export class AdminUserOverviewDto {
   user: UserInfoDto;
 
   @ApiProperty({
-    description: 'Projetos que o usuário participa com informações de gestão',
+    description: 'Projetos que o usuário participa com informações de gestão e liderança',
     type: [ProjectWithManagementDto],
   })
   projects: ProjectWithManagementDto[];
@@ -474,4 +534,10 @@ export class AdminUserOverviewDto {
     example: true,
   })
   isManager: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é líder em pelo menos um projeto',
+    example: false,
+  })
+  isLeader: boolean;
 } 

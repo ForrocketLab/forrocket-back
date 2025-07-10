@@ -41,14 +41,17 @@ async function postTestCleanup() {
       totalDeleted += deletedCycles.count;
     }
 
-    // 2. Limpar usuários de teste (mantém apenas os 6 da seed)
+    // 2. Limpar usuários de teste (mantém apenas os 9 da seed)
     const seedEmails = [
       'eduardo.tech@rocketcorp.com',
       'diana.costa@rocketcorp.com', 
       'carla.dias@rocketcorp.com',
       'bruno.mendes@rocketcorp.com',
       'ana.oliveira@rocketcorp.com',
-      'felipe.silva@rocketcorp.com'
+      'felipe.silva@rocketcorp.com',
+      'lucas.fernandes@rocketcorp.com',
+      'marina.santos@rocketcorp.com',
+      'rafael.costa@rocketcorp.com'
     ];
 
     const deletedUsers = await prisma.user.deleteMany({
@@ -118,10 +121,10 @@ async function postTestCleanup() {
     console.log(`👥 Usuários restantes: ${finalUserCount}`);
     console.log(`📅 Ciclos restantes: ${finalCycleCount}`);
 
-    if (finalUserCount === 6) {
-      console.log('✅ Banco limpo! Apenas os 6 usuários da seed permanecem');
+    if (finalUserCount === 9) {
+      console.log('✅ Banco limpo! Apenas os 9 usuários da seed permanecem');
     } else {
-      console.log(`⚠️ Atenção: Esperados 6 usuários, encontrados ${finalUserCount}`);
+      console.log(`⚠️ Atenção: Esperados 9 usuários, encontrados ${finalUserCount}`);
     }
 
   } catch (error) {

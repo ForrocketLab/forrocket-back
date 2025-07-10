@@ -92,6 +92,9 @@ describe('UserService', () => {
     evaluationCycle: {
       findFirst: jest.fn(),
     },
+    // Métodos SQL diretos
+    $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -113,6 +116,29 @@ describe('UserService', () => {
     
     // Configurar mock do bcrypt
     mockedBcrypt.hash.mockResolvedValue('$2a$12$hashedPassword' as never);
+
+    // Configurar mocks SQL queries padrão
+    mockPrismaService.$queryRaw.mockImplementation((query: any) => {
+      // Mock para buscar leaderId do projeto
+      if (query && query.strings && query.strings[0].includes('SELECT leaderId FROM projects')) {
+        return Promise.resolve([{ leaderId: null }]); // Projeto sem líder por padrão
+      }
+      // Mock para buscar dados do usuário líder
+      if (query && query.strings && query.strings[0].includes('SELECT id, name, isActive, directLeadership FROM users')) {
+        return Promise.resolve([]);
+      }
+      // Mock para buscar leaderId do usuário
+      if (query && query.strings && query.strings[0].includes('SELECT leaderId FROM users')) {
+        return Promise.resolve([{ leaderId: null }]);
+      }
+      // Mock para buscar directLeadership
+      if (query && query.strings && query.strings[0].includes('SELECT directLeadership FROM users')) {
+        return Promise.resolve([{ directLeadership: null }]);
+      }
+      return Promise.resolve([]);
+    });
+    
+    mockPrismaService.$executeRaw.mockResolvedValue({ count: 1 });
   });
 
   describe('createUser - Validações Básicas', () => {
@@ -488,6 +514,36 @@ describe('UserService', () => {
       expect(result).toBeDefined();
       expect(result.roles).toEqual(['colaborador', 'gestor']);
       expect(mockPrismaService.user.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('createUser - Validação de Projetos Duplicados', () => {
+    it('deve rejeitar usuário com projetos duplicados', async () => {
+      // Limpar todos os mocks
+      jest.clearAllMocks();
+
+      const duplicateProjectData = {
+        name: 'Usuário Teste',
+        email: 'teste@rocketcorp.com',
+        password: 'password123',
+        jobTitle: 'Developer',
+        seniority: 'Pleno',
+        careerTrack: 'Tech',
+        businessUnit: 'Digital Products',
+        userType: UserType.PROJECT_MEMBER,
+        projectAssignments: [
+          { projectId: 'projeto-1', roleInProject: 'colaborador' as 'colaborador' },
+          { projectId: 'projeto-1', roleInProject: 'lider' as 'lider' }, // Projeto duplicado!
+        ],
+      };
+
+      // Mock: email não existe (primeira validação)
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
+
+      // Act & Assert
+      await expect(service.createUser(duplicateProjectData))
+        .rejects
+        .toThrow('Não é possível atribuir o mesmo projeto múltiplas vezes ao usuário. Remova projetos duplicados.');
     });
   });
 

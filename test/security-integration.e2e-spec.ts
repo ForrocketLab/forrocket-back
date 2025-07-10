@@ -211,7 +211,10 @@ describe('Segurança e Integração (e2e)', () => {
         'carla.dias@rocketcorp.com',
         'bruno.mendes@rocketcorp.com',
         'ana.oliveira@rocketcorp.com',
-        'felipe.silva@rocketcorp.com'
+        'felipe.silva@rocketcorp.com',
+        'lucas.fernandes@rocketcorp.com',
+        'marina.santos@rocketcorp.com',
+        'rafael.costa@rocketcorp.com'
       ];
 
       // Limpar relacionamentos primeiro

@@ -46,14 +46,17 @@ async function main() {
     // ==========================================
     console.log('\n👥 Limpando usuários de teste...');
     
-    // Manter apenas os 6 usuários principais da seed
+    // Manter apenas os 9 usuários principais da seed
     const mainUsers = [
       'eduardo.tech@rocketcorp.com',
       'diana.costa@rocketcorp.com', 
       'carla.dias@rocketcorp.com',
       'bruno.mendes@rocketcorp.com',
       'ana.oliveira@rocketcorp.com',
-      'felipe.silva@rocketcorp.com'
+      'felipe.silva@rocketcorp.com',
+      'lucas.fernandes@rocketcorp.com',
+      'marina.santos@rocketcorp.com',
+      'rafael.costa@rocketcorp.com'
     ];
 
     // Buscar usuários de teste

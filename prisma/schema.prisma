@@ -38,6 +38,13 @@ model User {
   managerId     String? // ID do gestor direto
   directReports String? // Array de IDs dos liderados (JSON string)
   mentorId      String? // ID do mentor designado
+  
+  // ==========================================
+  // NOVOS CAMPOS DE LIDERANÇA E MENTORIA
+  // ==========================================
+  leaderId         String? // ID do líder direto
+  directLeadership String? // Array de IDs de quem esta pessoa lidera (JSON string)
+  mentoringIds     String? // Array de IDs de quem esta pessoa mentora (JSON string)
 
   // ==========================================
   // METADADOS DE CONTROLE
@@ -102,8 +109,10 @@ model User {
   roleAssignments    UserRoleAssignment[]
   projectAssignments UserProjectAssignment[]
   projectRoles       UserProjectRole[]  // NOVA: Roles específicas por projeto
+  leaderOfProjects   Project[] @relation("ProjectLeader") // NOVA: Projetos que esta pessoa lidera
+  managerOfProjects  Project[] @relation("ProjectManager") // NOVA: Projetos que esta pessoa gerencia
   okrs               OKR[]              // NOVA: OKRs do colaborador
-  pdis              PDI[]              // NOVA: PDIs do colaborador
+  pdis               PDI[]              // NOVA: PDIs do colaborador
   
   // Lotes de importação criados por este usuário
   uploadedBatches   ImportBatch[] @relation("ImportBatchUploadedBy")
@@ -119,7 +128,7 @@ model SelfAssessment {
   id          String    @id @default(cuid())
   cycle       String // Ciclo de avaliação (ex: "2025.1") - FUTURO: migrar para FK evaluation_cycles
   authorId    String // ID do usuário que criou a autoavaliação
-  status      String    @default("DRAFT") // DRAFT | SUBMITTED
+  status      AssessmentStatus @default(PENDING) // PENDING | DRAFT | SUBMITTED
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   submittedAt DateTime?
@@ -459,7 +468,15 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // ==========================================
+  // LIDERANÇA E GESTÃO DO PROJETO
+  // ==========================================
+  leaderId  String? // ID do líder do projeto (apenas um por projeto)
+  managerId String? // ID do gestor do projeto (apenas um por projeto)
+
   // Relacionamentos
+  leader           User?                   @relation("ProjectLeader", fields: [leaderId], references: [id])
+  manager          User?                   @relation("ProjectManager", fields: [managerId], references: [id])
   userAssignments  UserProjectAssignment[]
   userProjectRoles UserProjectRole[] // NOVA: Roles específicas por projeto
 
@@ -623,6 +640,7 @@ enum UserRole {
   COMMITTEE // comite
   RH // rh
   ADMIN // admin
+  LEADER // líder
 }
 
 enum CriterionPillar {

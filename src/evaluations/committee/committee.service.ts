@@ -16,6 +16,7 @@ import {
   CollaboratorSummaryResponseDto,
   GetCollaboratorSummaryRequestDto 
 } from '../../gen-ai/dto/collaborator-summary.dto';
+import { DateSerializer } from '../../common/utils/date-serializer.util';
 
 @Injectable()
 export class CommitteeService {
@@ -574,10 +575,10 @@ export class CommitteeService {
     // Calcular dias restantes
     const today = new Date();
     const daysRemaining = activeCycle.equalizationDeadline 
-      ? Math.ceil((activeCycle.equalizationDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((new Date(activeCycle.equalizationDeadline).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
       : null;
 
-    return {
+    const result = {
       cycle: activeCycle.name,
       phase: activeCycle.phase,
       deadlines: {
@@ -600,6 +601,9 @@ export class CommitteeService {
         }
       }
     };
+
+    // Garantir que as datas sejam serializadas corretamente
+    return DateSerializer.serializeObject(result, ['deadlines.assessment', 'deadlines.manager', 'deadlines.equalization']);
   }
 
   /**

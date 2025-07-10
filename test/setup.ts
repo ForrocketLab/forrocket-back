@@ -75,6 +75,9 @@ async function cleanupTestData() {
       'bruno.mendes@rocketcorp.com',
       'ana.oliveira@rocketcorp.com',
       'felipe.silva@rocketcorp.com',
+      'lucas.fernandes@rocketcorp.com',
+      'marina.santos@rocketcorp.com',
+      'rafael.costa@rocketcorp.com',
     ];
     const mainProjects = [
       'projeto-alpha',

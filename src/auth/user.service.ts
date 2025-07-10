@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, UserProfileDto, UserType } from './dto';
 import { UpdateUserData } from '../common/types/user.types';
 import * as bcrypt from 'bcryptjs';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 export interface UserSummary {
   id: string;
@@ -151,6 +152,14 @@ export class UserService {
         throw new BadRequestException('Membros de projeto devem ter pelo menos uma atribuição de projeto');
       }
 
+      // 🎯 NOVA VALIDAÇÃO: Verificar se há projetos duplicados na lista
+      const projectIds = createUserDto.projectAssignments.map(assignment => assignment.projectId);
+      const uniqueProjectIds = new Set(projectIds);
+      
+      if (projectIds.length !== uniqueProjectIds.size) {
+        throw new BadRequestException('Não é possível atribuir o mesmo projeto múltiplas vezes ao usuário. Remova projetos duplicados.');
+      }
+
       // Verificar se projetos existem e validar regras de gestão
       for (const assignment of createUserDto.projectAssignments) {
         const project = await this.prisma.project.findUnique({
@@ -173,6 +182,18 @@ export class UserService {
             throw new BadRequestException(
               `O projeto "${project.name}" já possui um gestor: ${existingManager.name}. ` +
               `Um projeto só pode ter um gestor ativo por vez.`
+            );
+          }
+        }
+
+        // 🎯 NOVA VALIDAÇÃO: Verificar se projeto já tem líder (apenas para role 'lider')
+        if (assignment.roleInProject === 'lider') {
+          const existingLeader = await this.findProjectLeader(assignment.projectId);
+          
+          if (existingLeader) {
+            throw new BadRequestException(
+              `O projeto "${project.name}" já possui um líder: ${existingLeader.name}. ` +
+              `Um projeto só pode ter um líder ativo por vez.`
             );
           }
         }
@@ -224,9 +245,16 @@ export class UserService {
       const hasManagerRole = createUserDto.projectAssignments?.some(
         assignment => assignment.roleInProject === 'gestor'
       );
+      const hasLeaderRole = createUserDto.projectAssignments?.some(
+        assignment => assignment.roleInProject === 'lider'
+      );
       
       if (hasManagerRole) {
         roles.push('gestor');
+      }
+      
+      if (hasLeaderRole) {
+        roles.push('lider');
       }
 
       // Encontrar manager (gestor do primeiro projeto como colaborador)
@@ -371,6 +399,38 @@ export class UserService {
   }
 
   /**
+   * Encontra o líder de um projeto específico
+   * @param projectId - ID do projeto
+   * @returns Dados do líder ou null se não encontrado
+   */
+  private async findProjectLeader(projectId: string): Promise<{ id: string; name: string } | null> {
+    // Buscar leaderId do projeto usando query raw
+    const projectData = await this.prisma.$queryRaw`
+      SELECT leaderId FROM projects WHERE id = ${projectId}
+    ` as any[];
+    
+    const leaderId = projectData[0]?.leaderId;
+    
+    if (leaderId) {
+      // Buscar dados do líder
+      const leaderData = await this.prisma.$queryRaw`
+        SELECT id, name, isActive FROM users WHERE id = ${leaderId}
+      ` as any[];
+      
+      const leader = leaderData[0];
+      
+      if (leader?.isActive) {
+        return {
+          id: leader.id,
+          name: leader.name
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Cria os relacionamentos do usuário (apenas para project_member)
    * @param userId - ID do usuário criado
    * @param createUserDto - Dados originais
@@ -390,12 +450,20 @@ export class UserService {
       });
 
       // Criar UserProjectRole
-      const role = assignment.roleInProject === 'gestor' ? 'MANAGER' : 'COLLABORATOR';
+      let role: string;
+      if (assignment.roleInProject === 'gestor') {
+        role = 'MANAGER';
+      } else if (assignment.roleInProject === 'lider') {
+        role = 'LEADER';
+      } else {
+        role = 'COLLABORATOR';
+      }
+      
       await this.prisma.userProjectRole.create({
         data: {
           userId,
           projectId: assignment.projectId,
-          role
+          role: role as any // Temporário até regenerar Prisma client
         }
       });
 
@@ -430,10 +498,38 @@ export class UserService {
           }
         });
       }
+
+      // Criar UserRoleAssignment para líder (se aplicável)
+      if (assignment.roleInProject === 'lider') {
+        await this.prisma.userRoleAssignment.upsert({
+          where: {
+            userId_role: {
+              userId,
+              role: 'LEADER' as any // Temporário até regenerar Prisma client
+            }
+          },
+          update: {},
+          create: {
+            userId,
+            role: 'LEADER' as any // Temporário até regenerar Prisma client
+          }
+        });
+
+        // Atualizar o leaderId do projeto usando query raw
+        await this.prisma.$executeRaw`
+          UPDATE projects SET leaderId = ${userId} WHERE id = ${assignment.projectId}
+        `;
+      }
     }
 
     // Atualizar directReports dos projetos onde é gestor
     await this.updateDirectReports(userId, createUserDto);
+    
+    // Atualizar directReports dos gestores quando um novo colaborador é criado
+    await this.updateManagerDirectReports(userId, createUserDto);
+    
+    // Atualizar directLeadership dos líderes quando um novo colaborador é criado
+    await this.updateLeaderDirectLeadership(userId, createUserDto);
   }
 
   /**
@@ -549,6 +645,140 @@ export class UserService {
   }
 
   /**
+   * Atualiza os directReports dos gestores quando um novo colaborador é criado
+   * @param userId - ID do novo colaborador
+   * @param createUserDto - Dados do colaborador
+   */
+  private async updateManagerDirectReports(userId: string, createUserDto: CreateUserDto): Promise<void> {
+    if (!createUserDto.projectAssignments) {
+      return;
+    }
+
+    // Encontrar assignments onde este usuário é colaborador
+    const collaboratorAssignments = createUserDto.projectAssignments.filter(
+      assignment => assignment.roleInProject === 'colaborador'
+    );
+
+    for (const collaboratorAssignment of collaboratorAssignments) {
+      // Encontrar o gestor atual deste projeto
+      const projectManager = await this.findProjectManager(collaboratorAssignment.projectId);
+      
+      if (projectManager) {
+        // Buscar o directReports atual do gestor
+        const manager = await this.prisma.user.findUnique({
+          where: { id: projectManager.id },
+          select: { directReports: true }
+        });
+        
+        let existingDirectReports: string[] = [];
+        if (manager?.directReports) {
+          try {
+            existingDirectReports = JSON.parse(manager.directReports);
+          } catch (error) {
+            console.error('Erro ao fazer parse do directReports:', error);
+            existingDirectReports = [];
+          }
+        }
+        
+        // Adicionar o novo colaborador se não estiver já na lista
+        if (!existingDirectReports.includes(userId)) {
+          existingDirectReports.push(userId);
+          
+          // Atualizar o directReports do gestor
+          await this.prisma.user.update({
+            where: { id: projectManager.id },
+            data: {
+              directReports: JSON.stringify(existingDirectReports)
+            }
+          });
+
+          // Atualizar o managerId do novo colaborador
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+              managerId: projectManager.id
+            }
+          });
+
+          console.log(`✅ Adicionado colaborador ${userId} ao directReports do gestor ${projectManager.id} no projeto ${collaboratorAssignment.projectId}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Atualiza os directLeadership dos líderes quando um novo colaborador é criado
+   * @param userId - ID do novo colaborador
+   * @param createUserDto - Dados do colaborador
+   */
+  private async updateLeaderDirectLeadership(userId: string, createUserDto: CreateUserDto): Promise<void> {
+    if (!createUserDto.projectAssignments) {
+      return;
+    }
+
+    // Encontrar assignments onde este usuário é colaborador
+    const collaboratorAssignments = createUserDto.projectAssignments.filter(
+      assignment => assignment.roleInProject === 'colaborador'
+    );
+
+    for (const collaboratorAssignment of collaboratorAssignments) {
+             // Encontrar o líder atual deste projeto (buscar diretamente no projeto)
+       const project = await this.prisma.project.findUnique({
+         where: { id: collaboratorAssignment.projectId },
+         select: { 
+           id: true,
+           name: true
+         }
+       });
+       
+       // Buscar leaderId do projeto usando query raw temporária
+       const projectWithLeader = await this.prisma.$queryRaw`
+         SELECT leaderId FROM projects WHERE id = ${collaboratorAssignment.projectId}
+       ` as any[];
+       
+       const leaderId = projectWithLeader[0]?.leaderId;
+       
+       if (leaderId) {
+         // Verificar se o líder ainda está ativo
+         const leaderData = await this.prisma.$queryRaw`
+           SELECT id, name, isActive, directLeadership FROM users WHERE id = ${leaderId}
+         ` as any[];
+         
+         const leader = leaderData[0];
+         
+         if (leader?.isActive) {
+           let existingDirectLeadership: string[] = [];
+           if (leader.directLeadership) {
+            try {
+              existingDirectLeadership = JSON.parse(leader.directLeadership);
+            } catch (error) {
+              console.error('Erro ao fazer parse do directLeadership:', error);
+              existingDirectLeadership = [];
+            }
+          }
+          
+                     // Adicionar o novo colaborador se não estiver já na lista
+           if (!existingDirectLeadership.includes(userId)) {
+             existingDirectLeadership.push(userId);
+             
+             // Atualizar o directLeadership do líder usando query raw
+             await this.prisma.$executeRaw`
+               UPDATE users SET directLeadership = ${JSON.stringify(existingDirectLeadership)} WHERE id = ${leader.id}
+             `;
+
+             // Atualizar o leaderId do novo colaborador usando query raw
+             await this.prisma.$executeRaw`
+               UPDATE users SET leaderId = ${leader.id} WHERE id = ${userId}
+             `;
+
+             console.log(`✅ Adicionado colaborador ${userId} ao directLeadership do líder ${leader.id} no projeto ${collaboratorAssignment.projectId}`);
+           }
+        }
+      }
+    }
+  }
+
+  /**
    * Busca o perfil completo de um usuário
    * @param userId - ID do usuário
    * @returns Perfil completo do usuário
@@ -599,6 +829,44 @@ export class UserService {
       directReportsNames = directReports.map(dr => dr.name);
     }
 
+    // Buscar nome do líder
+    let leaderName: string | undefined;
+    if ((user as any).leaderId) {
+      const leader = await this.prisma.user.findUnique({
+        where: { id: (user as any).leaderId },
+        select: { name: true }
+      });
+      leaderName = leader?.name || undefined;
+    }
+
+    // Buscar nomes do direct leadership
+    let directLeadershipNames: string[] | undefined;
+    if ((user as any).directLeadership) {
+      const directLeadershipIds = JSON.parse((user as any).directLeadership) as string[];
+      const directLeadership = await this.prisma.user.findMany({
+        where: {
+          id: { in: directLeadershipIds },
+          isActive: true
+        },
+        select: { name: true }
+      });
+      directLeadershipNames = directLeadership.map(dl => dl.name);
+    }
+
+    // Buscar nomes das pessoas que mentora
+    let mentoringNames: string[] | undefined;
+    if ((user as any).mentoringIds) {
+      const mentoringIdsArray = JSON.parse((user as any).mentoringIds) as string[];
+      const mentoring = await this.prisma.user.findMany({
+        where: {
+          id: { in: mentoringIdsArray },
+          isActive: true
+        },
+        select: { name: true }
+      });
+      mentoringNames = mentoring.map(m => m.name);
+    }
+
     return {
       id: user.id,
       name: user.name,
@@ -615,6 +883,13 @@ export class UserService {
       directReportsNames,
       mentorId: user.mentorId || undefined,
       mentorName,
+      // Novos campos de liderança
+      leaderId: (user as any).leaderId || undefined,
+      leaderName,
+      directLeadership: (user as any).directLeadership ? JSON.parse((user as any).directLeadership) : undefined,
+      directLeadershipNames,
+      mentoringIds: (user as any).mentoringIds ? JSON.parse((user as any).mentoringIds) : undefined,
+      mentoringNames,
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
@@ -696,6 +971,7 @@ export class UserService {
         createdAt: true,
         updatedAt: true,
         managerId: true,
+        mentorId: true,
         directReports: true,
       },
       orderBy: [
@@ -704,33 +980,77 @@ export class UserService {
       ]
     });
 
-    // Buscar nomes dos managers para cada usuário
-    const managerIds = users
-      .map(user => user.managerId)
-      .filter(id => id !== null) as string[];
+    // Buscar nomes dos managers e mentores para cada usuário
+    const relatedUserIds = [
+      ...users.map(user => user.managerId).filter(id => id !== null) as string[],
+      ...users.map(user => user.mentorId).filter(id => id !== null) as string[]
+    ];
 
-    const managers = await this.prisma.user.findMany({
-      where: { id: { in: managerIds } },
+    const relatedUsers = await this.prisma.user.findMany({
+      where: { id: { in: relatedUserIds } },
       select: { id: true, name: true }
     });
 
-    const managerMap = new Map(managers.map(m => [m.id, m.name]));
+    const relatedUsersMap = new Map(relatedUsers.map(u => [u.id, u.name]));
 
-    return users.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      roles: JSON.parse(user.roles) as string[],
-      jobTitle: user.jobTitle,
-      seniority: user.seniority,
-      careerTrack: user.careerTrack,
-      businessUnit: user.businessUnit,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      managerName: user.managerId ? managerMap.get(user.managerId) || null : null,
-      directReportsCount: user.directReports ? JSON.parse(user.directReports).length : 0
-    }));
+    // Buscar informações de liderança para cada usuário usando SQL direto
+    const usersWithLeadership = await Promise.all(
+      users.map(async (user) => {
+        let leaderName: string | null = null;
+        let directLeadershipCount = 0;
+
+        try {
+          // Buscar leaderId do usuário
+          const userWithLeader = await this.prisma.$queryRaw`
+            SELECT leaderId FROM users WHERE id = ${user.id}
+          ` as any[];
+
+          if (userWithLeader[0]?.leaderId) {
+            const leaderData = await this.prisma.user.findUnique({
+              where: { id: userWithLeader[0].leaderId },
+              select: { name: true },
+            });
+            leaderName = leaderData?.name || null;
+          }
+
+          // Buscar directLeadership do usuário
+          const userWithDirectLeadership = await this.prisma.$queryRaw`
+            SELECT directLeadership FROM users WHERE id = ${user.id}
+          ` as any[];
+
+          if (userWithDirectLeadership[0]?.directLeadership) {
+            const directLeadershipIds = JSON.parse(userWithDirectLeadership[0].directLeadership) as string[];
+            directLeadershipCount = directLeadershipIds.length;
+          }
+        } catch (error) {
+          console.warn(`Erro ao buscar dados de liderança para usuário ${user.id}:`, error);
+        }
+
+        const userWithProcessedData = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          roles: JSON.parse(user.roles) as string[],
+          jobTitle: user.jobTitle,
+          seniority: user.seniority,
+          careerTrack: user.careerTrack,
+          businessUnit: user.businessUnit,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          managerName: user.managerId ? relatedUsersMap.get(user.managerId) || null : null,
+          mentorName: user.mentorId ? relatedUsersMap.get(user.mentorId) || null : null,
+          leaderName,
+          directReportsCount: user.directReports ? JSON.parse(user.directReports).length : 0,
+          directLeadershipCount,
+        };
+
+        // Serializar as datas para strings ISO
+        return DateSerializer.serializeObject(userWithProcessedData, DateSerializer.COMMON_DATE_FIELDS);
+      })
+    );
+
+    return usersWithLeadership;
   }
 
   /**
@@ -890,7 +1210,7 @@ export class UserService {
       const managerAssessment = managerAssessmentMap.get(user.id);
       const committeeAssessment = committeeAssessmentMap.get(user.id);
       
-      return {
+      const userWithProgress = {
         id: user.id,
         name: user.name,
         email: user.email,
@@ -908,21 +1228,24 @@ export class UserService {
         evaluationProgress: {
           selfAssessment: {
             status: selfAssessment?.status || 'PENDENTE',
-            submittedAt: selfAssessment?.submittedAt || null
+            submittedAt: DateSerializer.toISOString(selfAssessment?.submittedAt) || null
           },
           assessments360Received: assessments360Map.get(user.id) || 0,
           managerAssessment: {
             status: managerAssessment?.status || 'PENDENTE',
-            submittedAt: managerAssessment?.submittedAt || null
+            submittedAt: DateSerializer.toISOString(managerAssessment?.submittedAt) || null
           },
           mentoringAssessmentsReceived: mentoringAssessmentMap.get(user.id) || 0,
           referenceFeedbacksReceived: referenceFeedbackMap.get(user.id) || 0,
           committeeAssessment: {
             status: committeeAssessment?.status || 'PENDING',
-            submittedAt: committeeAssessment?.submittedAt || null
+            submittedAt: DateSerializer.toISOString(committeeAssessment?.submittedAt) || null
           }
         }
       };
+
+      // Serializar as datas principais para strings ISO
+      return DateSerializer.serializeObject(userWithProgress, DateSerializer.COMMON_DATE_FIELDS);
     });
   }
 
@@ -1627,10 +1950,10 @@ export class UserService {
    * Retorna usuários ativos que não são mentores de ninguém ainda
    */
   async getPotentialMentors(): Promise<UserSummary[]> {
+    // Buscar todos os usuários ativos
     const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        mentorId: null, // Usuários que não são mentorados por ninguém
       },
       select: {
         id: true,
@@ -1645,8 +1968,8 @@ export class UserService {
       ],
     });
 
-    // Filtrar usuários que não são mentores de ninguém
-    const mentorIds = await this.prisma.user.findMany({
+    // Buscar IDs de usuários que já são mentores (aparecem como mentorId de alguém)
+    const currentMentors = await this.prisma.user.findMany({
       where: {
         isActive: true,
         mentorId: { not: null },
@@ -1656,9 +1979,11 @@ export class UserService {
       },
     });
 
-    const activeMentorIds = new Set(mentorIds.map(u => u.mentorId).filter(id => id !== null));
+    // Criar Set dos IDs que já são mentores
+    const mentorIds = new Set(currentMentors.map(u => u.mentorId).filter(id => id !== null));
 
-    return users.filter(user => !activeMentorIds.has(user.id));
+    // Retornar apenas usuários que ainda não são mentores de ninguém
+    return users.filter(user => !mentorIds.has(user.id));
   }
 
   /**

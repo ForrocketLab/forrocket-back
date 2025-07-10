@@ -199,6 +199,58 @@ export class UserProfileDto {
   mentorName?: string;
 
   // ==========================================
+  // NOVOS CAMPOS DE LIDERANÇA
+  // ==========================================
+
+  @ApiProperty({
+    description: 'ID do líder direto',
+    example: 'cmbyavwvh0001tzsg5owfxwbq',
+    type: String,
+    required: false
+  })
+  leaderId?: string;
+
+  @ApiProperty({
+    description: 'Nome do líder direto',
+    example: 'Lucas Fernandes',
+    type: String,
+    required: false
+  })
+  leaderName?: string;
+
+  @ApiProperty({
+    description: 'IDs das pessoas que esta pessoa lidera diretamente (apenas para líderes)',
+    example: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
+    type: [String],
+    required: false
+  })
+  directLeadership?: string[];
+
+  @ApiProperty({
+    description: 'Nomes das pessoas que esta pessoa lidera diretamente (apenas para líderes)',
+    example: ['Ana Oliveira', 'Felipe Silva'],
+    type: [String],
+    required: false
+  })
+  directLeadershipNames?: string[];
+
+  @ApiProperty({
+    description: 'IDs das pessoas que esta pessoa mentora (apenas para mentores)',
+    example: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
+    type: [String],
+    required: false
+  })
+  mentoringIds?: string[];
+
+  @ApiProperty({
+    description: 'Nomes das pessoas que esta pessoa mentora (apenas para mentores)',
+    example: ['Ana Oliveira', 'Felipe Silva'],
+    type: [String],
+    required: false
+  })
+  mentoringNames?: string[];
+
+  // ==========================================
   // METADADOS
   // ==========================================
 

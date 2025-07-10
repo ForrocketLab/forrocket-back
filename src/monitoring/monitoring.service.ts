@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { AuditLog } from '@prisma/client';
 
 @Injectable()
 export class MonitoringService {
@@ -118,7 +117,7 @@ export class MonitoringService {
     offset: number = 0,
     displayTimeframeMinutes: number = 15, // Padrão: mostrar logs dos últimos 15 minutos
     userIdToExclude?: string, // ID do usuário cujos logs devem ser excluídos
-  ): Promise<AuditLog[]> {
+  ): Promise<any[]> {
     const whereClause: any = {};
     
     // Filtro de tempo (ex: últimos 15 minutos)
@@ -185,7 +184,9 @@ export class MonitoringService {
       ...log,
       userName: log.user?.name || null,
       userId: log.userId || null,
-      user: undefined
-    })) as AuditLog[];
+      user: undefined,
+      // Serializar timestamp para string ISO
+      timestamp: log.timestamp?.toISOString?.() || log.timestamp
+    })) as any[];
   }
 }

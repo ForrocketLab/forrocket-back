@@ -111,7 +111,10 @@ describe('User Creation (e2e)', () => {
       'carla.dias@rocketcorp.com',
       'bruno.mendes@rocketcorp.com',
       'ana.oliveira@rocketcorp.com',
-      'felipe.silva@rocketcorp.com'
+      'felipe.silva@rocketcorp.com',
+      'lucas.fernandes@rocketcorp.com',
+      'marina.santos@rocketcorp.com',
+      'rafael.costa@rocketcorp.com'
     ];
 
     // Limpar relacionamentos primeiro
@@ -408,21 +411,24 @@ describe('User Creation (e2e)', () => {
             email: 'gestor.teste@rocketcorp.com',
             projectAssignments: [
               {
-                projectId: 'projeto-delta',
+                projectId: 'projeto-beta',
                 roleInProject: 'gestor'
               }
             ]
           };
 
-          return request(app.getHttpServer())
+          const response = await request(app.getHttpServer())
             .post('/api/users')
             .set('Authorization', `Bearer ${adminToken}`)
-            .send(managerData)
-            .expect(201)
-            .expect(res => {
-              expect(res.body.roles).toEqual(['colaborador', 'gestor']);
-              expect(res.body.projectRoles[0].roles).toEqual(['MANAGER']);
-            });
+            .send(managerData);
+
+          if (response.status !== 201) {
+            console.log('Erro na criação do gestor:', response.body);
+          }
+
+          expect(response.status).toBe(201);
+          expect(response.body.roles).toEqual(['colaborador', 'gestor']);
+          expect(response.body.projectRoles[0].roles).toEqual(['MANAGER']);
         });
       });
     });
@@ -598,22 +604,25 @@ describe('User Creation (e2e)', () => {
           email: 'teste.gestor@rocketcorp.com',
           projectAssignments: [
             {
-              projectId: 'projeto-delta',
+              projectId: 'projeto-gamma',
               roleInProject: 'gestor'
             }
           ]
         };
 
-        return request(app.getHttpServer())
+        const response = await request(app.getHttpServer())
           .post('/api/users')
           .set('Authorization', `Bearer ${adminToken}`)
-          .send(testData)
-          .expect(201)
-          .expect(res => {
-            expect(res.body.roles).toContain('colaborador');
-            expect(res.body.roles).toContain('gestor');
-            expect(res.body.projectRoles[0].roles).toContain('MANAGER');
-          });
+          .send(testData);
+
+        if (response.status !== 201) {
+          console.log('Erro na criação do gestor:', response.body);
+        }
+
+        expect(response.status).toBe(201);
+        expect(response.body.roles).toContain('colaborador');
+        expect(response.body.roles).toContain('gestor');
+        expect(response.body.projectRoles[0].roles).toContain('MANAGER');
       });
 
       it('deve identificar gestor automaticamente', async () => {
