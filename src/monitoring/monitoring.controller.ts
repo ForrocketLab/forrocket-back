@@ -3,8 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { MonitoringService } from './monitoring.service';
-import { AuditLog } from '@prisma/client';
-import { User as RequestUser } from '@prisma/client';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 @ApiTags('Monitoramento em Tempo Real')
 @ApiBearerAuth()
@@ -68,19 +67,22 @@ export class MonitoringController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number = 10,
     @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number = 0,
     @Query('excludeAdminLogs', new DefaultValuePipe('true')) excludeAdminLogsString: string = 'true', 
-  ): Promise<AuditLog[]> {
-    const currentUser = req.user as RequestUser;
+  ): Promise<any[]> {
+    const currentUser = req.user as any;
     const excludeAdminLogs = excludeAdminLogsString === 'true';
 
     const filterOutAdminSelfLogs = currentUser.roles.includes('admin') && excludeAdminLogs;
     const userIdToExclude = filterOutAdminSelfLogs ? currentUser.id : undefined;
 
-    return this.monitoringService.getRecentLogEntries(
+    const logs = await this.monitoringService.getRecentLogEntries(
       search,
       limit,
       offset,
       undefined,
       userIdToExclude
     );
+
+    // Serializar as datas para strings ISO para garantir que sejam enviadas corretamente
+    return DateSerializer.serializeArray(logs, ['timestamp']);
   }
 }

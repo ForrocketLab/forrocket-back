@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, UserProfileDto, UserType } from './dto';
 import { UpdateUserData } from '../common/types/user.types';
 import * as bcrypt from 'bcryptjs';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 export interface UserSummary {
   id: string;
@@ -1025,7 +1026,7 @@ export class UserService {
           console.warn(`Erro ao buscar dados de liderança para usuário ${user.id}:`, error);
         }
 
-        return {
+        const userWithProcessedData = {
           id: user.id,
           name: user.name,
           email: user.email,
@@ -1043,6 +1044,9 @@ export class UserService {
           directReportsCount: user.directReports ? JSON.parse(user.directReports).length : 0,
           directLeadershipCount,
         };
+
+        // Serializar as datas para strings ISO
+        return DateSerializer.serializeObject(userWithProcessedData, DateSerializer.COMMON_DATE_FIELDS);
       })
     );
 
@@ -1206,7 +1210,7 @@ export class UserService {
       const managerAssessment = managerAssessmentMap.get(user.id);
       const committeeAssessment = committeeAssessmentMap.get(user.id);
       
-      return {
+      const userWithProgress = {
         id: user.id,
         name: user.name,
         email: user.email,
@@ -1224,21 +1228,24 @@ export class UserService {
         evaluationProgress: {
           selfAssessment: {
             status: selfAssessment?.status || 'PENDENTE',
-            submittedAt: selfAssessment?.submittedAt || null
+            submittedAt: DateSerializer.toISOString(selfAssessment?.submittedAt) || null
           },
           assessments360Received: assessments360Map.get(user.id) || 0,
           managerAssessment: {
             status: managerAssessment?.status || 'PENDENTE',
-            submittedAt: managerAssessment?.submittedAt || null
+            submittedAt: DateSerializer.toISOString(managerAssessment?.submittedAt) || null
           },
           mentoringAssessmentsReceived: mentoringAssessmentMap.get(user.id) || 0,
           referenceFeedbacksReceived: referenceFeedbackMap.get(user.id) || 0,
           committeeAssessment: {
             status: committeeAssessment?.status || 'PENDING',
-            submittedAt: committeeAssessment?.submittedAt || null
+            submittedAt: DateSerializer.toISOString(committeeAssessment?.submittedAt) || null
           }
         }
       };
+
+      // Serializar as datas principais para strings ISO
+      return DateSerializer.serializeObject(userWithProgress, DateSerializer.COMMON_DATE_FIELDS);
     });
   }
 

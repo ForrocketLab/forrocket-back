@@ -7,23 +7,34 @@ import {
   UpdateCyclePhaseDto,
 } from './dto/evaluation-cycle.dto';
 import { PrismaService } from '../../database/prisma.service';
+import { DateSerializer } from '../../common/utils/date-serializer.util';
 
 @Injectable()
 export class CyclesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getEvaluationCycles() {
-    return await this.prisma.evaluationCycle.findMany({
+    const cycles = await this.prisma.evaluationCycle.findMany({
       orderBy: {
         createdAt: 'desc',
       },
     });
+    
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeArray(cycles, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   async getEvaluationCycleById(id: string) {
-    return await this.prisma.evaluationCycle.findUnique({
+    const cycle = await this.prisma.evaluationCycle.findUnique({
       where: { id },
     });
+    
+    if (!cycle) {
+      return null;
+    }
+    
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeObject(cycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   async getActiveCycle() {
@@ -83,19 +94,29 @@ export class CyclesService {
     // Validar se não há conflito com ciclo ativo
     await this.validateNoCycleConflict(createData);
 
-    return this.prisma.evaluationCycle.create({
+    const createdCycle = await this.prisma.evaluationCycle.create({
       data: createData,
     });
+
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeObject(createdCycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
    * Busca um ciclo de avaliação pelo ano e semestre
    */
   async findByYearAndSemester(year: number, semester: number) {
-  const name = `${year}.${semester}`;
-  return this.prisma.evaluationCycle.findUnique({
-    where: { name },
-  });
+    const name = `${year}.${semester}`;
+    const cycle = await this.prisma.evaluationCycle.findUnique({
+      where: { name },
+    });
+    
+    if (!cycle) {
+      return null;
+    }
+    
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeObject(cycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
@@ -147,7 +168,7 @@ export class CyclesService {
     this.validateCycleDatesConsistency(updateData);
 
     // Usar transação para garantir atomicidade
-    return this.prisma.$transaction(async (tx) => {
+    const updatedCycle = await this.prisma.$transaction(async (tx) => {
       // Primeiro, desativar todos os ciclos ativos (mudar para CLOSED)
       await tx.evaluationCycle.updateMany({
         where: { status: 'OPEN' },
@@ -160,6 +181,9 @@ export class CyclesService {
         data: updateData,
       });
     });
+
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeObject(updatedCycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
@@ -176,7 +200,7 @@ export class CyclesService {
 
     // Se estiver ativando um ciclo (mudando para OPEN), desativar outros
     if (dto.status === 'OPEN' && cycle.status !== 'OPEN') {
-      return this.prisma.$transaction(async (tx) => {
+      const updatedCycle = await this.prisma.$transaction(async (tx) => {
         // Desativar todos os ciclos ativos
         await tx.evaluationCycle.updateMany({
           where: { status: 'OPEN' },
@@ -189,13 +213,19 @@ export class CyclesService {
           data: { status: dto.status },
         });
       });
+
+      // Serializar as datas para strings ISO
+      return DateSerializer.serializeObject(updatedCycle, DateSerializer.CYCLE_DATE_FIELDS);
     }
 
     // Para outros status, apenas atualizar
-    return this.prisma.evaluationCycle.update({
+    const updatedCycle = await this.prisma.evaluationCycle.update({
       where: { id: cycleId },
       data: { status: dto.status },
     });
+
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeObject(updatedCycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
@@ -242,10 +272,13 @@ export class CyclesService {
     const currentPhase = cycle.phase as 'ASSESSMENTS' | 'MANAGER_REVIEWS' | 'EQUALIZATION';
     this.validatePhaseTransition(currentPhase, dto.phase);
 
-    return this.prisma.evaluationCycle.update({
+    const updatedCycle = await this.prisma.evaluationCycle.update({
       where: { id: cycleId },
       data: { phase: dto.phase },
     });
+
+    // Serializar as datas para strings ISO
+    return DateSerializer.serializeObject(updatedCycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
@@ -306,17 +339,8 @@ export class CyclesService {
       return null;
     }
 
-    return {
-      id: activeCycle.id,
-      name: activeCycle.name,
-      status: activeCycle.status,
-      phase: activeCycle.phase,
-      startDate: activeCycle.startDate,
-      endDate: activeCycle.endDate,
-      assessmentDeadline: activeCycle.assessmentDeadline,
-      managerDeadline: activeCycle.managerDeadline,
-      equalizationDeadline: activeCycle.equalizationDeadline,
-    };
+    // Usar o utilitário DateSerializer para serializar todas as datas
+    return DateSerializer.serializeObject(activeCycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
@@ -535,16 +559,22 @@ export class CyclesService {
       inconsistencies.push(error.message);
     }
 
+    // Serializar as datas dos deadlines
+    const serializedDeadlines = deadlines.map(deadline => ({
+      ...deadline,
+      deadline: DateSerializer.toISOString(deadline.deadline),
+    }));
+
     return {
-      cycle: {
+      cycle: DateSerializer.serializeObject({
         id: cycle.id,
         name: cycle.name,
         status: cycle.status,
         phase: cycle.phase,
         startDate: cycle.startDate,
         endDate: cycle.endDate,
-      },
-      deadlines,
+      }, DateSerializer.CYCLE_DATE_FIELDS),
+      deadlines: serializedDeadlines,
       summary: {
         totalDeadlines: deadlines.length,
         overdueCount: deadlines.filter(d => d.status === 'OVERDUE').length,
