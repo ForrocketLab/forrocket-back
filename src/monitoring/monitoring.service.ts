@@ -149,8 +149,8 @@ export class MonitoringService {
     const auditLogs = await this.prisma.auditLog.findMany({
       where: whereClause,
       orderBy: { timestamp: 'desc' },
-      take: limit + offset, // Fetch more data to filter in memory
-      skip: 0, // Start from beginning for in-memory filtering
+      take: limit + offset,
+      skip: 0, 
       include: {
         user: {
           select: {
@@ -161,11 +161,11 @@ export class MonitoringService {
     });
 
     let filteredLogs = auditLogs;
-    // FILTRO EM MEMÓRIA PARA 'details.endpoint' (se a busca estiver ativa)
+
     if (search) {
       const searchTermLower = search.toLowerCase();
       filteredLogs = auditLogs.filter(log => {
-        // CORREÇÃO AQUI: Acessar 'endpoint' de 'details' de forma segura
+
         const detailsObj = log.details as { endpoint?: string } | undefined; 
         const endpointContains = detailsObj?.endpoint?.toLowerCase().includes(searchTermLower);
         
