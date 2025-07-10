@@ -14,8 +14,8 @@ class DashboardSubordinateDto {
   @ApiProperty({ example: 'Product Designer' })
   jobTitle: string;
 
-  @ApiProperty({ enum: ['Pendente', 'Em andamento', 'Finalizado'] })
-  status: string;
+  @ApiProperty({ enum: ['PENDING', 'DRAFT', 'SUBMITTED'] })
+  assessmentStatus: string;
 
   @ApiProperty({ type: 'number', nullable: true, example: 4.5 })
   selfAssessmentScore: number | null;

@@ -1054,7 +1054,7 @@ export class EvaluationsService {
               .join('')
               .slice(0, 2)
               .toUpperCase(),
-            status: status,
+            assessmentStatus: status,
             selfAssessmentScore: calculateAverageScore(selfAssessment?.answers),
             managerScore: calculateAverageScore(p.managerAssessmentsReceived[0]?.answers),
           },
@@ -1070,7 +1070,7 @@ export class EvaluationsService {
         jobTitle: subordinate.jobTitle,
         ...(progressMap.get(subordinate.id) || {
           initials: '',
-          status: 'Pendente',
+          assessmentStatus: 'PENDING',
           selfAssessmentScore: null,
           managerScore: null,
         }),

@@ -128,7 +128,7 @@ model SelfAssessment {
   id          String    @id @default(cuid())
   cycle       String // Ciclo de avaliação (ex: "2025.1") - FUTURO: migrar para FK evaluation_cycles
   authorId    String // ID do usuário que criou a autoavaliação
-  status      String    @default("DRAFT") // DRAFT | SUBMITTED
+  status      AssessmentStatus @default(PENDING) // PENDING | DRAFT | SUBMITTED
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   submittedAt DateTime?

@@ -38,10 +38,17 @@ export class CyclesService {
   }
 
   async getActiveCycle() {
-    return await this.prisma.evaluationCycle.findFirst({
+    const activeCycle = await this.prisma.evaluationCycle.findFirst({
       where: { status: 'OPEN' },
       orderBy: { createdAt: 'desc' },
     });
+    
+    if (!activeCycle) {
+      return null;
+    }
+    
+    // Usar o utilitário DateSerializer para serializar todas as datas
+    return DateSerializer.serializeObject(activeCycle, DateSerializer.CYCLE_DATE_FIELDS);
   }
 
   /**
