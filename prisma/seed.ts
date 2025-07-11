@@ -2560,84 +2560,102 @@ async function main() {
   // Comitê avalia Ana - 2024.2
   await prisma.committeeAssessment.create({
     data: {
+      id: 'committee-ana-2024-2',
+      cycle: '2024.2',
       authorId: carla.id,
       evaluatedUserId: ana.id,
-      cycle: '2024.2',
-      status: 'SUBMITTED',
-      submittedAt: new Date('2024-11-20T10:00:00Z'),
       finalScore: 4,
       justification: 'Ana demonstrou excelente organização e qualidade técnica. Pontos de melhoria: assumir mais iniciativas de liderança e compartilhar mais conhecimento com a equipe.',
       observations: 'Pontos fortes: Organização exemplar, qualidade técnica consistente, colaboração efetiva. Pontos de desenvolvimento: Desenvolver habilidades de liderança, ser mais proativa em compartilhar conhecimento.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T10:00:00Z'),
+      createdAt: new Date('2024-11-20T09:30:00Z'),
+      updatedAt: new Date('2024-11-20T10:00:00Z'),
     },
   });
 
   // Comitê avalia Bruno - 2024.2
   await prisma.committeeAssessment.create({
     data: {
+      id: 'committee-bruno-2024-2',
+      cycle: '2024.2',
       authorId: carla.id,
       evaluatedUserId: bruno.id,
-      cycle: '2024.2',
-      status: 'SUBMITTED',
-      submittedAt: new Date('2024-11-20T10:30:00Z'),
       finalScore: 4,
       justification: 'Bruno mostrou boa liderança técnica e gestão de equipe. Pontos de melhoria: melhorar comunicação de expectativas e desenvolver mais autonomia na equipe.',
       observations: 'Pontos fortes: Liderança técnica sólida, gestão eficaz, disponibilidade para a equipe. Pontos de desenvolvimento: Comunicação mais clara de expectativas, desenvolvimento de autonomia da equipe.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T10:30:00Z'),
+      createdAt: new Date('2024-11-20T10:00:00Z'),
+      updatedAt: new Date('2024-11-20T10:30:00Z'),
     },
   });
 
   // Comitê avalia Felipe - 2024.2
   await prisma.committeeAssessment.create({
     data: {
+      id: 'committee-felipe-2024-2',
+      cycle: '2024.2',
       authorId: carla.id,
       evaluatedUserId: felipe.id,
-      cycle: '2024.2',
-      status: 'SUBMITTED',
-      submittedAt: new Date('2024-11-20T11:00:00Z'),
       finalScore: 3,
       justification: 'Felipe demonstrou excelente capacidade de aprendizado e colaboração. Pontos de melhoria: organização pessoal e desenvolvimento de maior autonomia.',
       observations: 'Pontos fortes: Velocidade de aprendizado excepcional, colaboração efetiva, receptividade a feedbacks. Pontos de desenvolvimento: Organização pessoal, desenvolvimento de autonomia, planejamento de tarefas.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T11:00:00Z'),
+      createdAt: new Date('2024-11-20T10:30:00Z'),
+      updatedAt: new Date('2024-11-20T11:00:00Z'),
     },
   });
 
   // Comitê avalia Lucas - 2024.2
   await prisma.committeeAssessment.create({
     data: {
+      id: 'committee-lucas-2024-2',
+      cycle: '2024.2',
       authorId: carla.id,
       evaluatedUserId: lucas.id,
-      cycle: '2024.2',
-      status: 'SUBMITTED',
-      submittedAt: new Date('2024-11-20T11:30:00Z'),
       finalScore: 4,
       justification: 'Lucas mostrou excelente visão de produto e facilitação entre equipes. Pontos de melhoria: comunicação mais direta de prioridades e maior envolvimento em mentoria.',
       observations: 'Pontos fortes: Visão estratégica de produto, facilitação entre áreas, pensamento inovador. Pontos de desenvolvimento: Comunicação mais direta, desenvolver habilidades de mentoria.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T11:30:00Z'),
+      createdAt: new Date('2024-11-20T11:00:00Z'),
+      updatedAt: new Date('2024-11-20T11:30:00Z'),
     },
   });
 
   // Comitê avalia Marina - 2024.2
   await prisma.committeeAssessment.create({
     data: {
+      id: 'committee-marina-2024-2',
+      cycle: '2024.2',
       authorId: carla.id,
       evaluatedUserId: marina.id,
-      cycle: '2024.2',
-      status: 'SUBMITTED',
-      submittedAt: new Date('2024-11-20T12:00:00Z'),
       finalScore: 4,
       justification: 'Marina entregou análises precisas e insights valiosos. Pontos de melhoria: maior proatividade em sugestões de melhorias e envolvimento em discussões técnicas.',
       observations: 'Pontos fortes: Precisão analítica, organização exemplar, insights valiosos. Pontos de desenvolvimento: Proatividade em melhorias de processo, participação em discussões técnicas.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T12:00:00Z'),
+      createdAt: new Date('2024-11-20T11:30:00Z'),
+      updatedAt: new Date('2024-11-20T12:00:00Z'),
     },
   });
 
   // Comitê avalia Rafael - 2024.2
   await prisma.committeeAssessment.create({
     data: {
+      id: 'committee-rafael-2024-2',
+      cycle: '2024.2',
       authorId: carla.id,
       evaluatedUserId: rafael.id,
-      cycle: '2024.2',
-      status: 'SUBMITTED',
-      submittedAt: new Date('2024-11-20T12:30:00Z'),
       finalScore: 4,
       justification: 'Rafael demonstrou sólido conhecimento técnico e resolução de problemas complexos. Pontos de melhoria: comunicação e documentação de processos, desenvolvimento de habilidades de liderança.',
       observations: 'Pontos fortes: Expertise técnica sólida, resolução de problemas complexos, confiabilidade. Pontos de desenvolvimento: Comunicação e documentação, desenvolvimento de liderança de pessoas.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T12:30:00Z'),
+      createdAt: new Date('2024-11-20T12:00:00Z'),
+      updatedAt: new Date('2024-11-20T12:30:00Z'),
     },
   });
 
