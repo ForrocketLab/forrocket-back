@@ -201,6 +201,12 @@ async function main() {
   await prisma.userProjectRole.deleteMany();
   await prisma.userProjectAssignment.deleteMany();
   await prisma.userRoleAssignment.deleteMany();
+  await prisma.committeeAssessment.deleteMany();
+  await prisma.managerAssessment.deleteMany();
+  await prisma.assessment360.deleteMany();
+  await prisma.mentoringAssessment.deleteMany();
+  await prisma.referenceFeedback.deleteMany();
+  await prisma.selfAssessment.deleteMany();
   await prisma.user.deleteMany();
 
   // Cria senha hasheada
