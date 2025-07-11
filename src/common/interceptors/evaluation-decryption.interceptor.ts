@@ -60,7 +60,13 @@ export class EvaluationDecryptionInterceptor implements NestInterceptor {
           if (result[field] && typeof result[field] === 'string') {
             // Descriptografar campos de texto criptografados
             if (result[field].includes(':')) {
-              result[field] = this.encryptionService.decrypt(result[field]);
+              const originalValue = result[field];
+              const decrypted = this.encryptionService.decrypt(result[field]);
+              
+              // Verificar se a descriptografia realmente funcionou
+              if (decrypted !== originalValue) {
+                result[field] = decrypted;
+              }
             }
           }
         }
@@ -82,19 +88,29 @@ export class EvaluationDecryptionInterceptor implements NestInterceptor {
   private isOfType(obj: any, type: string): boolean {
     switch (type) {
       case 'selfAssessment':
-        return obj.hasOwnProperty('authorId') && obj.hasOwnProperty('cycle') && obj.hasOwnProperty('answers');
+        return (obj.hasOwnProperty('authorId') || obj.hasOwnProperty('author')) && 
+               obj.hasOwnProperty('cycle') && 
+               obj.hasOwnProperty('answers');
       case 'selfAssessmentAnswer':
         return obj.hasOwnProperty('selfAssessmentId') && obj.hasOwnProperty('criterionId') && obj.hasOwnProperty('justification');
       case 'assessment360':
-        return obj.hasOwnProperty('authorId') && obj.hasOwnProperty('evaluatedUserId') && obj.hasOwnProperty('strengths');
+        return (obj.hasOwnProperty('authorId') || obj.hasOwnProperty('author')) && 
+               obj.hasOwnProperty('evaluatedUserId') && 
+               obj.hasOwnProperty('strengths');
       case 'mentoringAssessment':
-        return obj.hasOwnProperty('authorId') && obj.hasOwnProperty('mentorId') && obj.hasOwnProperty('score');
+        return (obj.hasOwnProperty('authorId') || obj.hasOwnProperty('author')) && 
+               obj.hasOwnProperty('mentorId') && 
+               obj.hasOwnProperty('score');
       case 'referenceFeedback':
-        return obj.hasOwnProperty('authorId') && obj.hasOwnProperty('referencedUserId') && obj.hasOwnProperty('justification');
+        return (obj.hasOwnProperty('authorId') || obj.hasOwnProperty('author')) && 
+               obj.hasOwnProperty('referencedUserId') && 
+               obj.hasOwnProperty('justification');
       case 'managerAssessmentAnswer':
         return obj.hasOwnProperty('managerAssessmentId') && obj.hasOwnProperty('criterionId') && obj.hasOwnProperty('justification');
       case 'committeeAssessment':
-        return obj.hasOwnProperty('authorId') && obj.hasOwnProperty('evaluatedUserId') && obj.hasOwnProperty('finalScore');
+        return (obj.hasOwnProperty('authorId') || obj.hasOwnProperty('author')) && 
+               obj.hasOwnProperty('evaluatedUserId') && 
+               obj.hasOwnProperty('finalScore');
       case 'genaiSummary':
         return obj.hasOwnProperty('collaboratorId') && obj.hasOwnProperty('summary');
       case 'personalInsights':
