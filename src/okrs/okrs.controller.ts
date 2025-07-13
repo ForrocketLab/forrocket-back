@@ -18,7 +18,9 @@ import {
   ApiParam,
   ApiExtraModels,
 } from '@nestjs/swagger';
-import { OKRsService } from './okrs.service';
+import { OkrService } from './okr.service';
+import { ObjectiveService } from './objective.service'; 
+import { KeyResultService } from './key-result.service';
 import { 
   CreateOKRDto, 
   UpdateOKRDto, 
@@ -41,7 +43,7 @@ import { User } from '../auth/entities/user.entity';
 @ApiTags('OKRs')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@ApiExtraModels(
+@ApiExtraModels( 
   CreateOKRDto,
   UpdateOKRDto,
   CreateObjectiveDto,
@@ -55,7 +57,11 @@ import { User } from '../auth/entities/user.entity';
 )
 @Controller('api/okrs')
 export class OKRsController {
-  constructor(private readonly okrsService: OKRsService) {}
+  constructor(
+    private readonly okrService: OkrService,
+    private readonly objectiveService: ObjectiveService, 
+    private readonly keyResultService: KeyResultService, 
+  ) {}
 
   // ==========================================
   // ENDPOINTS DE OKR
@@ -88,7 +94,7 @@ export class OKRsController {
     @CurrentUser() user: User,
     @Body() createOKRDto: CreateOKRDto,
   ): Promise<OKRResponseDto> {
-    return this.okrsService.createOKR(user.id, createOKRDto);
+    return this.okrService.createOKR(user.id, createOKRDto);
   }
 
   @Get()
@@ -106,7 +112,7 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async getUserOKRs(@CurrentUser() user: User): Promise<OKRSummaryDto[]> {
-    return this.okrsService.getUserOKRs(user.id);
+    return this.okrService.getUserOKRs(user.id);
   }
 
   @Get(':id')
@@ -133,7 +139,7 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async getOKRById(@Param('id') id: string): Promise<OKRResponseDto> {
-    return this.okrsService.getOKRById(id);
+    return this.okrService.getOKRById(id);
   }
 
   @Put(':id')
@@ -172,7 +178,7 @@ export class OKRsController {
     @CurrentUser() user: User,
     @Body() updateOKRDto: UpdateOKRDto,
   ): Promise<OKRResponseDto> {
-    return this.okrsService.updateOKR(id, user.id, updateOKRDto);
+    return this.okrService.updateOKR(id, user.id, updateOKRDto);
   }
 
   @Delete(':id')
@@ -199,7 +205,7 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async deleteOKR(@Param('id') id: string, @CurrentUser() user: User): Promise<void> {
-    return this.okrsService.deleteOKR(id, user.id);
+    return this.okrService.deleteOKR(id, user.id);
   }
 
   // ==========================================
@@ -238,7 +244,7 @@ export class OKRsController {
     @Param('okrId') okrId: string,
     @Body() createObjectiveDto: CreateObjectiveDto,
   ): Promise<ObjectiveResponseDto> {
-    return this.okrsService.createObjective(okrId, createObjectiveDto);
+    return this.objectiveService.createObjective(okrId, createObjectiveDto);
   }
 
   @Get('objectives/:id')
@@ -265,7 +271,7 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async getObjectiveById(@Param('id') id: string): Promise<ObjectiveResponseDto> {
-    return this.okrsService.getObjectiveById(id);
+    return this.objectiveService.getObjectiveById(id);
   }
 
   @Put('objectives/:id')
@@ -299,7 +305,7 @@ export class OKRsController {
     @Param('id') id: string,
     @Body() updateObjectiveDto: UpdateObjectiveDto,
   ): Promise<ObjectiveResponseDto> {
-    return this.okrsService.updateObjective(id, updateObjectiveDto);
+    return this.objectiveService.updateObjective(id, updateObjectiveDto);
   }
 
   @Delete('objectives/:id')
@@ -326,7 +332,7 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async deleteObjective(@Param('id') id: string): Promise<void> {
-    return this.okrsService.deleteObjective(id);
+    return this.objectiveService.deleteObjective(id);
   }
 
   // ==========================================
@@ -365,7 +371,7 @@ export class OKRsController {
     @Param('objectiveId') objectiveId: string,
     @Body() createKeyResultDto: CreateKeyResultDto,
   ): Promise<KeyResultResponseDto> {
-    return this.okrsService.createKeyResult(objectiveId, createKeyResultDto);
+    return this.keyResultService.createKeyResult(objectiveId, createKeyResultDto);
   }
 
   @Get('key-results/:id')
@@ -392,7 +398,7 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async getKeyResultById(@Param('id') id: string): Promise<KeyResultResponseDto> {
-    return this.okrsService.getKeyResultById(id);
+    return this.keyResultService.getKeyResultById(id);
   }
 
   @Put('key-results/:id')
@@ -426,7 +432,7 @@ export class OKRsController {
     @Param('id') id: string,
     @Body() updateKeyResultDto: UpdateKeyResultDto,
   ): Promise<KeyResultResponseDto> {
-    return this.okrsService.updateKeyResult(id, updateKeyResultDto);
+    return this.keyResultService.updateKeyResult(id, updateKeyResultDto);
   }
 
   @Delete('key-results/:id')
@@ -453,6 +459,6 @@ export class OKRsController {
     description: 'Token inválido ou ausente',
   })
   async deleteKeyResult(@Param('id') id: string): Promise<void> {
-    return this.okrsService.deleteKeyResult(id);
+    return this.keyResultService.deleteKeyResult(id);
   }
-} 
+}
