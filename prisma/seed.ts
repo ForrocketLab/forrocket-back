@@ -201,6 +201,12 @@ async function main() {
   await prisma.userProjectRole.deleteMany();
   await prisma.userProjectAssignment.deleteMany();
   await prisma.userRoleAssignment.deleteMany();
+  await prisma.committeeAssessment.deleteMany();
+  await prisma.managerAssessment.deleteMany();
+  await prisma.assessment360.deleteMany();
+  await prisma.mentoringAssessment.deleteMany();
+  await prisma.referenceFeedback.deleteMany();
+  await prisma.selfAssessment.deleteMany();
   await prisma.user.deleteMany();
 
   // Cria senha hasheada
@@ -679,6 +685,410 @@ async function main() {
   }
 
   // ==========================================
+  // SEED - AVALIAÇÕES COMPLETAS CICLO 2024.2
+  // ==========================================
+  console.log('📝 Criando avaliações completas para o ciclo 2024.2...');
+
+  // ===== AUTOAVALIAÇÕES COMPLETAS CICLO 2024.2 =====
+  console.log('📝 Criando autoavaliações 2024.2...');
+
+  // Ana - Autoavaliação 2024.2
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: ana.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-08T14:30:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Assumo responsabilidade pelos projetos, sempre buscando entregar o melhor resultado',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me firme diante de desafios, buscando sempre soluções',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Mantenho alta organização pessoal e estruturação eficiente das tarefas',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busco constantemente novos conhecimentos e me desenvolvo continuamente',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Trabalho bem em equipe e colaboro efetivamente com colegas',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Entrego com qualidade e atenção aos detalhes',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos estabelecidos de forma consistente',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 3,
+              justification: 'Estou aprendendo a otimizar recursos e maximizar resultados',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco soluções criativas para problemas',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Bruno - Autoavaliação 2024.2
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: bruno.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-10T16:45:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Como Tech Lead, assumo responsabilidade pela equipe e resultados',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me firme e apoio a equipe em situações desafiadoras',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 4,
+              justification: 'Mantenho boa organização, sempre buscando melhorar processos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Estudo novas tecnologias e práticas de liderança',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Trabalho colaborativamente e facilito a colaboração da equipe',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Garanto qualidade nas entregas da equipe',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Gerencio prazos eficientemente para a equipe',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimizo recursos e processos da equipe',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco soluções inovadoras para desafios técnicos',
+            },
+            {
+              criterionId: 'gestao-gente',
+              score: 3,
+              justification: 'Desenvolvo e motivo minha equipe, ainda aprendendo a liderar',
+            },
+            {
+              criterionId: 'gestao-resultados',
+              score: 4,
+              justification: 'Foco em resultados e entrego valor consistente',
+            },
+            {
+              criterionId: 'evolucao-rocket-corp',
+              score: 4,
+              justification: 'Contribuo para evolução da empresa através da tecnologia',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Felipe - Autoavaliação 2024.2
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: felipe.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-12T11:20:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 3,
+              justification: 'Assumo responsabilidade pelos meus projetos, ainda desenvolvendo esse aspecto',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me positivo diante de desafios e busco aprender',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 3,
+              justification: 'Estou melhorando minha organização pessoal',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Tenho grande sede de aprender e me desenvolver rapidamente',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colaboro bem com a equipe e ajudo colegas',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 3,
+              justification: 'Entrego com qualidade, sempre buscando melhorar',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos estabelecidos',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 3,
+              justification: 'Estou aprendendo a otimizar recursos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 3,
+              justification: 'Busco soluções criativas, ainda desenvolvendo essa habilidade',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Lucas - Autoavaliação 2024.2
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: lucas.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-14T15:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification: 'Como Product Manager, assumo total responsabilidade pelos produtos e resultados',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me firme e adapto estratégias diante de desafios',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 4,
+              justification: 'Mantenho boa organização de produtos e processos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busco constantemente conhecimento em produto e negócio',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Trabalho colaborativamente e facilito alinhamento entre equipes',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Garanto qualidade dos produtos e funcionalidades',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Gerencio cronogramas e entregas eficientemente',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimizo recursos e priorizo funcionalidades de maior valor',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 5,
+              justification: 'Busco soluções inovadoras para problemas de produto',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Marina - Autoavaliação 2024.2
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: marina.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-16T13:30:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Assumo responsabilidade pelos dados e análises, sempre buscando precisão',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me focada em encontrar soluções analíticas',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Mantenho alta organização nos dados e processos analíticos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busco constantemente novas técnicas de análise e ferramentas',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colaboro bem com equipes técnicas e de negócio',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Entrego análises precisas e insights valiosos',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos de entregas analíticas',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimizo consultas e processos analíticos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco insights inovadores através dos dados',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Rafael - Autoavaliação 2024.2
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: rafael.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-18T17:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification: 'Como System Administrator, assumo total responsabilidade pela infraestrutura',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 5,
+              justification: 'Mantenho-me firme em situações críticas de infraestrutura',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 4,
+              justification: 'Mantenho boa organização dos sistemas e processos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busco constantemente novas tecnologias de infraestrutura',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colaboro bem com equipes técnicas e suporte',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Garanto alta qualidade e disponibilidade dos sistemas',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos de implementação e manutenção',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimizo recursos de infraestrutura e custos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco soluções inovadoras para desafios de infraestrutura',
+            },
+            {
+              criterionId: 'gestao-gente',
+              score: 3,
+              justification: 'Desenvolvo pessoas, ainda aprendendo a liderar efetivamente',
+            },
+            {
+              criterionId: 'gestao-resultados',
+              score: 4,
+              justification: 'Foco em resultados de infraestrutura e disponibilidade',
+            },
+            {
+              criterionId: 'evolucao-rocket-corp',
+              score: 4,
+              justification: 'Contribuo para evolução da empresa através da infraestrutura',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // ==========================================
   // SEED - AVALIAÇÕES COMPLETAS CICLO 2025.1
   // ==========================================
   console.log('📝 Criando avaliações completas para o ciclo 2025.1...');
@@ -885,8 +1295,349 @@ async function main() {
     },
   });
 
-  // ===== AVALIAÇÕES 360° COMPLETAS =====
-  console.log('🔄 Criando avaliações 360°...');
+  // Lucas - Autoavaliação 2025.1
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: lucas.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-16T15:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification: 'Como Product Manager, assumo total responsabilidade pelos produtos e resultados',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 5,
+              justification: 'Mantenho-me firme e adapto estratégias diante de desafios complexos',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 4,
+              justification: 'Mantenho boa organização de produtos e processos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Busco constantemente conhecimento em produto e negócio',
+            },
+            {
+              criterionId: 'team-player',
+              score: 5,
+              justification: 'Trabalho colaborativamente e facilito alinhamento entre equipes',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Garanto qualidade dos produtos e funcionalidades',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Gerencio cronogramas e entregas eficientemente',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 5,
+              justification: 'Otimizo recursos e priorizo funcionalidades de maior valor',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 5,
+              justification: 'Busco soluções inovadoras para problemas de produto',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Marina - Autoavaliação 2025.1
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: marina.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-18T13:30:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Assumo responsabilidade pelos dados e análises, sempre buscando precisão',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantenho-me focada em encontrar soluções analíticas',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Mantenho alta organização nos dados e processos analíticos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Busco constantemente novas técnicas de análise e ferramentas',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colaboro bem com equipes técnicas e de negócio',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Entrego análises precisas e insights valiosos',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos de entregas analíticas',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimizo consultas e processos analíticos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco insights inovadores através dos dados',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Rafael - Autoavaliação 2025.1
+  await prisma.selfAssessment.create({
+    data: {
+      authorId: rafael.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-20T17:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 5,
+              justification: 'Como System Administrator, assumo total responsabilidade pela infraestrutura',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 5,
+              justification: 'Mantenho-me firme em situações críticas de infraestrutura',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 4,
+              justification: 'Mantenho boa organização dos sistemas e processos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busco constantemente novas tecnologias de infraestrutura',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colaboro bem com equipes técnicas e suporte',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Garanto alta qualidade e disponibilidade dos sistemas',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpro prazos de implementação e manutenção',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 5,
+              justification: 'Otimizo recursos de infraestrutura e custos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busco soluções inovadoras para desafios de infraestrutura',
+            },
+            {
+              criterionId: 'gestao-gente',
+              score: 4,
+              justification: 'Desenvolvo pessoas, melhorando minhas habilidades de liderança',
+            },
+            {
+              criterionId: 'gestao-resultados',
+              score: 5,
+              justification: 'Foco em resultados de infraestrutura e disponibilidade',
+            },
+            {
+              criterionId: 'evolucao-rocket-corp',
+              score: 4,
+              justification: 'Contribuo para evolução da empresa através da infraestrutura',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // ===== AVALIAÇÕES 360° COMPLETAS CICLO 2024.2 =====
+  console.log('🔄 Criando avaliações 360° para 2024.2...');
+
+  // Ana avalia Bruno - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: ana.id,
+      evaluatedUserId: bruno.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-20T10:30:00Z'),
+      overallScore: 4,
+      strengths: 'Boa liderança técnica, disponível para ajudar a equipe, visão clara dos objetivos',
+      improvements: 'Poderia melhorar a comunicação de expectativas e dar mais autonomia para a equipe',
+    },
+  });
+
+  // Ana avalia Felipe - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: ana.id,
+      evaluatedUserId: felipe.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-20T11:00:00Z'),
+      overallScore: 3,
+      strengths: 'Muito proativo, vontade de aprender, colaborativo e receptivo a feedbacks',
+      improvements: 'Precisa melhorar a organização pessoal e planejamento de tarefas',
+    },
+  });
+
+  // Bruno avalia Ana - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: bruno.id,
+      evaluatedUserId: ana.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-22T14:15:00Z'),
+      overallScore: 4,
+      strengths: 'Boa qualidade técnica, organizada, senso de responsabilidade',
+      improvements: 'Poderia assumir mais iniciativas e compartilhar mais conhecimento',
+    },
+  });
+
+  // Bruno avalia Felipe - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: bruno.id,
+      evaluatedUserId: felipe.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-22T14:45:00Z'),
+      overallScore: 3,
+      strengths: 'Dedicado, aprende rapidamente, boa colaboração',
+      improvements: 'Precisa melhorar organização e desenvolver mais autonomia',
+    },
+  });
+
+  // Felipe avalia Ana - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: felipe.id,
+      evaluatedUserId: ana.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-24T09:20:00Z'),
+      overallScore: 4,
+      strengths: 'Muito organizada, sempre disposta a ajudar, boa qualidade técnica',
+      improvements: 'Poderia ser mais proativa em compartilhar conhecimento',
+    },
+  });
+
+  // Felipe avalia Bruno - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: felipe.id,
+      evaluatedUserId: bruno.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-24T09:45:00Z'),
+      overallScore: 4,
+      strengths: 'Bom líder, disponível, ensina bem, visão técnica',
+      improvements: 'Poderia delegar mais tarefas e dar mais autonomia',
+    },
+  });
+
+  // Lucas avalia Marina - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: lucas.id,
+      evaluatedUserId: marina.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-26T11:00:00Z'),
+      overallScore: 4,
+      strengths: 'Excelente em análises, muito organizada, entrega insights valiosos',
+      improvements: 'Poderia ser mais proativa em sugerir melhorias de processo',
+    },
+  });
+
+  // Marina avalia Lucas - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: marina.id,
+      evaluatedUserId: lucas.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-26T11:30:00Z'),
+      overallScore: 4,
+      strengths: 'Boa visão de produto, organizado, facilita colaboração entre áreas',
+      improvements: 'Poderia ser mais direto na comunicação de prioridades',
+    },
+  });
+
+  // Rafael avalia Marina - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: rafael.id,
+      evaluatedUserId: marina.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-28T15:00:00Z'),
+      overallScore: 4,
+      strengths: 'Excelente trabalho com dados, organizada, entrega análises precisas',
+      improvements: 'Poderia se envolver mais em discussões técnicas de infraestrutura',
+    },
+  });
+
+  // Marina avalia Rafael - 2024.2
+  await prisma.assessment360.create({
+    data: {
+      authorId: marina.id,
+      evaluatedUserId: rafael.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-28T15:30:00Z'),
+      overallScore: 4,
+      strengths: 'Sólido conhecimento técnico, resolve problemas complexos, confiável',
+      improvements: 'Poderia melhorar a comunicação e documentação dos processos',
+    },
+  });
+
+  // ===== AVALIAÇÕES 360° COMPLETAS CICLO 2025.1 =====
+  console.log('🔄 Criando avaliações 360° para 2025.1...');
 
   // Ana avalia Bruno
   await prisma.assessment360.create({
@@ -973,25 +1724,324 @@ async function main() {
     },
   });
 
-  // ===== MENTORING ASSESSMENT =====
-  console.log('🎓 Criando avaliação de mentoring...');
+  // Lucas avalia Marina - 2025.1
+  await prisma.assessment360.create({
+    data: {
+      authorId: lucas.id,
+      evaluatedUserId: marina.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-22T11:00:00Z'),
+      overallScore: 5,
+      strengths: 'Excelente em análises, muito organizada, entrega insights valiosos e proativa',
+      improvements: 'Poderia liderar mais iniciativas de melhoria de processos analíticos',
+    },
+  });
 
-  // Felipe avalia Ana (como mentora)
+  // Marina avalia Lucas - 2025.1
+  await prisma.assessment360.create({
+    data: {
+      authorId: marina.id,
+      evaluatedUserId: lucas.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-22T11:30:00Z'),
+      overallScore: 5,
+      strengths: 'Excelente visão de produto, muito organizado, facilita colaboração entre áreas',
+      improvements: 'Já está em um nível muito alto, talvez poderia se envolver mais em mentoria',
+    },
+  });
+
+  // Rafael avalia Marina - 2025.1
+  await prisma.assessment360.create({
+    data: {
+      authorId: rafael.id,
+      evaluatedUserId: marina.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-24T15:00:00Z'),
+      overallScore: 4,
+      strengths: 'Excelente trabalho com dados, organizada, entrega análises precisas',
+      improvements: 'Poderia se envolver mais em discussões técnicas de infraestrutura',
+    },
+  });
+
+  // Marina avalia Rafael - 2025.1
+  await prisma.assessment360.create({
+    data: {
+      authorId: marina.id,
+      evaluatedUserId: rafael.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-24T15:30:00Z'),
+      overallScore: 4,
+      strengths: 'Sólido conhecimento técnico, resolve problemas complexos, confiável',
+      improvements: 'Poderia melhorar a comunicação e documentação dos processos',
+    },
+  });
+
+  // ===== MENTORING ASSESSMENT CICLO 2024.2 =====
+  console.log('🎓 Criando avaliações de mentoring para 2024.2...');
+
+  // Felipe avalia Bruno (como mentor) - 2024.2
   await prisma.mentoringAssessment.create({
     data: {
       authorId: felipe.id,
-      mentorId: ana.id,
+      mentorId: bruno.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-30T16:30:00Z'),
+      score: 4,
+      justification:
+        'Bruno tem sido um bom mentor, sempre disposto a ajudar e orientar meu desenvolvimento técnico',
+    },
+  });
+
+  // Ana avalia Lucas (como mentor) - 2024.2
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: ana.id,
+      mentorId: lucas.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-30T17:00:00Z'),
+      score: 4,
+      justification:
+        'Lucas tem sido um mentor útil, me orientando em questões de produto e visão estratégica',
+    },
+  });
+
+  // Bruno avalia Carla (como mentor) - 2024.2
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: bruno.id,
+      mentorId: carla.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-30T17:30:00Z'),
+      score: 4,
+      justification:
+        'Carla tem sido uma mentora valiosa, me orientando em questões de liderança e visão técnica estratégica',
+    },
+  });
+
+  // Lucas avalia Carla (como mentor) - 2024.2
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: lucas.id,
+      mentorId: carla.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-09-30T18:00:00Z'),
+      score: 4,
+      justification:
+        'Carla tem sido uma mentora importante, me orientando em questões de liderança e evolução de carreira',
+    },
+  });
+
+  // ===== MENTORING ASSESSMENT CICLO 2025.1 =====
+  console.log('🎓 Criando avaliações de mentoring para 2025.1...');
+
+  // Felipe avalia Bruno (como mentor) - 2025.1
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: felipe.id,
+      mentorId: bruno.id,
       cycle: '2025.1',
       status: 'SUBMITTED',
       submittedAt: new Date('2025-03-16T16:30:00Z'),
       score: 5,
       justification:
-        'Ana tem sido uma mentora excepcional, sempre disponível para tirar dúvidas e me orientar no desenvolvimento técnico',
+        'Bruno tem sido um mentor excepcional, sempre disponível para tirar dúvidas e me orientar no desenvolvimento técnico',
     },
   });
 
-  // ===== REFERENCE FEEDBACKS =====
-  console.log('💭 Criando reference feedbacks...');
+  // Ana avalia Lucas (como mentor) - 2025.1
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: ana.id,
+      mentorId: lucas.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-16T17:00:00Z'),
+      score: 5,
+      justification:
+        'Lucas tem sido um mentor excepcional, me orientando em questões de produto e visão estratégica',
+    },
+  });
+
+  // Bruno avalia Carla (como mentor) - 2025.1
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: bruno.id,
+      mentorId: carla.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-16T17:30:00Z'),
+      score: 5,
+      justification:
+        'Carla tem sido uma mentora excepcional, me orientando em questões de liderança e visão técnica estratégica',
+    },
+  });
+
+  // Lucas avalia Carla (como mentor) - 2025.1
+  await prisma.mentoringAssessment.create({
+    data: {
+      authorId: lucas.id,
+      mentorId: carla.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-16T18:00:00Z'),
+      score: 5,
+      justification:
+        'Carla tem sido uma mentora excepcional, me orientando em questões de liderança e evolução de carreira',
+    },
+  });
+
+  // ===== REFERENCE FEEDBACKS CICLO 2024.2 =====
+  console.log('💭 Criando reference feedbacks para 2024.2...');
+
+  // Ana dá referência para Bruno - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: ana.id,
+      referencedUserId: bruno.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T10:00:00Z'),
+      topic: 'Liderança Técnica',
+      justification:
+        'Bruno demonstra boa liderança técnica, sempre orientando a equipe com clareza',
+    },
+  });
+
+  // Ana dá referência para Felipe - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: ana.id,
+      referencedUserId: felipe.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T10:15:00Z'),
+      topic: 'Crescimento e Aprendizado',
+      justification:
+        'Felipe tem mostrado crescimento constante e grande proatividade para aprender',
+    },
+  });
+
+  // Bruno dá referência para Ana - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: bruno.id,
+      referencedUserId: ana.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T11:00:00Z'),
+      topic: 'Qualidade e Organização',
+      justification:
+        'Ana é referência em qualidade técnica e organização, sempre entrega trabalho de qualidade',
+    },
+  });
+
+  // Bruno dá referência para Felipe - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: bruno.id,
+      referencedUserId: felipe.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T11:15:00Z'),
+      topic: 'Dedicação e Desenvolvimento',
+      justification:
+        'Felipe demonstra grande dedicação e velocidade de aprendizado, sempre busca melhorar',
+    },
+  });
+
+  // Felipe dá referência para Ana - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: felipe.id,
+      referencedUserId: ana.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T14:00:00Z'),
+      topic: 'Colaboração e Suporte',
+      justification: 'Ana é uma excelente colega, sempre disposta a ajudar e ensinar',
+    },
+  });
+
+  // Felipe dá referência para Bruno - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: felipe.id,
+      referencedUserId: bruno.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T14:15:00Z'),
+      topic: 'Liderança e Orientação',
+      justification:
+        'Bruno é um líder dedicado, sempre nos desenvolve e apoia nosso crescimento',
+    },
+  });
+
+  // Lucas dá referência para Marina - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: lucas.id,
+      referencedUserId: marina.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T15:00:00Z'),
+      topic: 'Análise e Insights',
+      justification:
+        'Marina entrega análises muito precisas e insights valiosos para o produto',
+    },
+  });
+
+  // Marina dá referência para Lucas - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: marina.id,
+      referencedUserId: lucas.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T15:30:00Z'),
+      topic: 'Visão de Produto',
+      justification:
+        'Lucas tem excelente visão de produto e facilita muito a colaboração entre áreas',
+    },
+  });
+
+  // Rafael dá referência para Marina - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: rafael.id,
+      referencedUserId: marina.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T16:00:00Z'),
+      topic: 'Precisão e Confiabilidade',
+      justification:
+        'Marina entrega análises muito precisas e é muito confiável em suas entregas',
+    },
+  });
+
+  // Marina dá referência para Rafael - 2024.2
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: marina.id,
+      referencedUserId: rafael.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-01T16:30:00Z'),
+      topic: 'Expertise Técnica',
+      justification:
+        'Rafael tem sólido conhecimento técnico e sempre resolve problemas complexos',
+    },
+  });
+
+  // ===== REFERENCE FEEDBACKS CICLO 2025.1 =====
+  console.log('💭 Criando reference feedbacks para 2025.1...');
 
   // Ana dá referência para Bruno
   await prisma.referenceFeedback.create({
@@ -1076,8 +2126,253 @@ async function main() {
     },
   });
 
-  // ===== AVALIAÇÕES DE GESTOR COMPLETAS =====
-  console.log('👔 Criando avaliações de gestor...');
+  // Lucas dá referência para Marina - 2025.1
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: lucas.id,
+      referencedUserId: marina.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-18T15:00:00Z'),
+      topic: 'Análise e Insights',
+      justification:
+        'Marina entrega análises excepcionais e insights valiosos para o produto',
+    },
+  });
+
+  // Marina dá referência para Lucas - 2025.1
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: marina.id,
+      referencedUserId: lucas.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-18T15:30:00Z'),
+      topic: 'Visão de Produto',
+      justification:
+        'Lucas tem excelente visão de produto e facilita muito a colaboração entre áreas',
+    },
+  });
+
+  // Rafael dá referência para Marina - 2025.1
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: rafael.id,
+      referencedUserId: marina.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-19T16:00:00Z'),
+      topic: 'Precisão e Confiabilidade',
+      justification:
+        'Marina entrega análises muito precisas e é muito confiável em suas entregas',
+    },
+  });
+
+  // Marina dá referência para Rafael - 2025.1
+  await prisma.referenceFeedback.create({
+    data: {
+      authorId: marina.id,
+      referencedUserId: rafael.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-03-19T16:30:00Z'),
+      topic: 'Expertise Técnica',
+      justification:
+        'Rafael tem sólido conhecimento técnico e sempre resolve problemas complexos',
+    },
+  });
+
+  // ===== AVALIAÇÕES DE GESTOR COMPLETAS CICLO 2024.2 =====
+  console.log('👔 Criando avaliações de gestor para 2024.2...');
+
+  // Bruno avalia Ana (como gestor) - 2024.2
+  await prisma.managerAssessment.create({
+    data: {
+      authorId: bruno.id,
+      evaluatedUserId: ana.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-08T15:30:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Ana sempre assume responsabilidade pelos projetos',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantém-se firme e positiva diante de desafios',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Muito organizada, referência para a equipe',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busca novos conhecimentos e tecnologias',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Boa colaboração e ajuda colegas',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 4,
+              justification: 'Entregas com boa qualidade',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpre prazos estabelecidos',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimiza recursos e busca eficiência',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Apresenta soluções criativas',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Bruno avalia Felipe (como gestor) - 2024.2
+  await prisma.managerAssessment.create({
+    data: {
+      authorId: bruno.id,
+      evaluatedUserId: felipe.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-08T16:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 3,
+              justification: 'Felipe está desenvolvendo o senso de responsabilidade',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantém-se positivo e busca soluções',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 3,
+              justification: 'Ainda melhorando organização pessoal',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 5,
+              justification: 'Excepcional velocidade de aprendizado',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Boa colaboração e espírito de equipe',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 3,
+              justification: 'Entrega com qualidade, sempre melhorando',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpre prazos estabelecidos',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 3,
+              justification: 'Aprendendo a otimizar recursos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 3,
+              justification: 'Demonstra criatividade, ainda desenvolvendo',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Rafael avalia Marina (como gestor) - 2024.2
+  await prisma.managerAssessment.create({
+    data: {
+      authorId: rafael.id,
+      evaluatedUserId: marina.id,
+      cycle: '2024.2',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-10-08T17:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Marina assume responsabilidade pelas análises',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantém-se focada em encontrar soluções',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Excelente organização nos dados e processos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busca novas técnicas de análise',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colabora bem com equipes técnicas',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Entrega análises precisas e valiosas',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpre prazos de entregas analíticas',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimiza consultas e processos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busca insights inovadores',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // ===== AVALIAÇÕES DE GESTOR COMPLETAS CICLO 2025.1 =====
+  console.log('👔 Criando avaliações de gestor para 2025.1...');
 
   // Bruno avalia Ana (como gestor)
   await prisma.managerAssessment.create({
@@ -1203,6 +2498,173 @@ async function main() {
     },
   });
 
+  // Rafael avalia Marina (como gestor) - 2025.1
+  await prisma.managerAssessment.create({
+    data: {
+      authorId: rafael.id,
+      evaluatedUserId: marina.id,
+      cycle: '2025.1',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2025-04-10T17:00:00Z'),
+      answers: {
+        createMany: {
+          data: [
+            {
+              criterionId: 'sentimento-de-dono',
+              score: 4,
+              justification: 'Marina assume responsabilidade pelas análises e demonstra comprometimento',
+            },
+            {
+              criterionId: 'resiliencia-adversidades',
+              score: 4,
+              justification: 'Mantém-se focada em encontrar soluções analíticas',
+            },
+            {
+              criterionId: 'organizacao-trabalho',
+              score: 5,
+              justification: 'Excelente organização nos dados e processos analíticos',
+            },
+            {
+              criterionId: 'capacidade-aprender',
+              score: 4,
+              justification: 'Busca constantemente novas técnicas de análise',
+            },
+            {
+              criterionId: 'team-player',
+              score: 4,
+              justification: 'Colabora bem com equipes técnicas e de negócio',
+            },
+            {
+              criterionId: 'entregar-qualidade',
+              score: 5,
+              justification: 'Entrega análises precisas e insights valiosos',
+            },
+            {
+              criterionId: 'atender-prazos',
+              score: 4,
+              justification: 'Cumpre prazos de entregas analíticas',
+            },
+            {
+              criterionId: 'fazer-mais-menos',
+              score: 4,
+              justification: 'Otimiza consultas e processos analíticos',
+            },
+            {
+              criterionId: 'pensar-fora-caixa',
+              score: 4,
+              justification: 'Busca insights inovadores através dos dados',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // ===== AVALIAÇÕES DO COMITÊ DE EQUALIZAÇÃO CICLO 2024.2 =====
+  console.log('⚖️ Criando avaliações do comitê para 2024.2...');
+
+  // Comitê avalia Ana - 2024.2
+  await prisma.committeeAssessment.create({
+    data: {
+      id: 'committee-ana-2024-2',
+      cycle: '2024.2',
+      authorId: carla.id,
+      evaluatedUserId: ana.id,
+      finalScore: 4,
+      justification: 'Ana demonstrou excelente organização e qualidade técnica. Pontos de melhoria: assumir mais iniciativas de liderança e compartilhar mais conhecimento com a equipe.',
+      observations: 'Pontos fortes: Organização exemplar, qualidade técnica consistente, colaboração efetiva. Pontos de desenvolvimento: Desenvolver habilidades de liderança, ser mais proativa em compartilhar conhecimento.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T10:00:00Z'),
+      createdAt: new Date('2024-11-20T09:30:00Z'),
+      updatedAt: new Date('2024-11-20T10:00:00Z'),
+    },
+  });
+
+  // Comitê avalia Bruno - 2024.2
+  await prisma.committeeAssessment.create({
+    data: {
+      id: 'committee-bruno-2024-2',
+      cycle: '2024.2',
+      authorId: carla.id,
+      evaluatedUserId: bruno.id,
+      finalScore: 4,
+      justification: 'Bruno mostrou boa liderança técnica e gestão de equipe. Pontos de melhoria: melhorar comunicação de expectativas e desenvolver mais autonomia na equipe.',
+      observations: 'Pontos fortes: Liderança técnica sólida, gestão eficaz, disponibilidade para a equipe. Pontos de desenvolvimento: Comunicação mais clara de expectativas, desenvolvimento de autonomia da equipe.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T10:30:00Z'),
+      createdAt: new Date('2024-11-20T10:00:00Z'),
+      updatedAt: new Date('2024-11-20T10:30:00Z'),
+    },
+  });
+
+  // Comitê avalia Felipe - 2024.2
+  await prisma.committeeAssessment.create({
+    data: {
+      id: 'committee-felipe-2024-2',
+      cycle: '2024.2',
+      authorId: carla.id,
+      evaluatedUserId: felipe.id,
+      finalScore: 3,
+      justification: 'Felipe demonstrou excelente capacidade de aprendizado e colaboração. Pontos de melhoria: organização pessoal e desenvolvimento de maior autonomia.',
+      observations: 'Pontos fortes: Velocidade de aprendizado excepcional, colaboração efetiva, receptividade a feedbacks. Pontos de desenvolvimento: Organização pessoal, desenvolvimento de autonomia, planejamento de tarefas.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T11:00:00Z'),
+      createdAt: new Date('2024-11-20T10:30:00Z'),
+      updatedAt: new Date('2024-11-20T11:00:00Z'),
+    },
+  });
+
+  // Comitê avalia Lucas - 2024.2
+  await prisma.committeeAssessment.create({
+    data: {
+      id: 'committee-lucas-2024-2',
+      cycle: '2024.2',
+      authorId: carla.id,
+      evaluatedUserId: lucas.id,
+      finalScore: 4,
+      justification: 'Lucas mostrou excelente visão de produto e facilitação entre equipes. Pontos de melhoria: comunicação mais direta de prioridades e maior envolvimento em mentoria.',
+      observations: 'Pontos fortes: Visão estratégica de produto, facilitação entre áreas, pensamento inovador. Pontos de desenvolvimento: Comunicação mais direta, desenvolver habilidades de mentoria.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T11:30:00Z'),
+      createdAt: new Date('2024-11-20T11:00:00Z'),
+      updatedAt: new Date('2024-11-20T11:30:00Z'),
+    },
+  });
+
+  // Comitê avalia Marina - 2024.2
+  await prisma.committeeAssessment.create({
+    data: {
+      id: 'committee-marina-2024-2',
+      cycle: '2024.2',
+      authorId: carla.id,
+      evaluatedUserId: marina.id,
+      finalScore: 4,
+      justification: 'Marina entregou análises precisas e insights valiosos. Pontos de melhoria: maior proatividade em sugestões de melhorias e envolvimento em discussões técnicas.',
+      observations: 'Pontos fortes: Precisão analítica, organização exemplar, insights valiosos. Pontos de desenvolvimento: Proatividade em melhorias de processo, participação em discussões técnicas.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T12:00:00Z'),
+      createdAt: new Date('2024-11-20T11:30:00Z'),
+      updatedAt: new Date('2024-11-20T12:00:00Z'),
+    },
+  });
+
+  // Comitê avalia Rafael - 2024.2
+  await prisma.committeeAssessment.create({
+    data: {
+      id: 'committee-rafael-2024-2',
+      cycle: '2024.2',
+      authorId: carla.id,
+      evaluatedUserId: rafael.id,
+      finalScore: 4,
+      justification: 'Rafael demonstrou sólido conhecimento técnico e resolução de problemas complexos. Pontos de melhoria: comunicação e documentação de processos, desenvolvimento de habilidades de liderança.',
+      observations: 'Pontos fortes: Expertise técnica sólida, resolução de problemas complexos, confiabilidade. Pontos de desenvolvimento: Comunicação e documentação, desenvolvimento de liderança de pessoas.',
+      status: 'SUBMITTED',
+      submittedAt: new Date('2024-11-20T12:30:00Z'),
+      createdAt: new Date('2024-11-20T12:00:00Z'),
+      updatedAt: new Date('2024-11-20T12:30:00Z'),
+    },
+  });
+
   console.log('✅ Estruturas de relacionamento configuradas!');
 
   // ==========================================
@@ -1239,13 +2701,23 @@ async function main() {
   });
 
   console.log('');
+  console.log('🔴 Ciclo Fechado: 2024.2 na fase EQUALIZATION');
+  console.log('  ✅ Todas as avaliações completas para todos os colaboradores');
+  console.log('  📝 6 Autoavaliações (Ana, Bruno, Felipe, Lucas, Marina, Rafael)');
+  console.log('  🔄 10 Avaliações 360° (todas as combinações entre colaboradores de projetos)');
+  console.log('  🎓 4 Mentoring Assessments (Felipe→Bruno, Ana→Lucas, Bruno→Carla, Lucas→Carla)');
+  console.log('  💭 10 Reference Feedbacks (todos os pares de colaboradores)');
+  console.log('  👔 3 Avaliações de Gestor (Bruno→Ana/Felipe, Rafael→Marina)');
+  console.log('  ⚖️ 6 Avaliações do Comitê (Carla equalizou todos os colaboradores)');
+  console.log('  ✅ Ciclo Encerrado e Completamente Equalizado');
+  console.log('');
   console.log('🎯 Ciclo Ativo: 2025.1 na fase EQUALIZATION');
-  console.log('  ✅ Todas as avaliações completas para Bruno, Ana e Felipe');
-  console.log('  📝 3 Autoavaliações (Ana, Bruno, Felipe)');
-  console.log('  🔄 6 Avaliações 360° (todas as combinações)');
-  console.log('  🎓 1 Mentoring Assessment (Felipe → Ana)');
-  console.log('  💭 6 Reference Feedbacks (todos os pares)');
-  console.log('  👔 2 Avaliações de Gestor (Bruno → Ana, Felipe)');
+  console.log('  ✅ Todas as avaliações completas para todos os colaboradores');
+  console.log('  📝 6 Autoavaliações (Ana, Bruno, Felipe, Lucas, Marina, Rafael)');
+  console.log('  🔄 10 Avaliações 360° (todas as combinações entre colaboradores de projetos)');
+  console.log('  🎓 4 Mentoring Assessments (Felipe→Bruno, Ana→Lucas, Bruno→Carla, Lucas→Carla)');
+  console.log('  💭 10 Reference Feedbacks (todos os pares de colaboradores)');
+  console.log('  👔 3 Avaliações de Gestor (Bruno→Ana/Felipe, Rafael→Marina)');
   console.log('  ⚖️ Pronto para Equalização pelo Comitê (Carla)');
   console.log('');
 
@@ -1313,7 +2785,16 @@ async function main() {
   console.log('  ⚖️ Fase 3 - Equalização: até 31/05/2025 🔄 ATUAL');
   console.log('');
   console.log('✅ Sistema pronto para equalização!');
-  console.log('   Carla pode fazer login e equalizar as avaliações de Bruno, Ana e Felipe');
+  console.log('   Carla pode fazer login e equalizar as avaliações de todos os colaboradores');
+  console.log('');
+  console.log('📊 TOTAL DE AVALIAÇÕES CRIADAS:');
+  console.log('  📝 Autoavaliações: 12 (6 por ciclo x 2 ciclos)');
+  console.log('  🔄 Avaliações 360°: 20 (10 por ciclo x 2 ciclos)');
+  console.log('  🎓 Mentoring Assessments: 8 (4 por ciclo x 2 ciclos)');
+  console.log('  💭 Reference Feedbacks: 20 (10 por ciclo x 2 ciclos)');
+  console.log('  👔 Avaliações de Gestor: 6 (3 por ciclo x 2 ciclos)');
+  console.log('  ⚖️ Avaliações do Comitê: 6 (ciclo 2024.2 finalizado)');
+  console.log('  🎯 TOTAL GERAL: 72 avaliações completas!');
   console.log('');
   console.log('🎯 NOVIDADES: Funcionalidades de Liderança e Mentoria');
   console.log('');
