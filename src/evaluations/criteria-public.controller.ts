@@ -7,7 +7,10 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import { User, CriterionPillar } from '@prisma/client';
+
 import { CriteriaService } from './criteria.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { CriterionDto } from './dto/criteria.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -58,7 +61,7 @@ export class CriteriaPublicController {
     @Query('requiredOnly') requiredOnly?: boolean,
   ): Promise<CriterionDto[]> {
     if (pillar) {
-      return this.criteriaService.findByPillar(pillar);
+      return this.criteriaService.findByPillar(pillar as CriterionPillar);
     }
 
     if (requiredOnly) {
@@ -66,6 +69,41 @@ export class CriteriaPublicController {
     }
 
     return this.criteriaService.findAll();
+  }
+
+  @Get('for-user')
+  @ApiOperation({
+    summary: 'Listar critérios baseados no papel do usuário',
+    description: `
+      Lista critérios de avaliação baseados no papel do usuário logado.
+      
+      **Regras de negócio:**
+      - Gestores: recebem todos os critérios (incluindo MANAGEMENT)
+      - Outros usuários: recebem critérios exceto do pilar MANAGEMENT
+      
+      **Permissões:** Qualquer usuário autenticado pode acessar.
+      
+      **Uso:** Este endpoint é usado para montar formulários de avaliação 
+      onde apenas gestores podem avaliar critérios de gestão.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de critérios baseada no papel do usuário',
+    type: [CriterionDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de acesso inválido ou não fornecido',
+  })
+  async findForUser(@CurrentUser() user: User): Promise<CriterionDto[]> {
+    // Verificar se o usuário é gestor
+    const userRoles: string[] = Array.isArray(user.roles) 
+      ? user.roles as string[]
+      : JSON.parse(user.roles || '[]') as string[];
+    const isManager: boolean = userRoles.includes('gestor') || userRoles.includes('manager');
+    
+    return this.criteriaService.findForUserRole(isManager);
   }
 
   @Get(':id')

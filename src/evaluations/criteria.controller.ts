@@ -20,12 +20,13 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import { User, CriterionPillar } from '@prisma/client';
+
 import { CriteriaService } from './criteria.service';
 import { CreateCriterionDto, UpdateCriterionDto, CriterionDto } from './dto/criteria.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { User } from '@prisma/client';
+import { HRRoleGuard } from '../auth/guards/hr-role.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
  * Controller para gestão de critérios de avaliação
@@ -97,7 +98,7 @@ export class CriteriaController {
     @Query('pillar') pillar?: string,
   ): Promise<CriterionDto[]> {
     if (pillar) {
-      return this.criteriaService.findByPillar(pillar);
+      return this.criteriaService.findByPillar(pillar as CriterionPillar);
     }
 
     if (requiredOnly) {
@@ -163,7 +164,7 @@ export class CriteriaController {
   })
   async create(
     @Body(ValidationPipe) createCriterionDto: CreateCriterionDto,
-    @CurrentUser() user: User,
+    @CurrentUser() _user: User,
   ): Promise<CriterionDto> {
     return this.criteriaService.create(createCriterionDto);
   }
@@ -207,7 +208,7 @@ export class CriteriaController {
   async update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateCriterionDto: UpdateCriterionDto,
-    @CurrentUser() user: User,
+    @CurrentUser() _user: User,
   ): Promise<CriterionDto> {
     return this.criteriaService.update(id, updateCriterionDto);
   }
@@ -245,7 +246,7 @@ export class CriteriaController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Critério está sendo usado em avaliações e não pode ser removido',
   })
-  async remove(@Param('id') id: string, @CurrentUser() user: User): Promise<{ message: string }> {
+  async remove(@Param('id') id: string, @CurrentUser() _user: User): Promise<{ message: string }> {
     await this.criteriaService.remove(id);
     return {
       message: 'Critério removido permanentemente com sucesso.',
@@ -285,7 +286,9 @@ export class CriteriaController {
     status: HttpStatus.NOT_FOUND,
     description: 'Critério não encontrado',
   })
-  async toggleRequired(@Param('id') id: string, @CurrentUser() user: User): Promise<CriterionDto> {
+  async toggleRequired(@Param('id') id: string, @CurrentUser() _user: User): Promise<CriterionDto> {
     return this.criteriaService.toggleRequired(id);
   }
+
+
 }

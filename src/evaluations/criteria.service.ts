@@ -4,9 +4,10 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { Criterion, CriterionPillar } from '@prisma/client';
+
 import { PrismaService } from '../database/prisma.service';
 import { CreateCriterionDto, UpdateCriterionDto, CriterionDto } from './dto/criteria.dto';
-import { Criterion, CriterionPillar } from '@prisma/client';
 
 @Injectable()
 export class CriteriaService {
@@ -20,7 +21,7 @@ export class CriteriaService {
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -32,7 +33,7 @@ export class CriteriaService {
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -44,7 +45,21 @@ export class CriteriaService {
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
+  }
+
+  /**
+   * Lista critérios baseados no papel do usuário
+   * - Gestores: todos os critérios (incluindo MANAGEMENT)
+   * - Outros: critérios exceto MANAGEMENT
+   */
+  async findForUserRole(isManager: boolean): Promise<CriterionDto[]> {
+    const criteria = await this.prisma.criterion.findMany({
+      where: isManager ? {} : { pillar: { not: CriterionPillar.MANAGEMENT } },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -199,15 +214,15 @@ export class CriteriaService {
   /**
    * Lista critérios por pilar
    */
-  async findByPillar(pillar: string): Promise<CriterionDto[]> {
+  async findByPillar(pillar: CriterionPillar): Promise<CriterionDto[]> {
     const criteria = await this.prisma.criterion.findMany({
       where: {
-        pillar: pillar as any,
+        pillar: pillar,
       },
       orderBy: { name: 'asc' },
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**

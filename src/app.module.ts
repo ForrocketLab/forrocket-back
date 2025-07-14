@@ -8,10 +8,11 @@ import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { GenAiModule } from './gen-ai/gen-ai.module';
 import { ImportModule } from './import/import.module';
+import { MentorModule } from './mentor/mentor.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 import { OKRsModule } from './okrs/okrs.module';
 import { PDIsModule } from './pdis/pdis.module';
 import { ProjectsModule } from './projects/projects.module';
-import { MonitoringModule } from './monitoring/monitoring.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -53,6 +54,8 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 
     // Módulo de monitoramento
     MonitoringModule,
+
+    MentorModule,
   ],
 })
 export class AppModule {}
