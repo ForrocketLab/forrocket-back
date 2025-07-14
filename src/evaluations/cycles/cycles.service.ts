@@ -311,7 +311,7 @@ export class CyclesService {
    * Valida se o ciclo ativo está na fase correta para um tipo de avaliação
    */
   async validateActiveCyclePhase(
-    requiredPhase: 'ASSESSMENTS' | 'MANAGER_REVIEWS' | 'EQUALIZATION',
+    requiredPhase: Array<'ASSESSMENTS' | 'MANAGER_REVIEWS' | 'EQUALIZATION'>,
   ) {
     const activeCycle = await this.getActiveCycle();
 
@@ -321,15 +321,17 @@ export class CyclesService {
       );
     }
 
-    if (activeCycle.phase !== requiredPhase) {
+    if (!requiredPhase.includes(activeCycle.phase)) {
       const phaseNames = {
         ASSESSMENTS: 'Avaliações (Autoavaliação, 360, Mentoring, Reference)',
         MANAGER_REVIEWS: 'Avaliações de Gestor',
         EQUALIZATION: 'Equalização',
       };
 
+      const requiredPhasesText = requiredPhase.map(p => phaseNames[p]).join(', ');
+
       throw new BadRequestException(
-        `Esta ação não está disponível na fase atual. Fase atual: ${phaseNames[activeCycle.phase]}. Fase necessária: ${phaseNames[requiredPhase]}.`,
+        `Esta ação não está disponível na fase atual. Fase atual: ${phaseNames[activeCycle.phase]}. Fases permitidas: ${requiredPhasesText}.`,
       );
     }
 
