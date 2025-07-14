@@ -8,6 +8,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { User, CriterionPillar } from '@prisma/client';
+import { ProjectsService } from 'src/projects/projects.service';
 
 import { CriteriaService } from './criteria.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -19,7 +20,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @Controller('api/public/criteria')
 export class CriteriaPublicController {
-  constructor(private readonly criteriaService: CriteriaService) {}
+  constructor(
+    private readonly criteriaService: CriteriaService,
+    private readonly projectsService: ProjectsService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -98,11 +102,8 @@ export class CriteriaPublicController {
   })
   async findForUser(@CurrentUser() user: User): Promise<CriterionDto[]> {
     // Verificar se o usuário é gestor
-    const userRoles: string[] = Array.isArray(user.roles) 
-      ? user.roles as string[]
-      : JSON.parse(user.roles || '[]') as string[];
-    const isManager: boolean = userRoles.includes('gestor') || userRoles.includes('manager');
-    
+    const isManager = await this.projectsService.isManager(user.id);
+
     return this.criteriaService.findForUserRole(isManager);
   }
 

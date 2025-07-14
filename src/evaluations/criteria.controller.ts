@@ -289,6 +289,4 @@ export class CriteriaController {
   async toggleRequired(@Param('id') id: string, @CurrentUser() _user: User): Promise<CriterionDto> {
     return this.criteriaService.toggleRequired(id);
   }
-
-
 }
