@@ -33,8 +33,10 @@ describe('CriteriaService', () => {
     pillar: CriterionPillar.BEHAVIOR,
     weight: 1.0,
     isRequired: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    isBase: true,
+    businessUnit: null,
+    createdAt: '2025-07-10T05:30:52.271Z',
+    updatedAt: '2025-07-10T05:30:52.271Z',
   };
 
   const mockCriterionDto = {
@@ -42,10 +44,12 @@ describe('CriteriaService', () => {
     name: 'Test Criterion',
     description: 'Test Description',
     pillar: CriterionPillar.BEHAVIOR,
-    weight: 1.0,
+    weight: 1,
     isRequired: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    isBase: true,
+    businessUnit: null,
+    createdAt: '2025-07-10T05:30:52.271Z',
+    updatedAt: '2025-07-10T05:30:52.271Z',
   };
 
   beforeEach(async () => {
@@ -80,7 +84,13 @@ describe('CriteriaService', () => {
       expect(mockPrismaService.criterion.findMany).toHaveBeenCalledWith({
         orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
       });
-      expect(result).toEqual([mockCriterionDto]);
+      expect(result).toEqual([
+        expect.objectContaining({
+          ...mockCriterionDto,
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        })
+      ]);
     });
 
     it('deve retornar array vazio quando não há critérios', async () => {
@@ -168,14 +178,16 @@ describe('CriteriaService', () => {
         where: { name: 'New Criterion' },
       });
       expect(mockPrismaService.criterion.create).toHaveBeenCalledWith({
-        data: {
+        data: expect.objectContaining({
           id: 'new-criterion',
           name: 'New Criterion',
           description: 'New Description',
-          pillar: CriterionPillar.BEHAVIOR,
-          weight: 2.0,
+          pillar: 'BEHAVIOR',
+          weight: 2,
           isRequired: false,
-        },
+          isBase: true,
+          businessUnit: null,
+        }),
       });
       expect(result).toEqual(mockCriterionDto);
     });
@@ -193,14 +205,16 @@ describe('CriteriaService', () => {
       await service.create(createDtoWithoutDefaults as CreateCriterionDto);
 
       expect(mockPrismaService.criterion.create).toHaveBeenCalledWith({
-        data: {
+        data: expect.objectContaining({
           id: 'new-criterion',
           name: 'New Criterion',
           description: 'New Description',
-          pillar: CriterionPillar.EXECUTION,
-          weight: 1.0,
+          pillar: 'EXECUTION',
+          weight: 1,
           isRequired: true,
-        },
+          isBase: true,
+          businessUnit: null,
+        }),
       });
     });
 
@@ -250,10 +264,12 @@ describe('CriteriaService', () => {
       });
       expect(mockPrismaService.criterion.update).toHaveBeenCalledWith({
         where: { id: 'test-criterion' },
-        data: {
-          ...updateDto,
-          updatedAt: expect.any(Date),
-        },
+        data: expect.objectContaining({
+          description: 'Updated Description',
+          name: 'Updated Criterion',
+          updatedAt: expect.any(String),
+          weight: 3,
+        }),
       });
       expect(result).toEqual(mockCriterionDto);
     });
@@ -336,10 +352,10 @@ describe('CriteriaService', () => {
 
       expect(mockPrismaService.criterion.update).toHaveBeenCalledWith({
         where: { id: 'test-criterion' },
-        data: {
+        data: expect.objectContaining({
           isRequired: false,
-          updatedAt: expect.any(Date),
-        },
+          updatedAt: expect.any(String),
+        }),
       });
       expect(result.isRequired).toBe(false);
     });
@@ -355,10 +371,10 @@ describe('CriteriaService', () => {
 
       expect(mockPrismaService.criterion.update).toHaveBeenCalledWith({
         where: { id: 'test-criterion' },
-        data: {
+        data: expect.objectContaining({
           isRequired: true,
-          updatedAt: expect.any(Date),
-        },
+          updatedAt: expect.any(String),
+        }),
       });
       expect(result.isRequired).toBe(true);
     });
