@@ -1,43 +1,43 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { IsArray, IsString, IsNotEmpty, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ReferenceFeedbackItemDto {
   @ApiProperty({
-    description: 'ID do colaborador referenciado',
-    example: 'col-1',
+    description: 'ID do usuário referenciado',
+    example: 'user-123',
   })
   @IsString()
   @IsNotEmpty()
   id: string;
 
   @ApiProperty({
-    description: 'Nome completo do colaborador referenciado',
-    example: 'Maria Silva Santos',
+    description: 'Nome do usuário referenciado',
+    example: 'Bruno André Mendes Carvalho',
   })
   @IsString()
   @IsNotEmpty()
   referenceName: string;
 
   @ApiProperty({
-    description: 'Cargo/função do colaborador referenciado',
-    example: 'Product Manager',
+    description: 'Cargo do usuário referenciado',
+    example: 'Tech Lead',
   })
   @IsString()
   @IsNotEmpty()
   referenceRole: string;
 
   @ApiProperty({
-    description: 'Iniciais do colaborador referenciado',
-    example: 'MS',
+    description: 'Iniciais do usuário referenciado',
+    example: 'BA',
   })
   @IsString()
   @IsNotEmpty()
   referenceInitials: string;
 
   @ApiProperty({
-    description: 'Justificativa do feedback de referência',
-    example: 'Excelente profissional, muito dedicado e colaborativo.',
+    description: 'Justificativa do feedback',
+    example: 'Bruno demonstra excelente liderança técnica, sempre orientando a equipe com clareza e paciência',
   })
   @IsString()
   @IsNotEmpty()
@@ -46,24 +46,8 @@ export class ReferenceFeedbackItemDto {
 
 export class UpdateReferenceFeedbackBatchDto {
   @ApiProperty({
-    description: 'Array de referências a serem sincronizadas',
+    description: 'Array de referências para atualizar',
     type: [ReferenceFeedbackItemDto],
-    example: [
-      {
-        id: 'col-1',
-        referenceName: 'Maria Silva Santos',
-        referenceRole: 'Product Manager',
-        referenceInitials: 'MS',
-        justification: 'Excelente profissional, muito dedicado e colaborativo.',
-      },
-      {
-        id: 'col-6',
-        referenceName: 'Rafael Mendes',
-        referenceRole: 'DevOps Engineer',
-        referenceInitials: 'RM',
-        justification: 'Ótimo conhecimento técnico e sempre disposto a ajudar.',
-      },
-    ],
   })
   @IsArray()
   @ValidateNested({ each: true })

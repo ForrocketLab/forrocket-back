@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { CriterionPillar, ManagerTeamSummary } from '@prisma/client';
+import { CriterionPillar, ManagerTeamSummary, WorkAgainMotivation } from '@prisma/client';
 
 import { EncryptionService } from '../common/services/encryption.service';
 import { GenAiService } from '../gen-ai/gen-ai.service';
@@ -17,6 +17,9 @@ import {
   SelfAssessmentCompletionByPillarDto,
   PillarProgressDto,
   UpdateMentoringAssessmentDto,
+  Create360AssessmentDto,
+  Update360AssessmentDto,
+  UpdateDesignatedMentorAssessmentDto,
 } from './assessments/dto';
 import { ProjectCollaborator360Dto } from './dto/project-collaborator-360.dto';
 import { MentorAssessmentDto } from './dto/mentor-assessment.dto';
@@ -2095,6 +2098,310 @@ export class EvaluationsService {
     };
   }
 
+  /**
+   * Cria uma avaliação 360 graus
+   */
+  async create360Assessment(authorId: string, dto: Create360AssessmentDto) {
+    // Validar se o ciclo fornecido existe e está na fase correta
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Verificar se o usuário avaliado existe
+    const evaluatedUser = await this.prisma.user.findUnique({
+      where: { id: dto.evaluatedUserId },
+    });
+
+    if (!evaluatedUser) {
+      throw new NotFoundException('Usuário avaliado não encontrado');
+    }
+
+    // Verificar se o autor e o avaliado são a mesma pessoa
+    if (authorId === dto.evaluatedUserId) {
+      throw new BadRequestException('Você não pode se autoavaliar usando avaliação 360');
+    }
+
+    // Verificar se já existe uma avaliação 360 para este par de usuários no ciclo atual
+    const existingAssessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId: dto.evaluatedUserId,
+        cycle: activeCycle.name,
+      },
+    });
+
+    if (existingAssessment) {
+      throw new BadRequestException(
+        `Já existe uma avaliação 360 para este usuário no ciclo ${activeCycle.name}`,
+      );
+    }
+
+    // Verificar se o autor e o avaliado trabalham no mesmo projeto
+    const authorProjects = await this.prisma.userProjectAssignment.findMany({
+      where: { userId: authorId },
+      include: { project: true },
+    });
+
+    const evaluatedUserProjects = await this.prisma.userProjectAssignment.findMany({
+      where: { userId: dto.evaluatedUserId },
+      include: { project: true },
+    });
+
+    const authorProjectIds = authorProjects.map((ap) => ap.projectId);
+    const evaluatedUserProjectIds = evaluatedUserProjects.map((eup) => eup.projectId);
+
+    const commonProjects = authorProjectIds.filter((id) => evaluatedUserProjectIds.includes(id));
+
+    if (commonProjects.length === 0) {
+      throw new ForbiddenException(
+        'Você só pode avaliar colegas de trabalho (mesmo projeto) ou seu gestor direto',
+      );
+    }
+
+    // Criar a avaliação 360
+    const assessment = await this.prisma.assessment360.create({
+      data: {
+        authorId,
+        evaluatedUserId: dto.evaluatedUserId,
+        cycle: activeCycle.name,
+        overallScore: dto.overallScore,
+        strengths: dto.strengths,
+        improvements: dto.improvements,
+        status: EvaluationStatus.DRAFT,
+      },
+      include: {
+        evaluatedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+          },
+        },
+      },
+    });
+
+    return {
+      id: assessment.id,
+      evaluatedUser: assessment.evaluatedUser,
+      overallScore: assessment.overallScore,
+      strengths: assessment.strengths,
+      improvements: assessment.improvements,
+      status: assessment.status,
+      cycle: assessment.cycle,
+      createdAt: assessment.createdAt,
+      updatedAt: assessment.updatedAt,
+    };
+  }
+
+  /**
+   * Busca uma avaliação 360 específica
+   */
+  async get360Assessment(authorId: string, evaluatedUserId: string) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar a avaliação 360
+    const assessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        evaluatedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+          },
+        },
+      },
+    });
+
+    if (!assessment) {
+      throw new NotFoundException('Avaliação 360 não encontrada');
+    }
+
+    return {
+      id: assessment.id,
+      evaluatedUser: assessment.evaluatedUser,
+      overallScore: assessment.overallScore,
+      strengths: assessment.strengths,
+      improvements: assessment.improvements,
+      status: assessment.status,
+      cycle: assessment.cycle,
+      createdAt: assessment.createdAt,
+      updatedAt: assessment.updatedAt,
+    };
+  }
+
+  /**
+   * Retorna a autoavaliação existente para o ciclo atual ativo formatada para o frontend
+   */
+  async getSelfAssessmentForFrontend(userId: string) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Verificar se o usuário tem papel de gestor para determinar critérios obrigatórios
+    const userWithRoles = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roleAssignments: true,
+      },
+    });
+
+    if (!userWithRoles) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    const isManager = userWithRoles.roleAssignments.some(
+      (assignment) => assignment.role === 'MANAGER',
+    );
+
+    // Buscar a autoavaliação do usuário para o ciclo ativo
+    const selfAssessment = await this.prisma.selfAssessment.findFirst({
+      where: {
+        authorId: userId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        answers: true,
+      },
+    });
+
+    // Se não existir autoavaliação, retornar null
+    if (!selfAssessment) {
+      return null;
+    }
+
+    // Definir critérios base
+    const baseCriteria = [
+      'sentimento-de-dono',
+      'resiliencia-adversidades',
+      'organizacao-trabalho',
+      'capacidade-aprender',
+      'team-player',
+      'entregar-qualidade',
+      'atender-prazos',
+      'fazer-mais-menos',
+      'pensar-fora-caixa',
+    ];
+
+    // Adicionar critérios de gestor se o usuário for manager
+    const allCriteria = isManager 
+      ? [...baseCriteria, 'evolucao-rocket-corp', 'gestao-gente', 'gestao-resultados']
+      : baseCriteria;
+
+    // Criar objeto de resposta formatado
+    const formattedResponse: Record<string, { score: number; justification: string }> = {};
+
+    // Para cada critério, buscar a resposta correspondente
+    for (const criterionId of allCriteria) {
+      const answer = selfAssessment.answers.find(a => a.criterionId === criterionId);
+      
+      if (answer) {
+        formattedResponse[criterionId] = {
+          score: answer.score,
+          justification: answer.justification,
+        };
+      } else {
+        // Se não há resposta para o critério, retornar valores padrão
+        formattedResponse[criterionId] = {
+          score: 1,
+          justification: '',
+        };
+      }
+    }
+
+    return formattedResponse;
+  }
+
+  /**
+   * Atualiza uma avaliação 360 graus
+   */
+  async update360Assessment(authorId: string, dto: Update360AssessmentDto) {
+    const { evaluatedUserId, cycleId, ...updateData } = dto;
+
+    // Buscar avaliação existente
+    let existingAssessment = await this.prisma.assessment360.findFirst({
+      where: {
+        authorId,
+        evaluatedUserId,
+        cycle: cycleId,
+      },
+      include: {
+        evaluatedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+          },
+        },
+      },
+    });
+
+    // Se não existir, criar uma nova avaliação em branco
+    if (!existingAssessment) {
+      existingAssessment = await this.prisma.assessment360.create({
+        data: {
+          authorId,
+          evaluatedUserId,
+          cycle: cycleId,
+          status: EvaluationStatus.DRAFT,
+          overallScore: 1,
+          strengths: '',
+          improvements: '',
+        },
+        include: {
+          evaluatedUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              jobTitle: true,
+              seniority: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Atualizar a avaliação com os novos dados
+    const updatedAssessment = await this.prisma.assessment360.update({
+      where: {
+        id: existingAssessment.id,
+      },
+      data: updateData,
+      include: {
+        evaluatedUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobTitle: true,
+            seniority: true,
+          },
+        },
+      },
+    });
+
+    return {
+      id: updatedAssessment.id,
+      evaluatedUser: updatedAssessment.evaluatedUser,
+      overallScore: updatedAssessment.overallScore,
+      strengths: updatedAssessment.strengths,
+      improvements: updatedAssessment.improvements,
+      status: updatedAssessment.status,
+      cycle: updatedAssessment.cycle,
+      createdAt: updatedAssessment.createdAt,
+      updatedAt: updatedAssessment.updatedAt,
+    };
+  }
+
   async updateMentoringAssessment(authorId: string, updateDto: UpdateMentoringAssessmentDto) {
     const { mentorId, cycleId, ...updateData } = updateDto;
 
@@ -2229,5 +2536,363 @@ export class EvaluationsService {
       .map((name) => name.charAt(0).toUpperCase())
       .slice(0, 2)
       .join('');
+  }
+
+  /**
+   * Retorna todos os colaboradores do(s) projeto(s) do usuário (exceto ele mesmo),
+   * incluindo a avaliação 360 existente (se houver) para o ciclo ativo.
+   */
+  async getAvailable360Collaborators(userId: string) {
+    // Buscar ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar todos os projetos do usuário
+    const userProjects = await this.prisma.userProjectAssignment.findMany({
+      where: { userId },
+      select: { projectId: true },
+    });
+    const projectIds = userProjects.map(up => up.projectId);
+    if (projectIds.length === 0) return [];
+
+    // Buscar todos os colaboradores desses projetos (exceto o próprio usuário)
+    const collaborators = await this.prisma.userProjectAssignment.findMany({
+      where: {
+        projectId: { in: projectIds },
+        userId: { not: userId },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    // Remover duplicados (um colaborador pode estar em mais de um projeto)
+    const uniqueCollaboratorsMap = new Map();
+    for (const c of collaborators) {
+      uniqueCollaboratorsMap.set(c.userId, c.user);
+    }
+    const uniqueCollaborators = Array.from(uniqueCollaboratorsMap.values());
+
+    // Buscar avaliações 360 já feitas pelo usuário logado para o ciclo ativo
+    const assessments = await this.prisma.assessment360.findMany({
+      where: {
+        authorId: userId,
+        evaluatedUserId: { in: uniqueCollaborators.map(c => c.id) },
+        cycle: activeCycle.name,
+      },
+    });
+    const assessmentsMap = new Map();
+    for (const a of assessments) {
+      assessmentsMap.set(a.evaluatedUserId, a);
+    }
+
+    // Montar resposta
+    return uniqueCollaborators.map(c => {
+      const a = assessmentsMap.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        role: c.jobTitle,
+        initials: this.generateInitials(c.name),
+        rating: a ? a.overallScore : null,
+        strengths: a ? a.strengths : null,
+        improvements: a ? a.improvements : null,
+        workAgainMotivation: a ? a.motivationToWorkAgain : null,
+      };
+    });
+  }
+
+  /**
+   * Atualiza/cria avaliações 360 em lote para o ciclo ativo
+   */
+  async update360AssessmentsBatch(userId: string, dtos: Array<{id: string, rating: number, strengths: string, improvements: string, workAgainMotivation: string | null}>): Promise<any[]> {
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const results: any[] = [];
+    for (const dto of dtos) {
+      // Converter motivationToWorkAgain para enum se não for null
+      const motivation = dto.workAgainMotivation ? (WorkAgainMotivation[dto.workAgainMotivation as keyof typeof WorkAgainMotivation] ?? null) : null;
+      let assessment = await this.prisma.assessment360.findFirst({
+        where: {
+          authorId: userId,
+          evaluatedUserId: dto.id,
+          cycle: activeCycle.name,
+        },
+      });
+      if (!assessment) {
+        assessment = await this.prisma.assessment360.create({
+          data: {
+            authorId: userId,
+            evaluatedUserId: dto.id,
+            cycle: activeCycle.name,
+            overallScore: dto.rating,
+            strengths: dto.strengths,
+            improvements: dto.improvements,
+            motivationToWorkAgain: motivation,
+            status: EvaluationStatus.DRAFT,
+          },
+        });
+      } else {
+        assessment = await this.prisma.assessment360.update({
+          where: { id: assessment.id },
+          data: {
+            overallScore: dto.rating,
+            strengths: dto.strengths,
+            improvements: dto.improvements,
+            motivationToWorkAgain: motivation,
+          },
+        });
+      }
+      results.push(assessment);
+    }
+    return results;
+  }
+
+  /**
+   * Retorna os dados do mentor designado e sua avaliação de mentoring existente
+   */
+  async getDesignatedMentorAssessment(userId: string) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar o usuário para obter o mentorId
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { mentorId: true },
+    });
+
+    if (!user || !user.mentorId) {
+      throw new NotFoundException('Usuário não possui mentor designado');
+    }
+
+    // Buscar dados do mentor
+    const mentor = await this.prisma.user.findUnique({
+      where: { id: user.mentorId },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+      },
+    });
+
+    if (!mentor) {
+      throw new NotFoundException('Mentor designado não encontrado');
+    }
+
+    // Buscar avaliação de mentoring existente
+    const assessment = await this.prisma.mentoringAssessment.findFirst({
+      where: {
+        authorId: userId,
+        mentorId: user.mentorId,
+        cycle: activeCycle.name,
+      },
+    });
+
+    return {
+      id: mentor.id,
+      mentorName: mentor.name,
+      mentorRole: mentor.jobTitle,
+      mentorInitials: this.generateInitials(mentor.name),
+      rating: assessment ? assessment.score : null,
+      justification: assessment ? assessment.justification : null,
+    };
+  }
+
+  /**
+   * Atualiza ou cria uma avaliação de mentoring para o mentor designado
+   */
+  async updateDesignatedMentorAssessment(userId: string, dto: UpdateDesignatedMentorAssessmentDto) {
+    console.log('DTO recebido:', dto);
+    console.log('Tipo do DTO:', typeof dto);
+    console.log('Rating:', dto?.rating);
+    console.log('Justification:', dto?.justification);
+    
+    // Validar se o dto existe e tem os campos necessários
+    if (!dto) {
+      throw new BadRequestException('Dados da avaliação são obrigatórios');
+    }
+    
+    if (typeof dto.rating !== 'number' || dto.rating < 1 || dto.rating > 5) {
+      throw new BadRequestException('Rating deve ser um número entre 1 e 5');
+    }
+    
+    if (!dto.justification || typeof dto.justification !== 'string') {
+      throw new BadRequestException('Justificativa é obrigatória');
+    }
+
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar o usuário para obter o mentorId
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { mentorId: true },
+    });
+
+    if (!user || !user.mentorId) {
+      throw new NotFoundException('Usuário não possui mentor designado');
+    }
+
+    // Buscar avaliação existente
+    let assessment = await this.prisma.mentoringAssessment.findFirst({
+      where: {
+        authorId: userId,
+        mentorId: user.mentorId,
+        cycle: activeCycle.name,
+      },
+    });
+
+    if (!assessment) {
+      // Criar nova avaliação
+      assessment = await this.prisma.mentoringAssessment.create({
+        data: {
+          authorId: userId,
+          mentorId: user.mentorId,
+          cycle: activeCycle.name,
+          score: dto.rating,
+          justification: dto.justification,
+          status: EvaluationStatus.DRAFT,
+        },
+      });
+    } else {
+      // Atualizar avaliação existente
+      assessment = await this.prisma.mentoringAssessment.update({
+        where: { id: assessment.id },
+        data: {
+          score: dto.rating,
+          justification: dto.justification,
+        },
+      });
+    }
+
+    return assessment;
+  }
+
+  /**
+   * Retorna todos os feedbacks de referência dados pelo usuário no ciclo ativo
+   */
+  async getReferenceFeedbacks(userId: string) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Buscar todos os feedbacks de referência do usuário no ciclo ativo
+    const referenceFeedbacks = await this.prisma.referenceFeedback.findMany({
+      where: {
+        authorId: userId,
+        cycle: activeCycle.name,
+      },
+      include: {
+        referencedUser: {
+          select: {
+            id: true,
+            name: true,
+            jobTitle: true,
+          },
+        },
+      },
+    });
+
+    // Formatar a resposta com dados descriptografados
+    return referenceFeedbacks.map(feedback => ({
+      id: feedback.referencedUserId, // Usar o ID do usuário referenciado, não do feedback
+      referenceName: feedback.referencedUser.name,
+      referenceRole: feedback.referencedUser.jobTitle,
+      referenceInitials: this.generateInitials(feedback.referencedUser.name),
+      justification: this.encryptionService.decrypt(feedback.justification),
+    }));
+  }
+
+  /**
+   * Remove todas as referências existentes e recria conforme o array enviado. Operação atômica.
+   */
+  async updateReferenceFeedbacksBatch(userId: string, references: Array<{id: string, referenceName: string, referenceRole: string, referenceInitials: string, justification: string}>) {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+
+    // Validar se todos os usuários referenciados existem
+    const referencedUserIds = references.map(ref => ref.id);
+    const existingUsers = await this.prisma.user.findMany({
+      where: {
+        id: { in: referencedUserIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+      },
+    });
+
+    if (existingUsers.length !== referencedUserIds.length) {
+      const existingIds = existingUsers.map(u => u.id);
+      const missingIds = referencedUserIds.filter(id => !existingIds.includes(id));
+      throw new NotFoundException(`Usuários não encontrados: ${missingIds.join(', ')}`);
+    }
+
+    // Verificar se não está tentando referenciar a si mesmo
+    if (referencedUserIds.includes(userId)) {
+      throw new BadRequestException('Não é possível referenciar a si mesmo');
+    }
+
+    // Operação atômica: deletar todos os feedbacks existentes e criar os novos
+    return await this.prisma.$transaction(async (prisma) => {
+      // Deletar todos os feedbacks de referência existentes do usuário no ciclo ativo
+      await prisma.referenceFeedback.deleteMany({
+        where: {
+          authorId: userId,
+          cycle: activeCycle.name,
+        },
+      });
+
+      // Criar os novos feedbacks de referência
+      const newFeedbacks = await Promise.all(
+        references.map(async (ref) => {
+          return prisma.referenceFeedback.create({
+            data: {
+              authorId: userId,
+              referencedUserId: ref.id, // ID do usuário referenciado
+              cycle: activeCycle.name,
+              topic: this.encryptionService.encrypt(''), // Campo opcional vazio
+              justification: this.encryptionService.encrypt(ref.justification),
+              status: EvaluationStatus.DRAFT,
+            },
+            include: {
+              referencedUser: {
+                select: {
+                  id: true,
+                  name: true,
+                  jobTitle: true,
+                },
+              },
+            },
+          });
+        })
+      );
+
+      // Retornar os feedbacks formatados
+      return newFeedbacks.map(feedback => ({
+        id: feedback.id,
+        referenceName: feedback.referencedUser.name,
+        referenceRole: feedback.referencedUser.jobTitle,
+        referenceInitials: this.generateInitials(feedback.referencedUser.name),
+        justification: this.encryptionService.decrypt(feedback.justification),
+      }));
+    });
+  }
+
+  /**
+   * Retorna todos os colaboradores disponíveis para seleção como referência (exceto o próprio usuário)
+   */
+  async getAvailableCollaborators(userId: string): Promise<{ id: string; name: string; email: string }[]> {
+    // Buscar todos os usuários ativos, exceto o próprio
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+    return users;
   }
 }

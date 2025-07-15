@@ -6,6 +6,7 @@ export * from './update-self-assessment.dto';
 export * from './submit-assessment.dto';
 export * from './update-360-assessment.dto';
 export * from './update-mentoring-assessment.dto';
+export * from './update-designated-mentor-assessment.dto';
 export * from './create-manager-assessment.dto';
 export * from './pillar-scores.dto';
 export * from './performance-data.dto';
