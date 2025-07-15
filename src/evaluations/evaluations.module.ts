@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AssessmentsModule } from './assessments/assessments.module';
+import { ClimateModule } from './climate/climate.module';
 import { CommitteeModule } from './committee/committee.module';
 import { CriteriaPublicController } from './criteria-public.controller';
 import { CriteriaSimpleController } from './criteria-simple.controller';
@@ -28,6 +29,7 @@ import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluati
     CommitteeModule,
     HRModule,
     AssessmentsModule,
+    ClimateModule,
     CommonModule
   ],
   controllers: [

@@ -11,6 +11,7 @@ import {
 } from './dto/team-evaluation.dto';
 import { CollaboratorEvaluationData } from './dto/collaborator-summary.dto';
 import { PersonalInsightsData } from './dto/personal-insights.dto';
+import { ClimateSentimentAnalysisData } from '../evaluations/assessments/dto/climate-sentiment-analysis.dto';
 
 function isBrutalFactsDto(obj: unknown): obj is BrutalFactsDto {
   return (
@@ -610,5 +611,155 @@ export class GenAiService {
       this.logger.error('Erro ao converter insights estruturados para texto:', error);
       return 'Insights gerados com formato inesperado. Contate o suporte técnico.';
     }
+  }
+
+  /**
+   * Gera análise de sentimento da avaliação de clima organizacional
+   * @param climateData Dados das avaliações de clima organizacional
+   * @returns Uma promessa que resolve para uma string com a análise de sentimento
+   */
+  async getClimateSentimentAnalysis(climateData: ClimateSentimentAnalysisData): Promise<string> {
+    const prompt = `
+    Você é um especialista em clima organizacional e análise de sentimento, focado em fornecer insights acionáveis para melhorar o ambiente de trabalho.
+    
+    Analise os dados da avaliação de clima organizacional abaixo e forneça uma análise completa de sentimento e recomendações práticas.
+
+    DADOS DA AVALIAÇÃO DE CLIMA - CICLO ${climateData.cycle}:
+    Total de avaliações: ${climateData.totalAssessments}
+
+    ANÁLISE POR CRITÉRIO:
+
+    ${climateData.criteria.map(criterion => `
+    **${criterion.name}**
+    - Média: ${criterion.averageScore.toFixed(2)}/5
+    - Total de respostas: ${criterion.totalResponses}
+    - Justificativas dos colaboradores:
+    ${criterion.justifications.map((justification, index) => `${index + 1}. "${justification}"`).join('\n')}
+    `).join('\n')}
+
+    DIRETRIZES PARA A ANÁLISE:
+
+    **1. ANÁLISE DE SENTIMENTO:**
+    - Identifique o sentimento geral (positivo, neutro, negativo) para cada critério
+    - Analise padrões nas justificativas (palavras-chave, tom, emoções)
+    - Considere a distribuição das notas (1-5) para entender a satisfação
+    - Identifique temas recorrentes nas justificativas
+
+    **2. PONTOS FORTES:**
+    - Destaque aspectos positivos do clima organizacional
+    - Identifique práticas que estão funcionando bem
+    - Reconheça conquistas e melhorias já implementadas
+
+    **3. ÁREAS DE PREOCUPAÇÃO:**
+    - Identifique problemas ou insatisfações recorrentes
+    - Analise critérios com notas mais baixas
+    - Destaque justificativas que indicam problemas
+
+    **4. RECOMENDAÇÕES PRÁTICAS:**
+    - Forneça 5-7 dicas específicas e acionáveis
+    - Foque em ações que podem ser implementadas rapidamente
+    - Considere diferentes níveis de intervenção (individual, equipe, organizacional)
+    - Priorize recomendações baseadas na urgência e impacto
+
+    **5. SCORE DE SENTIMENTO:**
+    - Calcule um score de 0-100 baseado na análise geral
+    - Considere: médias das notas, tom das justificativas, distribuição de respostas
+    - 0-30: Clima crítico, 31-60: Clima neutro, 61-100: Clima positivo
+
+    **EXEMPLOS DE RECOMENDAÇÕES:**
+    - "Implementar programa de reconhecimento mensal para valorizar contribuições"
+    - "Criar canais de comunicação mais abertos entre liderança e equipe"
+    - "Estabelecer políticas claras de equilíbrio trabalho-vida pessoal"
+    - "Desenvolver programa de mentoria para fortalecer relacionamentos"
+    - "Realizar reuniões de feedback mais frequentes e estruturadas"
+
+    **FORMATO DE RESPOSTA:**
+    Retorne EXATAMENTE no formato JSON abaixo:
+
+    {
+      "sentimentAnalysis": "Análise completa do sentimento geral...",
+      "improvementTips": "1. Primeira dica prática\\n2. Segunda dica prática\\n3. Terceira dica prática...",
+      "strengths": "Pontos fortes identificados...",
+      "areasOfConcern": "Áreas que precisam de atenção...",
+      "overallSentimentScore": 75
+    }
+
+    IMPORTANTE:
+    - Seja específico e prático nas recomendações
+    - Use linguagem clara e acessível
+    - Foque em ações que podem ser implementadas
+    - Considere o contexto organizacional
+    - Mantenha um tom construtivo e positivo
+    `;
+
+    const payload = {
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3, // temperatura baixa para análise objetiva
+      response_format: { type: 'json_object' },
+    };
+
+    try {
+      this.logger.log(`Gerando análise de sentimento para avaliação de clima - Ciclo ${climateData.cycle}`);
+
+      const response: AxiosResponse<OpenAiChatCompletionResponseDto> = await firstValueFrom(
+        this.httpService.post<OpenAiChatCompletionResponseDto>('/chat/completions', payload),
+      );
+
+      this.logger.log('Análise de sentimento de clima gerada com sucesso.');
+
+      const responseContent = response.data.choices[0].message.content;
+
+      if (!responseContent) {
+        this.logger.error('A resposta da LLM não contém o conteúdo esperado.');
+        throw new InternalServerErrorException('Resposta inválida da API de IA.');
+      }
+
+      const parsedJson: unknown = JSON.parse(responseContent);
+
+      // Verificar se tem a estrutura esperada
+      if (this.isClimateSentimentAnalysisResponse(parsedJson)) {
+        return JSON.stringify(parsedJson);
+      }
+
+      this.logger.error(
+        'O JSON retornado pela LLM não tem o formato esperado para análise de sentimento',
+        parsedJson,
+      );
+      throw new InternalServerErrorException('Formato de dados inesperado da API de IA.');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        this.logger.error('Erro na chamada para a API da LLM:', error.response?.data);
+      } else {
+        this.logger.error('Erro inesperado na análise de sentimento de clima:', error);
+      }
+      throw new InternalServerErrorException('Falha ao gerar análise de sentimento de clima.');
+    }
+  }
+
+  /**
+   * Type guard para verificar se a resposta da análise de sentimento tem o formato correto
+   */
+  private isClimateSentimentAnalysisResponse(obj: unknown): obj is {
+    sentimentAnalysis: string;
+    improvementTips: string;
+    strengths: string;
+    areasOfConcern: string;
+    overallSentimentScore: number;
+  } {
+    return (
+      typeof obj === 'object' &&
+      obj !== null &&
+      'sentimentAnalysis' in obj &&
+      'improvementTips' in obj &&
+      'strengths' in obj &&
+      'areasOfConcern' in obj &&
+      'overallSentimentScore' in obj &&
+      typeof (obj as any).sentimentAnalysis === 'string' &&
+      typeof (obj as any).improvementTips === 'string' &&
+      typeof (obj as any).strengths === 'string' &&
+      typeof (obj as any).areasOfConcern === 'string' &&
+      typeof (obj as any).overallSentimentScore === 'number'
+    );
   }
 }
