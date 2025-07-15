@@ -28,6 +28,8 @@ describe('CriteriaController', () => {
     pillar: CriterionPillar.BEHAVIOR,
     weight: 1.0,
     isRequired: true,
+    isBase: false,
+    businessUnit: undefined,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -273,7 +275,7 @@ describe('CriteriaController', () => {
 
       expect(criteriaService.remove).toHaveBeenCalledWith('test-criterion');
       expect(result).toEqual({
-        message: 'Critério removido permanentemente com sucesso.',
+        message: 'Critério removido com sucesso',
       });
     });
 
@@ -368,7 +370,7 @@ describe('CriteriaController', () => {
       const result = await controller.remove('test-criterion', undefined as any);
 
       expect(result).toEqual({
-        message: 'Critério removido permanentemente com sucesso.',
+        message: 'Critério removido com sucesso',
       });
     });
 

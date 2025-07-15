@@ -37,11 +37,12 @@ describe('ImportController', () => {
     updatedAt: new Date(),
   };
 
+  // Mock para controller (string)
   const mockImportBatchWithRelations = {
     id: 'batch-1',
     fileName: 'test-file.xlsx',
     uploadedUserId: 'user-1',
-    importedAt: new Date(),
+    importedAt: '2025-07-10T05:30:52.271Z',
     status: ImportStatus.COMPLETED,
     notes: null,
     uploadedUser: {
@@ -57,11 +58,17 @@ describe('ImportController', () => {
     },
   };
 
+  // Mock para uso interno do service (Date)
+  const mockImportBatchWithRelationsDate = {
+    ...mockImportBatchWithRelations,
+    importedAt: new Date('2025-07-10T05:30:52.271Z'),
+  };
+
   const mockImportBatchDetails = {
     id: 'batch-1',
     fileName: 'test-file.xlsx',
     uploadedUserId: 'user-1',
-    importedAt: new Date(),
+    importedAt: '2025-07-10T05:30:52.271Z',
     status: ImportStatus.COMPLETED,
     notes: null,
     uploadedUser: {
@@ -74,12 +81,32 @@ describe('ImportController', () => {
         id: 'user-created-1',
         name: 'Created User',
         email: 'created@example.com',
-        createdAt: new Date(),
+        createdAt: '2025-07-10T05:30:52.271Z',
       },
     ],
     createdSelfAssessments: [],
     createdAssessments360: [],
     createdReferenceFeedbacks: [],
+    _count: {
+      createdUsers: 10,
+      createdSelfAssessments: 5,
+      createdAssessments360: 8,
+      createdReferenceFeedbacks: 3,
+    },
+  };
+
+  // Mock para uso interno do service (Date)
+  const mockImportBatchDetailsDate = {
+    ...mockImportBatchDetails,
+    importedAt: new Date('2025-07-10T05:30:52.271Z'),
+    createdUsers: [
+      {
+        id: 'user-created-1',
+        name: 'Created User',
+        email: 'created@example.com',
+        createdAt: new Date('2025-07-10T05:30:52.271Z'),
+      },
+    ],
   };
 
   const mockFile: Express.Multer.File = {
@@ -307,11 +334,11 @@ describe('ImportController', () => {
 
   describe('getImportBatchDetails', () => {
     it('should return import batch details', async () => {
-      service.getImportBatchDetails.mockResolvedValue(mockImportBatchDetails);
+      service.getImportBatchDetails.mockResolvedValue(mockImportBatchDetailsDate);
 
       const result = await controller.getImportBatchDetails('batch-1');
 
-      expect(result).toEqual(mockImportBatchDetails);
+      expect(result).toEqual(expect.objectContaining(mockImportBatchDetails));
       expect(service.getImportBatchDetails).toHaveBeenCalledWith('batch-1');
     });
 
