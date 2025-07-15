@@ -67,30 +67,40 @@ async function main() {
       name: 'Sentimento de Dono',
       description: 'Demonstra responsabilidade e cuidado com o trabalho e resultados da empresa',
       pillar: 'BEHAVIOR' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'resiliencia-adversidades',
       name: 'Resiliência nas Adversidades',
       description: 'Mantém-se firme e adaptável diante de desafios e dificuldades',
       pillar: 'BEHAVIOR' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'organizacao-trabalho',
       name: 'Organização no Trabalho',
       description: 'Mantém organização pessoal e estruturação eficiente das atividades',
       pillar: 'BEHAVIOR' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'capacidade-aprender',
       name: 'Capacidade de Aprender',
       description: 'Busca constantemente novos conhecimentos e desenvolvimento pessoal',
       pillar: 'BEHAVIOR' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'team-player',
       name: 'Ser "Team Player"',
       description: 'Trabalha efetivamente em equipe e contribui para um ambiente colaborativo',
       pillar: 'BEHAVIOR' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
 
     // EXECUTION - Critérios de Execução
@@ -99,24 +109,32 @@ async function main() {
       name: 'Entregar com Qualidade',
       description: 'Entrega trabalho com alta qualidade e atenção aos detalhes',
       pillar: 'EXECUTION' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'atender-prazos',
       name: 'Atender aos Prazos',
       description: 'Entrega tarefas e projetos dentro dos prazos estabelecidos',
       pillar: 'EXECUTION' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'fazer-mais-menos',
       name: 'Fazer Mais com Menos',
       description: 'Maximiza resultados com recursos disponíveis, otimizando eficiência',
       pillar: 'EXECUTION' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'pensar-fora-caixa',
       name: 'Pensar Fora da Caixa',
       description: 'Demonstra criatividade e inovação na resolução de problemas',
       pillar: 'EXECUTION' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
 
     // MANAGEMENT - Critérios de Gestão e Liderança (para gestores)
@@ -125,20 +143,43 @@ async function main() {
       name: 'Gente',
       description: 'Desenvolve, motiva e lidera pessoas de forma eficaz',
       pillar: 'MANAGEMENT' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'gestao-resultados',
       name: 'Resultados',
       description: 'Foca em resultados e entrega valor consistente para a organização',
       pillar: 'MANAGEMENT' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
     {
       id: 'evolucao-rocket-corp',
       name: 'Evolução da Rocket Corp',
       description: 'Contribui estrategicamente para o crescimento e evolução da empresa',
       pillar: 'MANAGEMENT' as const,
+      businessUnit: undefined,
+      isBase: true,
     },
+    // EXEMPLO DE CRITÉRIO ESPECÍFICO DE TRILHA
+    {
+      id: 'inovacao-tecnologica',
+      name: 'Inovação Tecnológica',
+      description: 'Propõe e implementa soluções inovadoras',
+      pillar: 'EXECUTION' as const,
+      businessUnit: 'Digital Products',
+      isBase: false,
+    },
+    // ... adicione outros critérios específicos de trilha aqui, sempre com businessUnit e isBase definidos ...
   ];
+
+  // Garante que critérios com businessUnit definida tenham isBase: false
+  for (const criterion of criteria) {
+    if (criterion.businessUnit && criterion.isBase === undefined) {
+      criterion.isBase = false;
+    }
+  }
 
   for (const criterion of criteria) {
     await prisma.criterion.upsert({

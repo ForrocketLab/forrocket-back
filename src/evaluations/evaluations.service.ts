@@ -334,41 +334,78 @@ export class EvaluationsService {
 
     // Atualizar apenas os campos fornecidos
     const updates: any[] = [];
+    const criteriaUpdates = new Map<string, { score?: number; justification?: string }>();
+    
     for (const [dtoField, value] of Object.entries(dto)) {
       if (value !== undefined) {
-        const criterionId = fieldToCriterionMap[dtoField];
+        // Derivar criterionId dinamicamente se não estiver no mapeamento fixo
+        let criterionId = fieldToCriterionMap[dtoField];
         if (!criterionId) {
-          console.warn(`⚠️ Campo não mapeado: ${dtoField}`);
-          continue;
+          // Tenta converter nomes como "testeBaseScore" ou "testeBaseJustification" para "teste-base"
+          const match = dtoField.match(/^(.*?)(Score|Justification)$/);
+          if (match) {
+            // Converte camelCase para kebab-case
+            criterionId = match[1]
+              .replace(/([a-z])([A-Z])/g, '$1-$2')
+              .toLowerCase();
+          } else {
+            console.warn(`⚠️ Campo não mapeado e não reconhecido: ${dtoField}`);
+            continue;
+          }
         }
 
         const isScore = dtoField.endsWith('Score');
-        const field = isScore ? 'score' : 'justification';
-
-        // Encontrar a resposta existente para este critério
-        const existingAnswer = existingAssessment.answers.find(a => a.criterionId === criterionId);
         
-        if (existingAnswer) {
-          console.log(`🔄 Atualizando critério ${criterionId}, campo ${field} com valor:`, value);
-          updates.push(
-            this.prisma.selfAssessmentAnswer.update({
-              where: { id: existingAnswer.id },
-              data: { [field]: value },
-            })
-          );
-        } else {
-          console.log(`➕ Criando novo critério ${criterionId}, campo ${field} com valor:`, value);
-          updates.push(
-            this.prisma.selfAssessmentAnswer.create({
-              data: {
-                criterionId,
-                score: isScore ? value as number : 1,
-                justification: isScore ? '' : value as string,
-                selfAssessmentId: existingAssessment.id,
-              },
-            })
-          );
+        // Agrupar atualizações por critério
+        if (!criteriaUpdates.has(criterionId)) {
+          criteriaUpdates.set(criterionId, {});
         }
+        
+        const criterionUpdate = criteriaUpdates.get(criterionId)!;
+        if (isScore) {
+          criterionUpdate.score = value as number;
+        } else {
+          criterionUpdate.justification = value as string;
+        }
+      }
+    }
+
+    // Processar as atualizações agrupadas por critério
+    for (const [criterionId, criterionUpdate] of criteriaUpdates) {
+      const existingAnswer = existingAssessment.answers.find(a => a.criterionId === criterionId);
+      
+      if (existingAnswer) {
+        console.log(`🔄 Atualizando critério ${criterionId} com:`, criterionUpdate);
+        console.log(`🔍 Resposta existente encontrada:`, existingAnswer);
+        const updateData: any = {};
+        if (criterionUpdate.score !== undefined) {
+          updateData.score = criterionUpdate.score;
+          console.log(`📊 Score a ser atualizado:`, criterionUpdate.score);
+        }
+        if (criterionUpdate.justification !== undefined) {
+          updateData.justification = this.encryptionService.encrypt(criterionUpdate.justification);
+          console.log(`📝 Justificação a ser atualizada (criptografada):`, updateData.justification);
+        }
+        
+        console.log(`🔄 Dados finais para atualização:`, updateData);
+        updates.push(
+          this.prisma.selfAssessmentAnswer.update({
+            where: { id: existingAnswer.id },
+            data: updateData,
+          })
+        );
+      } else {
+        console.log(`➕ Criando novo critério ${criterionId} com:`, criterionUpdate);
+        updates.push(
+          this.prisma.selfAssessmentAnswer.create({
+            data: {
+              criterionId,
+              score: criterionUpdate.score || 1,
+              justification: criterionUpdate.justification ? this.encryptionService.encrypt(criterionUpdate.justification) : '',
+              selfAssessmentId: existingAssessment.id,
+            },
+          })
+        );
       }
     }
 

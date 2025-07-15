@@ -7,6 +7,7 @@
 
 // Enums
 export { UserRole } from './enums/user-role.enum';
+export { BusinessUnit, BUSINESS_UNITS } from './enums/business-unit.enum';
 
 // Interfaces
 export { IUser } from './interfaces/user.interface';

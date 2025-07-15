@@ -9,9 +9,8 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { CriterionPillar } from '@prisma/client';
-
-export { CriterionPillar };
+export type CriterionPillar = 'BEHAVIOR' | 'EXECUTION' | 'MANAGEMENT';
+import { BusinessUnit, BUSINESS_UNITS } from '../../common/enums/business-unit.enum';
 
 /**
  * DTO para exibir critérios de avaliação
@@ -38,8 +37,8 @@ export class CriterionDto {
 
   @ApiProperty({
     description: 'Pilar do critério',
-    enum: CriterionPillar,
-    example: CriterionPillar.BEHAVIOR,
+    enum: ['BEHAVIOR', 'EXECUTION', 'MANAGEMENT'],
+    example: 'BEHAVIOR',
   })
   pillar: CriterionPillar;
 
@@ -57,6 +56,20 @@ export class CriterionDto {
     example: true,
   })
   isRequired: boolean;
+
+  @ApiProperty({
+    description: 'Indica se o critério é do formulário base (true) ou específico de trilha (false)',
+    example: true,
+  })
+  isBase: boolean;
+
+  @ApiProperty({
+    description: 'Unidade de negócio específica (se nulo, aplica para todas)',
+    enum: BusinessUnit,
+    example: BusinessUnit.DIGITAL_PRODUCTS,
+    required: false,
+  })
+  businessUnit?: string;
 
   @ApiProperty({
     description: 'Data de criação',
@@ -94,10 +107,10 @@ export class CreateCriterionDto {
 
   @ApiProperty({
     description: 'Pilar do critério',
-    enum: CriterionPillar,
-    example: CriterionPillar.BEHAVIOR,
+    enum: ['BEHAVIOR', 'EXECUTION', 'MANAGEMENT'],
+    example: 'BEHAVIOR',
   })
-  @IsEnum(CriterionPillar)
+  @IsEnum(['BEHAVIOR', 'EXECUTION', 'MANAGEMENT'])
   pillar: CriterionPillar;
 
   @ApiProperty({
@@ -121,6 +134,16 @@ export class CreateCriterionDto {
   @IsOptional()
   @IsBoolean()
   isRequired?: boolean;
+
+  @ApiProperty({
+    description: 'Unidade de negócio específica (se nulo, aplica para todas)',
+    enum: BusinessUnit,
+    example: BusinessUnit.DIGITAL_PRODUCTS,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(BusinessUnit)
+  businessUnit?: string;
 }
 
 /**
@@ -150,12 +173,12 @@ export class UpdateCriterionDto {
 
   @ApiProperty({
     description: 'Pilar do critério',
-    enum: CriterionPillar,
-    example: CriterionPillar.BEHAVIOR,
+    enum: ['BEHAVIOR', 'EXECUTION', 'MANAGEMENT'],
+    example: 'BEHAVIOR',
     required: false,
   })
   @IsOptional()
-  @IsEnum(CriterionPillar)
+  @IsEnum(['BEHAVIOR', 'EXECUTION', 'MANAGEMENT'])
   pillar?: CriterionPillar;
 
   @ApiProperty({
@@ -179,4 +202,14 @@ export class UpdateCriterionDto {
   @IsOptional()
   @IsBoolean()
   isRequired?: boolean;
+
+  @ApiProperty({
+    description: 'Unidade de negócio específica (se nulo, aplica para todas)',
+    enum: BusinessUnit,
+    example: BusinessUnit.DIGITAL_PRODUCTS,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(BusinessUnit)
+  businessUnit?: string;
 }
