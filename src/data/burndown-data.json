@@ -1,0 +1,50 @@
+{
+  "projeto-alpha": [
+    { "name": "Semana 1", "ideal": 120, "real": 120 },
+    { "name": "Semana 2", "ideal": 105, "real": 115 },
+    { "name": "Semana 3", "ideal": 90, "real": 100 },
+    { "name": "Semana 4", "ideal": 75, "real": 80 },
+    { "name": "Semana 5", "ideal": 60, "real": 65 },
+    { "name": "Semana 6", "ideal": 45, "real": 48 },
+    { "name": "Semana 7", "ideal": 30, "real": 30 },
+    { "name": "Semana 8", "ideal": 15, "real": 10 },
+    { "name": "Semana 9", "ideal": 0, "real": 0 }
+  ],
+  "projeto-api-core": [
+    { "name": "Sprint 1", "ideal": 80, "real": 80 },
+    { "name": "Sprint 2", "ideal": 60, "real": 65 },
+    { "name": "Sprint 3", "ideal": 40, "real": 42 },
+    { "name": "Sprint 4", "ideal": 20, "real": 15 },
+    { "name": "Sprint 5", "ideal": 0, "real": 0 }
+  ],
+  "projeto-beta": [
+    { "name": "Dia 0", "ideal": 100, "real": 100 },
+    { "name": "Dia 1", "ideal": 90, "real": 98 },
+    { "name": "Dia 2", "ideal": 80, "real": 90 },
+    { "name": "Dia 3", "ideal": 70, "real": 85 },
+    { "name": "Dia 4", "ideal": 60, "real": 70 },
+    { "name": "Dia 5", "ideal": 50, "real": 62 },
+    { "name": "Dia 6", "ideal": 40, "real": 50 },
+    { "name": "Dia 7", "ideal": 30, "real": 35 },
+    { "name": "Dia 8", "ideal": 20, "real": 25 },
+    { "name": "Dia 9", "ideal": 10, "real": 10 },
+    { "name": "Dia 10", "ideal": 0, "real": 0 }
+  ],
+  "projeto-delta": [
+    { "name": "Fase 1", "ideal": 50, "real": 50 },
+    { "name": "Fase 2", "ideal": 25, "real": 30 },
+    { "name": "Fase 3", "ideal": 0, "real": 5 }
+  ],
+  "projeto-gamma": [
+    { "name": "Mês 1", "ideal": 200, "real": 200 },
+    { "name": "Mês 2", "ideal": 150, "real": 160 },
+    { "name": "Mês 3", "ideal": 100, "real": 110 },
+    { "name": "Mês 4", "ideal": 50, "real": 40 },
+    { "name": "Mês 5", "ideal": 0, "real": 0 }
+  ],
+  "projeto-mobile-app": [
+    { "name": "Release 1", "ideal": 70, "real": 70 },
+    { "name": "Release 2", "ideal": 35, "real": 40 },
+    { "name": "Release 3", "ideal": 0, "real": 0 }
+  ]
+}
