@@ -36,9 +36,15 @@ import {
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
+import {
+  UpdateReferenceFeedbackBatchDto,
+  ReferenceFeedbackItemDto,
+} from './dto/reference-feedback-batch.dto';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
+import { MentorAssessmentDto } from './dto/mentor-assessment.dto';
+import { UpdateMentorAssessmentDto } from './dto/update-mentor-assessment.dto';
 import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluation-decryption.interceptor';
 import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
 
@@ -119,7 +125,8 @@ export class EvaluationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Atualizar autoavaliação incrementalmente',
-    description: 'Permite atualizar campos específicos da autoavaliação de forma incremental. Se não existir autoavaliação, uma nova será criada.',
+    description:
+      'Permite atualizar campos específicos da autoavaliação de forma incremental. Se não existir autoavaliação, uma nova será criada.',
   })
   @ApiResponse({
     status: 200,
@@ -267,7 +274,8 @@ export class EvaluationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Atualizar avaliação de mentoring',
-    description: 'Permite atualizar campos específicos da avaliação de mentoring de forma incremental',
+    description:
+      'Permite atualizar campos específicos da avaliação de mentoring de forma incremental',
   })
   @ApiResponse({
     status: 200,
@@ -423,7 +431,8 @@ export class EvaluationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Buscar avaliação de mentoring',
-    description: 'Retorna a avaliação de mentoring existente para o mentor especificado no ciclo ativo',
+    description:
+      'Retorna a avaliação de mentoring existente para o mentor especificado no ciclo ativo',
   })
   @ApiResponse({
     status: 200,
@@ -437,10 +446,7 @@ export class EvaluationsController {
     status: 401,
     description: 'Token inválido ou ausente',
   })
-  async getMentoringAssessment(
-    @CurrentUser() user: User,
-    @Query('mentorId') mentorId: string,
-  ) {
+  async getMentoringAssessment(@CurrentUser() user: User, @Query('mentorId') mentorId: string) {
     return this.evaluationsService.getMentoringAssessment(user.id, mentorId);
   }
 
