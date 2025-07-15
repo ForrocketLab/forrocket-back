@@ -3,9 +3,12 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { CriterionPillar, ManagerTeamSummary } from '@prisma/client';
 import { GenAiService } from '../gen-ai/gen-ai.service';
+import * as fs from 'fs';
+import * as path from 'path';
 import { EncryptionService } from '../common/services/encryption.service';
 
 import {
@@ -28,6 +31,7 @@ import {
   AssessmentWithAnswers,
   PerformanceDataDto,
 } from './assessments/dto/performance-data.dto';
+import { ProjectEvaluationDto } from './dto/project-evaluation.dto';
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 import { CyclesService } from './cycles/cycles.service';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
@@ -52,6 +56,7 @@ import {
 
 @Injectable()
 export class EvaluationsService {
+  private readonly projectLogger = new Logger('ProjectEvaluations');
   constructor(
     private prisma: PrismaService,
     private projectsService: ProjectsService,
@@ -2021,6 +2026,38 @@ export class EvaluationsService {
       performanceByCycle: validPerformanceByCycle,
       totalCycles: validPerformanceByCycle.length,
     };
+  }
+
+  // Em src/evaluations/evaluations.service.ts
+
+  async getProjectEvaluations(projectId: string): Promise<any> { // O tipo de retorno agora é um objeto
+    const evaluationsPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
+
+    try {
+      const fileContent = fs.readFileSync(evaluationsPath, 'utf-8');
+      const evaluationsData = JSON.parse(fileContent);
+
+      const projectData = evaluationsData.projetos[0]?.[projectId];
+
+      if (!projectData) {
+        throw new NotFoundException(`Dados para o projeto com ID '${projectId}' não encontrados.`);
+      }
+
+      // **AQUI ESTÁ A CORREÇÃO**
+      // Retornamos o objeto completo com todos os dados do projeto.
+      return {
+        // Adicionando um nome formatado para uma melhor experiência no frontend
+        projectName: projectId.replace('projeto-', '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        ...projectData
+      };
+
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.projectLogger.error('Erro ao ler ou analisar o arquivo evaluations.json', error);
+      throw new Error('Não foi possível carregar os dados de avaliação do projeto.');
+    }
   }
 
   /**
