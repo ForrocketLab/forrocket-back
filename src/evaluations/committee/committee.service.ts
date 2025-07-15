@@ -44,7 +44,7 @@ export class CommitteeService {
    */
   async getCollaboratorsForEqualization() {
     // Validar que estamos na fase de equalização
-    await this.cyclesService.validateActiveCyclePhase('EQUALIZATION');
+    await this.cyclesService.validateActiveCyclePhase(['EQUALIZATION']);
 
     const activeCycle = await this.cyclesService.getActiveCycleWithPhase();
 
@@ -115,7 +115,7 @@ export class CommitteeService {
    */
   async getCollaboratorEvaluationSummary(collaboratorId: string) {
     // Validar que estamos na fase de equalização
-    await this.cyclesService.validateActiveCyclePhase('EQUALIZATION');
+    await this.cyclesService.validateActiveCyclePhase(['EQUALIZATION']);  // Só equalization?
 
     const activeCycle = await this.cyclesService.getActiveCycleWithPhase();
 
@@ -332,7 +332,7 @@ export class CommitteeService {
     this.validateCommitteeMember(author.roles);
 
     // Validar que estamos na fase de equalização
-    await this.cyclesService.validateActiveCyclePhase('EQUALIZATION');
+    await this.cyclesService.validateActiveCyclePhase(['EQUALIZATION']);
 
     const activeCycle = await this.cyclesService.getActiveCycleWithPhase();
 
@@ -407,7 +407,7 @@ export class CommitteeService {
     dto: UpdateCommitteeAssessmentDto,
   ) {
     // Validar que estamos na fase de equalização
-    await this.cyclesService.validateActiveCyclePhase('EQUALIZATION');
+    await this.cyclesService.validateActiveCyclePhase(['EQUALIZATION']);
 
     // Buscar a avaliação
     const assessment = await this.prisma.committeeAssessment.findUnique({

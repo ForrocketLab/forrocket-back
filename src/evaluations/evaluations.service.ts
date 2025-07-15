@@ -141,7 +141,7 @@ export class EvaluationsService {
    */
   async createSelfAssessment(userId: string, dto: Omit<CreateSelfAssessmentDto, 'cycle'>) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se já existe uma autoavaliação para este ciclo
     const existingAssessment = await this.prisma.selfAssessment.findFirst({
@@ -251,7 +251,7 @@ export class EvaluationsService {
     console.log('📝 Recebida requisição de atualização:', { userId, dto });
     
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
     console.log('🔄 Ciclo ativo:', activeCycle);
 
     // Buscar autoavaliação existente
@@ -396,7 +396,7 @@ export class EvaluationsService {
    */
   async create360Assessment(userId: string, dto: Omit<Create360AssessmentDto, 'cycle'>) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o usuário avaliado existe
     const evaluatedUser = await this.prisma.user.findUnique({
@@ -462,7 +462,7 @@ export class EvaluationsService {
     dto: Omit<CreateMentoringAssessmentDto, 'cycle'>,
   ) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o mentor existe
     const mentor = await this.prisma.user.findUnique({
@@ -519,7 +519,7 @@ export class EvaluationsService {
    */
   async createReferenceFeedback(userId: string, dto: Omit<CreateReferenceFeedbackDto, 'cycle'>) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o usuário referenciado existe
     const referencedUser = await this.prisma.user.findUnique({
@@ -570,7 +570,7 @@ export class EvaluationsService {
    */
   async createManagerAssessment(managerId: string, dto: Omit<CreateManagerAssessmentDto, 'cycle'>) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['MANAGER_REVIEWS']);
 
     // Verificar se o gestor tem permissão para fazer avaliações
     const isManager = await this.projectsService.isManager(managerId);
@@ -1132,7 +1132,11 @@ export class EvaluationsService {
     subordinateId: string,
   ): Promise<ISelfAssessment> {
     // 1. Validar a fase do ciclo ativo (deve ser MANAGER_REVIEWS ou EQUALIZATION)
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS'); // Ou 'EQUALIZATION'
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase([
+      'ASSESSMENTS',
+      'MANAGER_REVIEWS',
+      'EQUALIZATION',
+    ]);
 
     // 2. Verificar se o subordinateId existe e está ativo
     const subordinate = await this.prisma.user.findUnique({
@@ -1243,6 +1247,41 @@ export class EvaluationsService {
     }));
 
     return formattedAssessments;
+  }
+
+  
+  // Busca a avaliação de gestor para um subordinado específico em um ciclo
+  async getManagerAssessmentForSubordinate(
+    managerId: string,
+    subordinateId: string,
+    cycle: string,
+  ) {
+    // 1. Verificar se o gestor logado é o autor da avaliação
+    // 2. Buscar a avaliação no banco de dados
+
+    const managerAssessment = await this.prisma.managerAssessment.findUnique({
+      where: {
+        authorId_evaluatedUserId_cycle: {
+          authorId: managerId,
+          evaluatedUserId: subordinateId,
+          cycle: cycle,
+        },
+      },
+      include: {
+        evaluatedUser: {
+          select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
+        },
+        answers: true, 
+      },
+    });
+
+    if (!managerAssessment) {
+      throw new NotFoundException(
+        `Avaliação do gestor para o subordinado ${subordinateId} no ciclo ${cycle} não encontrada.`,
+      );
+    }
+
+    return managerAssessment;
   }
 
   // Histórico de notas por ciclos, pilares (BEHAVIOR, EXECUTION e MANAGEMENT) e inclui a nota final do comitê.
@@ -2349,7 +2388,7 @@ export class EvaluationsService {
 
   async getMentoringAssessment(authorId: string, mentorId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']); // SO ASS?
 
     // Buscar avaliação existente
     const assessment = await this.prisma.mentoringAssessment.findFirst({
