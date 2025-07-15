@@ -31,6 +31,7 @@ import {
   OverallCompletionDto,
   PillarProgressDto,
   Update360AssessmentDto,
+  BatchUpdate360AssessmentDto,
   UpdateMentoringAssessmentDto,
   CreateManagerAssessmentDto,
   UpdateDesignatedMentorAssessmentDto,
@@ -152,7 +153,8 @@ export class EvaluationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Buscar autoavaliação formatada para frontend',
-    description: 'Retorna a autoavaliação existente para o ciclo atual ativo formatada para o frontend',
+    description:
+      'Retorna a autoavaliação existente para o ciclo atual ativo formatada para o frontend',
   })
   @ApiResponse({
     status: 200,
@@ -164,7 +166,10 @@ export class EvaluationsController {
           type: 'object',
           properties: {
             score: { type: 'number', example: 4 },
-            justification: { type: 'string', example: 'Demonstro responsabilidade pelos resultados.' },
+            justification: {
+              type: 'string',
+              example: 'Demonstro responsabilidade pelos resultados.',
+            },
           },
         },
         'resiliencia-adversidades': {
@@ -357,16 +362,55 @@ export class EvaluationsController {
   @ApiResponse({
     status: 200,
     description: 'Avaliações 360 atualizadas/criadas com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'assessment-id-1' },
+          evaluatedUser: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: 'cmd4ug9gq0005azu80y05vlo2' },
+              name: { type: 'string', example: 'João Silva' },
+              email: { type: 'string', example: 'joao.silva@email.com' },
+              jobTitle: { type: 'string', example: 'Desenvolvedor Frontend' },
+              seniority: { type: 'string', example: 'Pleno' },
+            },
+          },
+          overallScore: { type: 'number', example: 4 },
+          strengths: { type: 'string', example: 'Excelente comunicação e trabalho em equipe' },
+          improvements: { type: 'string', example: 'Poderia ser mais proativo em reuniões' },
+          motivationToWorkAgain: { type: 'string', example: 'PARTIALLY_AGREE', nullable: true },
+          status: { type: 'string', example: 'DRAFT' },
+          cycle: { type: 'string', example: '2025.1' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
   })
-  async update360AssessmentsBatch(@CurrentUser() user: User, @Body() dtos: Array<{id: string, rating: number, strengths: string, improvements: string, workAgainMotivation: string | null}>) {
-    return this.evaluationsService.update360AssessmentsBatch(user.id, dtos);
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async update360AssessmentsBatch(
+    @CurrentUser() user: User,
+    @Body() dto: BatchUpdate360AssessmentDto,
+  ) {
+    return this.evaluationsService.update360AssessmentsBatch(user.id, dto.assessments);
   }
 
   @Get('project-collaborators-360')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Listar colaboradores do projeto avaliáveis em 360',
-    description: 'Retorna todos os colaboradores do projeto que podem ser avaliados em 360, incluindo suas avaliações existentes',
+    description:
+      'Retorna todos os colaboradores do projeto que podem ser avaliados em 360, incluindo suas avaliações existentes',
   })
   @ApiResponse({
     status: 200,
@@ -381,8 +425,16 @@ export class EvaluationsController {
           role: { type: 'string', example: 'Desenvolvedor Senior' },
           initials: { type: 'string', example: 'JS' },
           rating: { type: 'number', example: 4, nullable: true },
-          strengths: { type: 'string', example: 'Excelente comunicação e trabalho em equipe', nullable: true },
-          improvements: { type: 'string', example: 'Pode melhorar habilidades de liderança', nullable: true },
+          strengths: {
+            type: 'string',
+            example: 'Excelente comunicação e trabalho em equipe',
+            nullable: true,
+          },
+          improvements: {
+            type: 'string',
+            example: 'Pode melhorar habilidades de liderança',
+            nullable: true,
+          },
           workAgainMotivation: { type: 'string', example: 'NEUTRAL', nullable: true },
         },
       },
@@ -428,10 +480,11 @@ export class EvaluationsController {
 
   @Patch('mentor-assessment')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors() // Remover interceptors globais para este endpoint
+  @UseInterceptors()
   @ApiOperation({
     summary: 'Atualizar avaliação do mentor designado',
-    description: 'Atualiza uma avaliação de mentoring existente ou cria uma nova para o mentor designado',
+    description:
+      'Atualiza uma avaliação de mentoring existente ou cria uma nova para o mentor designado',
   })
   @ApiResponse({
     status: 200,
@@ -503,7 +556,11 @@ export class EvaluationsController {
           referenceName: { type: 'string', example: 'Bruno André Mendes Carvalho' },
           referenceRole: { type: 'string', example: 'Tech Lead' },
           referenceInitials: { type: 'string', example: 'BA' },
-          justification: { type: 'string', example: 'Bruno demonstra excelente liderança técnica, sempre orientando a equipe com clareza e paciência' },
+          justification: {
+            type: 'string',
+            example:
+              'Bruno demonstra excelente liderança técnica, sempre orientando a equipe com clareza e paciência',
+          },
         },
       },
     },
@@ -521,7 +578,8 @@ export class EvaluationsController {
   @UseInterceptors() // Remover interceptors globais para este endpoint
   @ApiOperation({
     summary: 'Atualizar feedbacks de referência em lote',
-    description: 'Remove todas as referências existentes e recria conforme o array enviado. Operação atômica.',
+    description:
+      'Remove todas as referências existentes e recria conforme o array enviado. Operação atômica.',
   })
   @ApiResponse({
     status: 200,
@@ -678,7 +736,11 @@ export class EvaluationsController {
         mentorRole: { type: 'string', example: 'Engineering Manager' },
         mentorInitials: { type: 'string', example: 'RA' },
         rating: { type: 'number', example: 4, nullable: true },
-        justification: { type: 'string', example: 'Excelente mentor, sempre disponível para ajudar', nullable: true },
+        justification: {
+          type: 'string',
+          example: 'Excelente mentor, sempre disponível para ajudar',
+          nullable: true,
+        },
       },
     },
   })
@@ -905,7 +967,8 @@ export class EvaluationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Buscar colaboradores disponíveis para referência',
-    description: 'Retorna todos os colaboradores disponíveis para seleção como referência (exceto o próprio usuário logado)',
+    description:
+      'Retorna todos os colaboradores disponíveis para seleção como referência (exceto o próprio usuário logado)',
   })
   @ApiResponse({
     status: 200,

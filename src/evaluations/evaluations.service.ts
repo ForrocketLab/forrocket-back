@@ -2165,6 +2165,7 @@ export class EvaluationsService {
         overallScore: dto.overallScore,
         strengths: dto.strengths,
         improvements: dto.improvements,
+        motivationToWorkAgain: dto.workAgainMotivation,
         status: EvaluationStatus.DRAFT,
       },
       include: {
@@ -2186,6 +2187,7 @@ export class EvaluationsService {
       overallScore: assessment.overallScore,
       strengths: assessment.strengths,
       improvements: assessment.improvements,
+      motivationToWorkAgain: assessment.motivationToWorkAgain,
       status: assessment.status,
       cycle: assessment.cycle,
       createdAt: assessment.createdAt,
@@ -2230,6 +2232,7 @@ export class EvaluationsService {
       overallScore: assessment.overallScore,
       strengths: assessment.strengths,
       improvements: assessment.improvements,
+      motivationToWorkAgain: assessment.motivationToWorkAgain,
       status: assessment.status,
       cycle: assessment.cycle,
       createdAt: assessment.createdAt,
@@ -2290,7 +2293,7 @@ export class EvaluationsService {
     ];
 
     // Adicionar critérios de gestor se o usuário for manager
-    const allCriteria = isManager 
+    const allCriteria = isManager
       ? [...baseCriteria, 'evolucao-rocket-corp', 'gestao-gente', 'gestao-resultados']
       : baseCriteria;
 
@@ -2299,8 +2302,8 @@ export class EvaluationsService {
 
     // Para cada critério, buscar a resposta correspondente
     for (const criterionId of allCriteria) {
-      const answer = selfAssessment.answers.find(a => a.criterionId === criterionId);
-      
+      const answer = selfAssessment.answers.find((a) => a.criterionId === criterionId);
+
       if (answer) {
         formattedResponse[criterionId] = {
           score: answer.score,
@@ -2395,6 +2398,7 @@ export class EvaluationsService {
       overallScore: updatedAssessment.overallScore,
       strengths: updatedAssessment.strengths,
       improvements: updatedAssessment.improvements,
+      motivationToWorkAgain: updatedAssessment.motivationToWorkAgain,
       status: updatedAssessment.status,
       cycle: updatedAssessment.cycle,
       createdAt: updatedAssessment.createdAt,
@@ -2551,7 +2555,7 @@ export class EvaluationsService {
       where: { userId },
       select: { projectId: true },
     });
-    const projectIds = userProjects.map(up => up.projectId);
+    const projectIds = userProjects.map((up) => up.projectId);
     if (projectIds.length === 0) return [];
 
     // Buscar todos os colaboradores desses projetos (exceto o próprio usuário)
@@ -2576,7 +2580,7 @@ export class EvaluationsService {
     const assessments = await this.prisma.assessment360.findMany({
       where: {
         authorId: userId,
-        evaluatedUserId: { in: uniqueCollaborators.map(c => c.id) },
+        evaluatedUserId: { in: uniqueCollaborators.map((c) => c.id) },
         cycle: activeCycle.name,
       },
     });
@@ -2586,7 +2590,7 @@ export class EvaluationsService {
     }
 
     // Montar resposta
-    return uniqueCollaborators.map(c => {
+    return uniqueCollaborators.map((c) => {
       const a = assessmentsMap.get(c.id);
       return {
         id: c.id,
@@ -2604,12 +2608,22 @@ export class EvaluationsService {
   /**
    * Atualiza/cria avaliações 360 em lote para o ciclo ativo
    */
-  async update360AssessmentsBatch(userId: string, dtos: Array<{id: string, rating: number, strengths: string, improvements: string, workAgainMotivation: string | null}>): Promise<any[]> {
+  async update360AssessmentsBatch(
+    userId: string,
+    dtos: Array<{
+      id: string;
+      rating: number;
+      strengths: string;
+      improvements: string;
+      workAgainMotivation?: WorkAgainMotivation | null;
+    }>,
+  ): Promise<any[]> {
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
     const results: any[] = [];
     for (const dto of dtos) {
-      // Converter motivationToWorkAgain para enum se não for null
-      const motivation = dto.workAgainMotivation ? (WorkAgainMotivation[dto.workAgainMotivation as keyof typeof WorkAgainMotivation] ?? null) : null;
+      // O workAgainMotivation já vem como enum do DTO
+      const motivation = dto.workAgainMotivation;
+      
       let assessment = await this.prisma.assessment360.findFirst({
         where: {
           authorId: userId,
@@ -2704,16 +2718,16 @@ export class EvaluationsService {
     console.log('Tipo do DTO:', typeof dto);
     console.log('Rating:', dto?.rating);
     console.log('Justification:', dto?.justification);
-    
+
     // Validar se o dto existe e tem os campos necessários
     if (!dto) {
       throw new BadRequestException('Dados da avaliação são obrigatórios');
     }
-    
+
     if (typeof dto.rating !== 'number' || dto.rating < 1 || dto.rating > 5) {
       throw new BadRequestException('Rating deve ser um número entre 1 e 5');
     }
-    
+
     if (!dto.justification || typeof dto.justification !== 'string') {
       throw new BadRequestException('Justificativa é obrigatória');
     }
@@ -2791,7 +2805,7 @@ export class EvaluationsService {
     });
 
     // Formatar a resposta com dados descriptografados
-    return referenceFeedbacks.map(feedback => ({
+    return referenceFeedbacks.map((feedback) => ({
       id: feedback.referencedUserId, // Usar o ID do usuário referenciado, não do feedback
       referenceName: feedback.referencedUser.name,
       referenceRole: feedback.referencedUser.jobTitle,
@@ -2803,12 +2817,21 @@ export class EvaluationsService {
   /**
    * Remove todas as referências existentes e recria conforme o array enviado. Operação atômica.
    */
-  async updateReferenceFeedbacksBatch(userId: string, references: Array<{id: string, referenceName: string, referenceRole: string, referenceInitials: string, justification: string}>) {
+  async updateReferenceFeedbacksBatch(
+    userId: string,
+    references: Array<{
+      id: string;
+      referenceName: string;
+      referenceRole: string;
+      referenceInitials: string;
+      justification: string;
+    }>,
+  ) {
     // Validar se existe um ciclo ativo
     const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
 
     // Validar se todos os usuários referenciados existem
-    const referencedUserIds = references.map(ref => ref.id);
+    const referencedUserIds = references.map((ref) => ref.id);
     const existingUsers = await this.prisma.user.findMany({
       where: {
         id: { in: referencedUserIds },
@@ -2821,8 +2844,8 @@ export class EvaluationsService {
     });
 
     if (existingUsers.length !== referencedUserIds.length) {
-      const existingIds = existingUsers.map(u => u.id);
-      const missingIds = referencedUserIds.filter(id => !existingIds.includes(id));
+      const existingIds = existingUsers.map((u) => u.id);
+      const missingIds = referencedUserIds.filter((id) => !existingIds.includes(id));
       throw new NotFoundException(`Usuários não encontrados: ${missingIds.join(', ')}`);
     }
 
@@ -2863,11 +2886,11 @@ export class EvaluationsService {
               },
             },
           });
-        })
+        }),
       );
 
       // Retornar os feedbacks formatados
-      return newFeedbacks.map(feedback => ({
+      return newFeedbacks.map((feedback) => ({
         id: feedback.id,
         referenceName: feedback.referencedUser.name,
         referenceRole: feedback.referencedUser.jobTitle,
@@ -2880,7 +2903,9 @@ export class EvaluationsService {
   /**
    * Retorna todos os colaboradores disponíveis para seleção como referência (exceto o próprio usuário)
    */
-  async getAvailableCollaborators(userId: string): Promise<{ id: string; name: string; email: string }[]> {
+  async getAvailableCollaborators(
+    userId: string,
+  ): Promise<{ id: string; name: string; email: string }[]> {
     // Buscar todos os usuários ativos, exceto o próprio
     const users = await this.prisma.user.findMany({
       where: {
