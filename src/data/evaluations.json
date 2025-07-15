@@ -146,7 +146,7 @@
       "projeto-alpha": {
         "scores": [
           {
-            "cycle": "2024.1",
+            "cycle": "2024.2",
             "score": 4.5,
             "reason": "Iniciei esse projeto com certo receio, mas as minhas expectativas foram superadas."
           },
@@ -197,6 +197,11 @@
       "projeto-delta": {
         "scores": [
           {
+            "cycle": "2024.2",
+            "score": 4.5,
+            "reason": "Iniciei esse projeto com certo receio, mas as minhas expectativas foram superadas."
+          },    
+          {
             "cycle": "2025.1",
             "score": 4.1,
             "reason": "Início promissor, com a equipe bem alinhada aos objetivos da migração."
@@ -208,6 +213,11 @@
       },
       "projeto-gamma": {
         "scores": [
+          {
+            "cycle": "2024.2",
+            "score": 4.5,
+            "reason": "Iniciei esse projeto com certo receio, mas as minhas expectativas foram superadas."
+          },
           {
             "cycle": "2025.1",
             "score": 4.8,
