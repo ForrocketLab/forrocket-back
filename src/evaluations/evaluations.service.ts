@@ -246,9 +246,15 @@ export class EvaluationsService {
    * Atualiza incrementalmente uma autoavaliação existente ou cria uma nova se não existir
    */
   async updateSelfAssessment(userId: string, dto: UpdateSelfAssessmentDto) {
+    console.log('🔍 DEBUG - updateSelfAssessment iniciado');
+    console.log('🔍 DEBUG - DTO recebido:', JSON.stringify(dto, null, 2));
+    console.log('🔍 DEBUG - userId:', userId);
+
     // Determinar o ciclo a ser usado
     const cycleToUse =
-      dto.cycleId || (await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS')).name;
+      dto.cycleId || (await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS'])).name;
+
+    console.log('🔍 DEBUG - cycleToUse:', cycleToUse);
 
     // Verificar se o usuário tem papel de gestor para validar critérios
     const userWithRoles = await this.prisma.user.findUnique({
@@ -262,9 +268,17 @@ export class EvaluationsService {
       throw new NotFoundException('Usuário não encontrado');
     }
 
+    console.log('🔍 DEBUG - userWithRoles:', {
+      id: userWithRoles.id,
+      businessUnit: userWithRoles.businessUnit,
+      roleAssignments: userWithRoles.roleAssignments,
+    });
+
     const isManager = userWithRoles.roleAssignments.some(
       (assignment) => assignment.role === 'MANAGER',
     );
+
+    console.log('🔍 DEBUG - isManager:', isManager);
 
     // Buscar autoavaliação existente
     let existingAssessment = await this.prisma.selfAssessment.findFirst({
@@ -279,27 +293,34 @@ export class EvaluationsService {
 
     // Se não existir autoavaliação, criar uma nova em branco
     if (!existingAssessment) {
-      // Criar critérios vazios primeiro
-      const emptyCriteria = [
-        'sentimento-de-dono',
-        'resiliencia-adversidades',
-        'organizacao-trabalho',
-        'capacidade-aprender',
-        'team-player',
-        'entregar-qualidade',
-        'atender-prazos',
-        'fazer-mais-menos',
-        'pensar-fora-caixa',
-        'evolucao-rocket-corp',
-      ];
+      // Buscar critérios dinamicamente do banco de dados
+      const criteriaQuery = await this.prisma.criterion.findMany({
+        where: {
+          OR: [
+            // Critérios base (aplicam para todos)
+            { isBase: true },
+            // Critérios específicos da businessUnit do usuário
+            { businessUnit: userWithRoles.businessUnit },
+          ],
+        },
+        select: {
+          id: true,
+          pillar: true,
+        },
+      });
 
-      // Adicionar critérios de gestão se o usuário for gestor
-      if (isManager) {
-        emptyCriteria.push('gestao-gente', 'gestao-resultados');
-      }
+      // Filtrar critérios baseado no papel do usuário
+      const applicableCriteria = criteriaQuery.filter((criterion) => {
+        // Critérios de gestão apenas para gestores
+        if (criterion.pillar === 'MANAGEMENT') {
+          return isManager;
+        }
+        // Todos os outros critérios são aplicáveis
+        return true;
+      });
 
-      const emptyCriteriaData = emptyCriteria.map((criterionId) => ({
-        criterionId,
+      const emptyCriteriaData = applicableCriteria.map((criterion) => ({
+        criterionId: criterion.id,
         score: 1,
         justification: '',
       }));
@@ -328,18 +349,73 @@ export class EvaluationsService {
       }
     }
 
+    // Buscar critérios válidos dinamicamente do banco para validação
+    const validCriteria = await this.prisma.criterion.findMany({
+      where: {
+        OR: [
+          // Critérios base (aplicam para todos)
+          { isBase: true },
+          // Critérios específicos da businessUnit do usuário
+          { businessUnit: userWithRoles.businessUnit },
+        ],
+      },
+      select: {
+        id: true,
+        pillar: true,
+        businessUnit: true,
+        isBase: true,
+      },
+    });
+
+    console.log('🔍 DEBUG - validCriteria encontrados:', validCriteria);
+
+    // Filtrar critérios válidos baseado no papel do usuário
+    const applicableCriteriaIds = validCriteria
+      .filter((criterion) => {
+        // Critérios de gestão apenas para gestores
+        if (criterion.pillar === 'MANAGEMENT') {
+          return isManager;
+        }
+        // Todos os outros critérios são aplicáveis
+        return true;
+      })
+      .map((criterion) => criterion.id);
+
+    console.log('🔍 DEBUG - applicableCriteriaIds:', applicableCriteriaIds);
+
     // Atualizar apenas os campos fornecidos
     const updates: any[] = [];
+    console.log('🔍 DEBUG - Iniciando loop para processar critérios do DTO');
+
     for (const [criterionId, criterionData] of Object.entries(dto)) {
-      if (criterionId === 'cycleId' || !criterionData) continue;
+      console.log('🔍 DEBUG - Processando critério:', criterionId, criterionData);
+
+      if (criterionId === 'cycleId' || !criterionData) {
+        console.log('🔍 DEBUG - Critério ignorado (cycleId ou dados vazios):', criterionId);
+        continue;
+      }
+
+      // Verificar se o critério é válido para este usuário
+      if (!applicableCriteriaIds.includes(criterionId)) {
+        console.log('🔍 DEBUG - Critério NÃO válido para este usuário:', criterionId);
+        console.log('🔍 DEBUG - Critérios aplicáveis:', applicableCriteriaIds);
+        throw new BadRequestException(
+          `Critério '${criterionId}' não é válido para este usuário ou não existe`,
+        );
+      }
+
+      console.log('🔍 DEBUG - Critério VÁLIDO:', criterionId);
 
       // Type assertion para o criterionData
       const data = criterionData as { score: number; justification: string };
+      console.log('🔍 DEBUG - Dados do critério:', data);
 
       // Encontrar a resposta existente para este critério
       const existingAnswer = existingAssessment.answers.find((a) => a.criterionId === criterionId);
+      console.log('🔍 DEBUG - Resposta existente encontrada:', !!existingAnswer);
 
       if (existingAnswer) {
+        console.log('🔍 DEBUG - Atualizando resposta existente para:', criterionId);
         // Atualizar resposta existente
         updates.push(
           this.prisma.selfAssessmentAnswer.update({
@@ -351,6 +427,7 @@ export class EvaluationsService {
           }),
         );
       } else {
+        console.log('🔍 DEBUG - Criando nova resposta para:', criterionId);
         // Criar nova resposta
         updates.push(
           this.prisma.selfAssessmentAnswer.create({
@@ -365,11 +442,18 @@ export class EvaluationsService {
       }
     }
 
+    console.log('🔍 DEBUG - Total de updates preparados:', updates.length);
+
     // Executar todas as atualizações em uma transação
     if (updates.length > 0) {
+      console.log('🔍 DEBUG - Executando transação com', updates.length, 'operações');
       await this.prisma.$transaction(updates);
+      console.log('🔍 DEBUG - Transação executada com sucesso');
+    } else {
+      console.log('🔍 DEBUG - Nenhuma atualização para executar');
     }
 
+    console.log('🔍 DEBUG - Retornando autoavaliação atualizada');
     // Retornar autoavaliação atualizada
     return this.prisma.selfAssessment.findFirst({
       where: {
@@ -2174,7 +2258,7 @@ export class EvaluationsService {
    */
   async create360Assessment(authorId: string, dto: Create360AssessmentDto) {
     // Validar se o ciclo fornecido existe e está na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o usuário avaliado existe
     const evaluatedUser = await this.prisma.user.findUnique({
@@ -2271,7 +2355,7 @@ export class EvaluationsService {
    */
   async get360Assessment(authorId: string, evaluatedUserId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Buscar a avaliação 360
     const assessment = await this.prisma.assessment360.findFirst({
@@ -2316,7 +2400,7 @@ export class EvaluationsService {
    */
   async getSelfAssessmentForFrontend(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o usuário tem papel de gestor para determinar critérios obrigatórios
     const userWithRoles = await this.prisma.user.findUnique({
@@ -2334,6 +2418,36 @@ export class EvaluationsService {
       (assignment) => assignment.role === 'MANAGER',
     );
 
+    // Buscar critérios válidos dinamicamente do banco
+    const validCriteria = await this.prisma.criterion.findMany({
+      where: {
+        OR: [
+          // Critérios base (aplicam para todos)
+          { isBase: true },
+          // Critérios específicos da businessUnit do usuário
+          { businessUnit: userWithRoles.businessUnit },
+        ],
+      },
+      select: {
+        id: true,
+        pillar: true,
+        businessUnit: true,
+        isBase: true,
+      },
+    });
+
+    // Filtrar critérios válidos baseado no papel do usuário
+    const applicableCriteriaIds = validCriteria
+      .filter((criterion) => {
+        // Critérios de gestão apenas para gestores
+        if (criterion.pillar === 'MANAGEMENT') {
+          return isManager;
+        }
+        // Todos os outros critérios são aplicáveis
+        return true;
+      })
+      .map((criterion) => criterion.id);
+
     // Buscar a autoavaliação do usuário para o ciclo ativo
     const selfAssessment = await this.prisma.selfAssessment.findFirst({
       where: {
@@ -2350,35 +2464,17 @@ export class EvaluationsService {
       return null;
     }
 
-    // Definir critérios base
-    const baseCriteria = [
-      'sentimento-de-dono',
-      'resiliencia-adversidades',
-      'organizacao-trabalho',
-      'capacidade-aprender',
-      'team-player',
-      'entregar-qualidade',
-      'atender-prazos',
-      'fazer-mais-menos',
-      'pensar-fora-caixa',
-    ];
-
-    // Adicionar critérios de gestor se o usuário for manager
-    const allCriteria = isManager
-      ? [...baseCriteria, 'evolucao-rocket-corp', 'gestao-gente', 'gestao-resultados']
-      : baseCriteria;
-
     // Criar objeto de resposta formatado
     const formattedResponse: Record<string, { score: number; justification: string }> = {};
 
-    // Para cada critério, buscar a resposta correspondente
-    for (const criterionId of allCriteria) {
+    // Para cada critério aplicável, buscar a resposta correspondente
+    for (const criterionId of applicableCriteriaIds) {
       const answer = selfAssessment.answers.find((a) => a.criterionId === criterionId);
 
       if (answer) {
         formattedResponse[criterionId] = {
           score: answer.score,
-          justification: answer.justification,
+          justification: this.encryptionService.decrypt(answer.justification),
         };
       } else {
         // Se não há resposta para o critério, retornar valores padrão
@@ -2619,7 +2715,7 @@ export class EvaluationsService {
    */
   async getAvailable360Collaborators(userId: string) {
     // Buscar ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Buscar todos os projetos do usuário
     const userProjects = await this.prisma.userProjectAssignment.findMany({
@@ -2689,7 +2785,7 @@ export class EvaluationsService {
       workAgainMotivation?: WorkAgainMotivation | null;
     }>,
   ): Promise<any[]> {
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
     const results: any[] = [];
     for (const dto of dtos) {
       // O workAgainMotivation já vem como enum do DTO
@@ -2736,7 +2832,7 @@ export class EvaluationsService {
    */
   async getDesignatedMentorAssessment(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Buscar o usuário para obter o mentorId
     const user = await this.prisma.user.findUnique({
@@ -2804,7 +2900,7 @@ export class EvaluationsService {
     }
 
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Buscar o usuário para obter o mentorId
     const user = await this.prisma.user.findUnique({
@@ -2856,7 +2952,7 @@ export class EvaluationsService {
    */
   async getReferenceFeedbacks(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Buscar todos os feedbacks de referência do usuário no ciclo ativo
     const referenceFeedbacks = await this.prisma.referenceFeedback.findMany({
@@ -2899,7 +2995,7 @@ export class EvaluationsService {
     }>,
   ) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Validar se todos os usuários referenciados existem
     const referencedUserIds = references.map((ref) => ref.id);

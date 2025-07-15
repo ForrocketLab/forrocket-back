@@ -15,6 +15,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CriterionDto } from './dto/criteria.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessUnit } from '../common/enums/business-unit.enum';
+import { PrismaService } from '../database/prisma.service';
 
 @ApiTags('Critérios de Avaliação')
 @ApiBearerAuth()
@@ -24,6 +25,7 @@ export class CriteriaPublicController {
   constructor(
     private readonly criteriaService: CriteriaService,
     private readonly projectsService: ProjectsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -105,7 +107,13 @@ export class CriteriaPublicController {
     // Verificar se o usuário é gestor
     const isManager = await this.projectsService.isManager(user.id);
 
-    return this.criteriaService.findForUserRole(isManager);
+    // Buscar os dados completos do usuário para obter o businessUnit
+    const userWithBusinessUnit = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { businessUnit: true },
+    });
+
+    return this.criteriaService.findForUserRole(isManager, userWithBusinessUnit?.businessUnit);
   }
   @Get('effective')
   @ApiOperation({

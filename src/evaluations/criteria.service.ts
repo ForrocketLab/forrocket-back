@@ -67,17 +67,35 @@ export class CriteriaService {
   }
 
   /**
-   * Lista critérios baseados no papel do usuário
-   * - Gestores: todos os critérios (incluindo MANAGEMENT)
-   * - Outros: critérios exceto MANAGEMENT
+   * Lista critérios baseados no papel do usuário e sua unidade de negócio
+   * - Gestores: todos os critérios (incluindo MANAGEMENT) aplicáveis à sua businessUnit
+   * - Outros: critérios exceto MANAGEMENT aplicáveis à sua businessUnit
    */
-  async findForUserRole(isManager: boolean): Promise<CriterionDto[]> {
+  async findForUserRole(isManager: boolean, businessUnit?: string): Promise<CriterionDto[]> {
+    // Buscar critérios válidos: base (isBase: true) + específicos da businessUnit
     const criteria = await this.prisma.criterion.findMany({
-      where: isManager ? {} : { pillar: { not: CriterionPillar.MANAGEMENT } },
+      where: {
+        OR: [
+          // Critérios base (aplicam para todos)
+          { isBase: true },
+          // Critérios específicos da businessUnit do usuário (se fornecida)
+          ...(businessUnit ? [{ businessUnit: businessUnit }] : []),
+        ],
+      },
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map((criterion) => this.mapToDto(criterion));
+    // Filtrar critérios baseado no papel do usuário
+    const filteredCriteria = criteria.filter((criterion) => {
+      // Critérios de gestão apenas para gestores
+      if (criterion.pillar === CriterionPillar.MANAGEMENT) {
+        return isManager;
+      }
+      // Todos os outros critérios são aplicáveis
+      return true;
+    });
+
+    return filteredCriteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
