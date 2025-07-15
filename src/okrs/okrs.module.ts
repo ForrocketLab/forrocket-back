@@ -1,15 +1,26 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common'; 
 import { OKRsController } from './okrs.controller';
-import { OKRsService } from './okrs.service';
+import { OkrService } from './okr.service'; 
+import { ObjectiveService } from './objective.service'; 
+import { KeyResultService } from './key-result.service'; 
 import { DatabaseModule } from '../database/database.module';
 
 /**
  * Módulo responsável pela funcionalidade de OKRs
  */
 @Module({
-  imports: [DatabaseModule],
+  imports: [
+    DatabaseModule,
+  ],
   controllers: [OKRsController],
-  providers: [OKRsService],
-  exports: [OKRsService],
+  providers: [
+    OkrService, 
+    ObjectiveService, 
+    KeyResultService, 
+  ],
+  exports: [
+    OkrService,     ObjectiveService,
+    KeyResultService,
+  ],
 })
-export class OKRsModule {} 
+export class OKRsModule {}

@@ -14,6 +14,7 @@ import { CriteriaService } from './criteria.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CriterionDto } from './dto/criteria.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BusinessUnit } from '../common/enums/business-unit.enum';
 
 @ApiTags('Critérios de Avaliação')
 @ApiBearerAuth()
@@ -105,6 +106,34 @@ export class CriteriaPublicController {
     const isManager = await this.projectsService.isManager(user.id);
 
     return this.criteriaService.findForUserRole(isManager);
+  }
+  @Get('effective')
+  @ApiOperation({
+    summary: 'Listar critérios efetivos para uma unidade de negócio',
+    description: `
+      Retorna a junção dos critérios base (formulário padrão) + critérios específicos da unidade,
+      removendo os critérios do base que foram removidos para a unidade.
+      
+      **Uso:** Usado para popular formulários de autoavaliação do colaborador.
+    `,
+  })
+  @ApiQuery({
+    name: 'businessUnit',
+    required: true,
+    type: String,
+    description: 'Unidade de negócio/trilha',
+    enum: BusinessUnit,
+    example: BusinessUnit.DIGITAL_PRODUCTS,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de critérios efetivos recuperada com sucesso',
+    type: [CriterionDto],
+  })
+  async findEffectiveByBusinessUnit(
+    @Query('businessUnit') businessUnit: string,
+  ): Promise<CriterionDto[]> {
+    return this.criteriaService.findEffectiveByBusinessUnit(businessUnit);
   }
 
   @Get(':id')

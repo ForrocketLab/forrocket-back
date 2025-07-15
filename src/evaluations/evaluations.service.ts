@@ -1,8 +1,12 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import {
   Injectable,
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { CriterionPillar, ManagerTeamSummary, WorkAgainMotivation } from '@prisma/client';
 
@@ -21,13 +25,6 @@ import {
   Update360AssessmentDto,
   UpdateDesignatedMentorAssessmentDto,
 } from './assessments/dto';
-import { ProjectCollaborator360Dto } from './dto/project-collaborator-360.dto';
-import { MentorAssessmentDto } from './dto/mentor-assessment.dto';
-import { UpdateMentorAssessmentDto } from './dto/update-mentor-assessment.dto';
-import {
-  UpdateReferenceFeedbackBatchDto,
-  ReferenceFeedbackItemDto,
-} from './dto/reference-feedback-batch.dto';
 import { PrismaService } from '../database/prisma.service';
 import { ALL_CRITERIA, getCriteriaByPillar, getAllPillars } from '../models/criteria';
 import { ProjectsService } from '../projects/projects.service';
@@ -39,6 +36,12 @@ import {
 import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto';
 import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { CyclesService } from './cycles/cycles.service';
+import { BrutalFactsMetricsDto } from './manager/dto/brutal-facts-metrics.dto';
+import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
+import {
+  TeamHistoricalPerformanceResponseDto,
+  TeamPerformanceByCycleDto,
+} from './manager/dto/team-historical-performance.dto';
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 import {
   TeamCollaboratorData,
@@ -47,15 +50,10 @@ import {
   CollaboratorScoreData,
 } from '../gen-ai/dto/team-evaluation.dto';
 import { ISelfAssessment, EvaluationStatus } from '../models/evaluations/collaborator';
-import { BrutalFactsMetricsDto } from './manager/dto/brutal-facts-metrics.dto';
-import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
-import {
-  TeamHistoricalPerformanceResponseDto,
-  TeamPerformanceByCycleDto,
-} from './manager/dto/team-historical-performance.dto';
 
 @Injectable()
 export class EvaluationsService {
+  private readonly projectLogger = new Logger('ProjectEvaluations');
   constructor(
     private prisma: PrismaService,
     private projectsService: ProjectsService,
@@ -140,7 +138,7 @@ export class EvaluationsService {
    */
   async createSelfAssessment(userId: string, dto: CreateSelfAssessmentDto) {
     // Validar se o ciclo fornecido existe e está na fase correta
-    await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o usuário tem papel de gestor para validar critérios obrigatórios
     const userWithRoles = await this.prisma.user.findUnique({
@@ -392,7 +390,7 @@ export class EvaluationsService {
     dto: Omit<CreateMentoringAssessmentDto, 'cycle'>,
   ) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o mentor existe
     const mentor = await this.prisma.user.findUnique({
@@ -449,7 +447,7 @@ export class EvaluationsService {
    */
   async createReferenceFeedback(userId: string, dto: Omit<CreateReferenceFeedbackDto, 'cycle'>) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
 
     // Verificar se o usuário referenciado existe
     const referencedUser = await this.prisma.user.findUnique({
@@ -500,7 +498,7 @@ export class EvaluationsService {
    */
   async createManagerAssessment(managerId: string, dto: Omit<CreateManagerAssessmentDto, 'cycle'>) {
     // Validar se existe um ciclo ativo na fase correta
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['MANAGER_REVIEWS']);
 
     // Verificar se o gestor tem permissão para fazer avaliações
     const isManager = await this.projectsService.isManager(managerId);
@@ -1062,7 +1060,11 @@ export class EvaluationsService {
     subordinateId: string,
   ): Promise<ISelfAssessment> {
     // 1. Validar a fase do ciclo ativo (deve ser MANAGER_REVIEWS ou EQUALIZATION)
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('MANAGER_REVIEWS'); // Ou 'EQUALIZATION'
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase([
+      'ASSESSMENTS',
+      'MANAGER_REVIEWS',
+      'EQUALIZATION',
+    ]);
 
     // 2. Verificar se o subordinateId existe e está ativo
     const subordinate = await this.prisma.user.findUnique({
@@ -1173,6 +1175,40 @@ export class EvaluationsService {
     }));
 
     return formattedAssessments;
+  }
+
+  // Busca a avaliação de gestor para um subordinado específico em um ciclo
+  async getManagerAssessmentForSubordinate(
+    managerId: string,
+    subordinateId: string,
+    cycle: string,
+  ) {
+    // 1. Verificar se o gestor logado é o autor da avaliação
+    // 2. Buscar a avaliação no banco de dados
+
+    const managerAssessment = await this.prisma.managerAssessment.findUnique({
+      where: {
+        authorId_evaluatedUserId_cycle: {
+          authorId: managerId,
+          evaluatedUserId: subordinateId,
+          cycle: cycle,
+        },
+      },
+      include: {
+        evaluatedUser: {
+          select: { id: true, name: true, email: true, jobTitle: true, seniority: true },
+        },
+        answers: true,
+      },
+    });
+
+    if (!managerAssessment) {
+      throw new NotFoundException(
+        `Avaliação do gestor para o subordinado ${subordinateId} no ciclo ${cycle} não encontrada.`,
+      );
+    }
+
+    return managerAssessment;
   }
 
   // Histórico de notas por ciclos, pilares (BEHAVIOR, EXECUTION e MANAGEMENT) e inclui a nota final do comitê.
@@ -1919,6 +1955,41 @@ export class EvaluationsService {
     };
   }
 
+  // Em src/evaluations/evaluations.service.ts
+
+  async getProjectEvaluations(projectId: string): Promise<any> {
+    // O tipo de retorno agora é um objeto
+    const evaluationsPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
+
+    try {
+      const fileContent = fs.readFileSync(evaluationsPath, 'utf-8');
+      const evaluationsData = JSON.parse(fileContent);
+
+      const projectData = evaluationsData.projetos[0]?.[projectId];
+
+      if (!projectData) {
+        throw new NotFoundException(`Dados para o projeto com ID '${projectId}' não encontrados.`);
+      }
+
+      // **AQUI ESTÁ A CORREÇÃO**
+      // Retornamos o objeto completo com todos os dados do projeto.
+      return {
+        // Adicionando um nome formatado para uma melhor experiência no frontend
+        projectName: projectId
+          .replace('projeto-', '')
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+        ...projectData,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.projectLogger.error('Erro ao ler ou analisar o arquivo evaluations.json', error);
+      throw new Error('Não foi possível carregar os dados de avaliação do projeto.');
+    }
+  }
+
   /**
    * Busca todos os ciclos únicos que têm avaliações no sistema
    */
@@ -2492,7 +2563,7 @@ export class EvaluationsService {
 
   async getMentoringAssessment(authorId: string, mentorId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase('ASSESSMENTS');
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']); // SO ASS?
 
     // Buscar avaliação existente
     const assessment = await this.prisma.mentoringAssessment.findFirst({
@@ -2623,7 +2694,7 @@ export class EvaluationsService {
     for (const dto of dtos) {
       // O workAgainMotivation já vem como enum do DTO
       const motivation = dto.workAgainMotivation;
-      
+
       let assessment = await this.prisma.assessment360.findFirst({
         where: {
           authorId: userId,

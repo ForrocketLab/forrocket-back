@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import * as fs from 'fs/promises';
+import * as fs from 'fs'; // Usaremos a versão síncrona para simplicidade aqui, mas a assíncrona é ótima também.
 import * as path from 'path';
 
 import { EvaluableUserDto, EvaluableUsersResponseDto } from './dto';
@@ -7,6 +7,9 @@ import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class ProjectsService {
+  // Define um caminho seguro e reutilizável para o arquivo JSON.
+  private readonly evaluationsPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -1070,29 +1073,30 @@ export class ProjectsService {
    * @returns {Promise<any>} As notas do projeto específico.
    */
   async getProjectScores(projectId: string): Promise<any> {
-    const dataPath = path.join(process.cwd(), 'src', 'data', 'evaluations.json');
     try {
-      const fileContent = await fs.readFile(dataPath, 'utf-8');
+      const fileContent = fs.readFileSync(this.evaluationsPath, 'utf-8');
       const data = JSON.parse(fileContent);
 
       if (!data.projetos || !Array.isArray(data.projetos) || data.projetos.length === 0) {
         throw new NotFoundException('Seção "projetos" não encontrada ou vazia no arquivo evaluations.json.');
       }
 
-      // As notas estão dentro do primeiro elemento do array "projetos"
-      const allProjectScores = data.projetos[0];
-
-      if (!allProjectScores || typeof allProjectScores !== 'object') {
-        throw new InternalServerErrorException('Formato de dados de projetos inválido.');
+      // CORREÇÃO PARA NOVO FORMATO: Acessa o primeiro (e único) objeto no array de projetos.
+      const allProjectsObject = data.projetos[0];
+      if (!allProjectsObject || typeof allProjectsObject !== 'object') {
+        throw new InternalServerErrorException(
+          'Formato de dados de projetos inválido. Esperado um array com um objeto.',
+        );
       }
 
-      const projectScores = allProjectScores[projectId];
+      // Busca os detalhes do projeto diretamente pelo ID no objeto.
+      const projectDetails = allProjectsObject[projectId];
 
-      if (projectScores === undefined) {
+      if (!projectDetails) {
         throw new NotFoundException(`Projeto com ID "${projectId}" não encontrado no arquivo de avaliações.`);
       }
 
-      return projectScores;
+      return projectDetails;
     } catch (error) {
       if (error.code === 'ENOENT') throw new NotFoundException('Arquivo evaluations.json não encontrado.');
       if (error instanceof NotFoundException || error instanceof InternalServerErrorException) throw error;

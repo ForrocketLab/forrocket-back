@@ -1035,7 +1035,7 @@ export class ImportService {
    * @returns Lista de lotes ordenados por data de importação (mais recente primeira)
    */
   async getImportBatchesByUser(userId: string) {
-    return this.prisma.importBatch.findMany({
+    const batches = await this.prisma.importBatch.findMany({
       where: { uploadedUserId: userId },
       orderBy: { importedAt: 'desc' },
       include: {
@@ -1056,6 +1056,10 @@ export class ImportService {
         },
       },
     });
+    return batches.map(batch => ({
+      ...batch,
+      importedAt: batch.importedAt instanceof Date ? batch.importedAt.toISOString() : batch.importedAt,
+    }));
   }
 
   /**
@@ -1111,13 +1115,19 @@ export class ImportService {
       }),
     ]);
 
+    // Serializar importedAt
+    const fixedData = data.map(batch => ({
+      ...batch,
+      importedAt: batch.importedAt instanceof Date ? batch.importedAt.toISOString() : batch.importedAt,
+    }));
+
     // Calcular metadados da paginação
     const totalPages = Math.ceil(total / limit);
     const hasNext = page < totalPages;
     const hasPrevious = page > 1;
 
     return {
-      data,
+      data: fixedData,
       meta: {
         page,
         limit,
@@ -1134,7 +1144,7 @@ export class ImportService {
    * @returns Lista de todos os lotes ordenados por data de importação (mais recente primeira)
    */
   async getAllImportBatches() {
-    return this.prisma.importBatch.findMany({
+    const batches = await this.prisma.importBatch.findMany({
       orderBy: { importedAt: 'desc' },
       include: {
         uploadedUser: {
@@ -1154,6 +1164,10 @@ export class ImportService {
         },
       },
     });
+    return batches.map(batch => ({
+      ...batch,
+      importedAt: batch.importedAt instanceof Date ? batch.importedAt.toISOString() : batch.importedAt,
+    }));
   }
 
   /**

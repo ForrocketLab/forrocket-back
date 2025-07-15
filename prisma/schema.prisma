@@ -89,6 +89,12 @@ model User {
   // Avaliações de comitê recebidas pelo usuário (como avaliado)
   committeeAssessmentsReceived CommitteeAssessment[] @relation("CommitteeAssessmentEvaluated")
 
+  // Avaliações de clima organizacional criadas pelo usuário
+  climateAssessmentsCreated ClimateAssessment[] @relation("ClimateAssessmentAuthor")
+
+  // Configurações de clima organizacional ativadas pelo usuário (como RH)
+  climateAssessmentConfigsCreated ClimateAssessmentConfig[] @relation("ClimateAssessmentConfigActivatedBy")
+
   // Resumos GenAI recebidos pelo usuário (como colaborador avaliado)
   genaiSummaries GenAISummary[] @relation("GenAISummaryCollaborator")
 
@@ -454,6 +460,8 @@ model Criterion {
   pillar      CriterionPillar // BEHAVIOR, EXECUTION, MANAGEMENT
   weight      Float           @default(1.0) // Peso do critério na avaliação (1.0 = 100%)
   isRequired  Boolean         @default(true) // Se o critério é obrigatório no formulário
+  businessUnit String?       // Unidade de negócio específica (se null, aplica para todas)
+  isBase      Boolean        @default(true) // Se é critério do formulário base
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -709,4 +717,81 @@ enum ImportStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum BusinessUnit {
+  DIGITAL_PRODUCTS
+  OPERATIONS
+}
+
+model RemovedCriterion {
+  id            String   @id @default(cuid())
+  criterionId   String
+  businessUnit  String
+  removedAt     DateTime @default(now())
+
+  @@unique([criterionId, businessUnit])
+}
+
+// ==========================================
+// AVALIAÇÃO SIMPLES DE CLIMA ORGANIZACIONAL
+// ==========================================
+
+model ClimateAssessment {
+  id          String    @id @default(cuid())
+  cycle       String    // Ciclo de avaliação (ex: "2025.1")
+  authorId    String    // ID do usuário que criou a avaliação
+  status      AssessmentStatus @default(DRAFT) // DRAFT | SUBMITTED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  submittedAt DateTime?
+
+  // Relacionamentos
+  author  User                    @relation("ClimateAssessmentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  answers ClimateAssessmentAnswer[]
+
+  @@unique([authorId, cycle]) // Um usuário só pode ter uma avaliação de clima por ciclo
+  @@map("climate_assessments")
+}
+
+model ClimateAssessmentAnswer {
+  id                  String @id @default(cuid())
+  climateAssessmentId String
+  criterionId         String // ID do critério (ex: "relacionamento-lideranca")
+  score               Int    // Nota de 1 a 5
+  justification       String // Justificativa textual (criptografada)
+
+  // Relacionamentos
+  climateAssessment ClimateAssessment @relation(fields: [climateAssessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([climateAssessmentId, criterionId]) // Uma resposta por critério por avaliação
+  @@map("climate_assessment_answers")
+}
+
+model ClimateAssessmentConfig {
+  id          String   @id @default(cuid())
+  cycle       String   // Ciclo de avaliação
+  isActive    Boolean  @default(false) // Se a avaliação de clima está ativa
+  activatedBy String   // ID do usuário RH que ativou
+  activatedAt DateTime @default(now())
+  deactivatedAt DateTime? // Quando foi desativada (se aplicável)
+
+  // Relacionamentos
+  activatedByUser User @relation("ClimateAssessmentConfigActivatedBy", fields: [activatedBy], references: [id], onDelete: Cascade)
+
+  @@unique([cycle]) // Uma configuração por ciclo
+  @@map("climate_assessment_configs")
+}
+
+model ClimateSentimentAnalysis {
+  id                    String   @id @default(cuid())
+  cycle                 String   @unique
+  sentimentAnalysis     String
+  improvementTips       String
+  strengths             String
+  areasOfConcern        String
+  overallSentimentScore Int
+  totalAssessments      Int
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }

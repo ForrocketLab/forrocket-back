@@ -19,6 +19,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { User, CriterionPillar } from '@prisma/client';
 
@@ -27,6 +28,7 @@ import { CreateCriterionDto, UpdateCriterionDto, CriterionDto } from './dto/crit
 import { CurrentUser } from '../auth/current-user.decorator';
 import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BusinessUnit } from '../common/enums/business-unit.enum';
 
 /**
  * Controller para gestão de critérios de avaliação
@@ -83,6 +85,14 @@ export class CriteriaController {
     enum: ['BEHAVIOR', 'EXECUTION', 'MANAGEMENT'],
     example: 'BEHAVIOR',
   })
+  @ApiQuery({
+    name: 'businessUnit',
+    required: false,
+    type: String,
+    description: 'Filtrar por unidade de negócio específica',
+    enum: BusinessUnit,
+    example: BusinessUnit.DIGITAL_PRODUCTS,
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Lista de critérios recuperada com sucesso',
@@ -96,9 +106,20 @@ export class CriteriaController {
     @Query('requiredOnly') requiredOnly?: boolean,
     @Query('optionalOnly') optionalOnly?: boolean,
     @Query('pillar') pillar?: string,
+    @Query('businessUnit') businessUnit?: string,
   ): Promise<CriterionDto[]> {
     if (pillar) {
       return this.criteriaService.findByPillar(pillar as CriterionPillar);
+    }
+
+    if (businessUnit) {
+      if (requiredOnly) {
+        return this.criteriaService.findRequiredByBusinessUnit(businessUnit);
+      }
+      if (optionalOnly) {
+        return this.criteriaService.findOptionalByBusinessUnit(businessUnit);
+      }
+      return this.criteriaService.findByBusinessUnit(businessUnit);
     }
 
     if (requiredOnly) {
@@ -110,6 +131,33 @@ export class CriteriaController {
     }
 
     return this.criteriaService.findAll();
+  }
+
+  @Get('effective')
+  @ApiOperation({
+    summary: 'Listar critérios efetivos para uma unidade de negócio',
+    description: `
+      Retorna a junção dos critérios base (formulário padrão) + critérios específicos da unidade,
+      removendo os critérios do base que foram removidos para a unidade.
+    `,
+  })
+  @ApiQuery({
+    name: 'businessUnit',
+    required: true,
+    type: String,
+    description: 'Unidade de negócio/trilha',
+    enum: BusinessUnit,
+    example: BusinessUnit.DIGITAL_PRODUCTS,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Lista de critérios efetivos recuperada com sucesso',
+    type: [CriterionDto],
+  })
+  async findEffectiveByBusinessUnit(
+    @Query('businessUnit') businessUnit: string,
+  ): Promise<CriterionDto[]> {
+    return this.criteriaService.findEffectiveByBusinessUnit(businessUnit);
   }
 
   @Get(':id')
@@ -164,7 +212,7 @@ export class CriteriaController {
   })
   async create(
     @Body(ValidationPipe) createCriterionDto: CreateCriterionDto,
-    @CurrentUser() _user: User,
+    @CurrentUser() user,
   ): Promise<CriterionDto> {
     return this.criteriaService.create(createCriterionDto);
   }
@@ -208,26 +256,15 @@ export class CriteriaController {
   async update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateCriterionDto: UpdateCriterionDto,
-    @CurrentUser() _user: User,
+    @CurrentUser() user,
   ): Promise<CriterionDto> {
     return this.criteriaService.update(id, updateCriterionDto);
   }
 
   @Delete(':id')
   @ApiOperation({
-    summary: 'Remover critério permanentemente',
-    description: `
-      Remove um critério permanentemente do sistema.
-      
-      **⚠️ ATENÇÃO:**
-      - Esta operação é irreversível
-      - Só permite remoção se o critério não estiver sendo usado em avaliações
-      - Se estiver sendo usado, altere a obrigatoriedade ao invés de remover
-      
-      **Alternativa recomendada:**
-      - Use PATCH /api/criteria/:id/make-optional para tornar opcional
-      - Mantém histórico e dados consistentes
-    `,
+    summary: 'Remover critério',
+    description: 'Remove um critério do sistema.',
   })
   @ApiParam({
     name: 'id',
@@ -237,56 +274,77 @@ export class CriteriaController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Critério removido com sucesso',
+    type: Object,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Critério não encontrado',
   })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Critério está sendo usado em avaliações e não pode ser removido',
-  })
-  async remove(@Param('id') id: string, @CurrentUser() _user: User): Promise<{ message: string }> {
+  async remove(@Param('id') id: string, @CurrentUser() user): Promise<{ message: string }> {
     await this.criteriaService.remove(id);
-    return {
-      message: 'Critério removido permanentemente com sucesso.',
-    };
+    return { message: 'Critério removido com sucesso' };
   }
 
   @Patch(':id/toggle-required')
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Alternar obrigatoriedade do critério (Toggle)',
-    description: `
-      Alterna a obrigatoriedade de um critério no preenchimento dos formulários.
-      
-      **Comportamento:**
-      - Se o critério está obrigatório (isRequired: true) → torna opcional (isRequired: false)
-      - Se o critério está opcional (isRequired: false) → torna obrigatório (isRequired: true)
-      - O critério continuará aparecendo no formulário (sempre aparece)
-      - Funciona como um interruptor (toggle) para facilitar a gestão
-      
-      **Casos de uso:**
-      - Critérios de gestão que podem ser opcionais para alguns colaboradores
-      - Ajustar formulários conforme a necessidade do momento
-      - Facilitar mudanças rápidas sem ter que usar dois endpoints diferentes
-    `,
+    summary: 'Alternar obrigatoriedade do critério',
+    description: 'Alterna o campo isRequired de um critério.',
   })
   @ApiParam({
     name: 'id',
     description: 'ID único do critério',
-    example: 'gestao-gente',
+    example: 'sentimento-de-dono',
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Obrigatoriedade do critério alternada com sucesso',
+    description: 'Critério atualizado com sucesso',
     type: CriterionDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Critério não encontrado',
   })
-  async toggleRequired(@Param('id') id: string, @CurrentUser() _user: User): Promise<CriterionDto> {
+  async toggleRequired(@Param('id') id: string, @CurrentUser() user): Promise<CriterionDto> {
     return this.criteriaService.toggleRequired(id);
+  }
+
+  @Post('remove-from-unit')
+  @ApiOperation({
+    summary: 'Remover critério base de uma unidade de negócio',
+    description: 'Remove um critério do formulário base apenas para a unidade/trilha informada.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        criterionId: { type: 'string', example: 'sentimento-de-dono' },
+        businessUnit: { type: 'string', example: 'Digital Products' },
+      },
+      required: ['criterionId', 'businessUnit'],
+    },
+  })
+  async removeFromUnit(@Body() body: { criterionId: string; businessUnit: string }) {
+    await this.criteriaService.removeFromUnit(body.criterionId, body.businessUnit);
+    return { message: 'Critério removido da unidade com sucesso' };
+  }
+
+  @Post('restore-to-unit')
+  @ApiOperation({
+    summary: 'Restaurar critério base em uma unidade de negócio',
+    description: 'Restaura um critério do formulário base para a unidade/trilha informada.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        criterionId: { type: 'string', example: 'sentimento-de-dono' },
+        businessUnit: { type: 'string', example: 'Digital Products' },
+      },
+      required: ['criterionId', 'businessUnit'],
+    },
+  })
+  async restoreToUnit(@Body() body: { criterionId: string; businessUnit: string }) {
+    await this.criteriaService.restoreToUnit(body.criterionId, body.businessUnit);
+    return { message: 'Critério restaurado para a unidade com sucesso' };
   }
 }

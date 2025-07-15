@@ -13,6 +13,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { OKRsModule } from './okrs/okrs.module';
 import { PDIsModule } from './pdis/pdis.module';
 import { ProjectsModule } from './projects/projects.module';
+import { LeaderModule } from './evaluations/leader.module';
 
 /**
  * Módulo principal da aplicação RPE
@@ -56,6 +57,8 @@ import { ProjectsModule } from './projects/projects.module';
     MonitoringModule,
 
     MentorModule,
+    // Módulo do fluxo de líder
+    LeaderModule,
   ],
 })
 export class AppModule {}

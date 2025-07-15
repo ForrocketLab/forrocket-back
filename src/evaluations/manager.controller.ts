@@ -40,6 +40,7 @@ import { TeamScoreAnalysisResponseDto } from './manager/dto/team-score-analysis.
 import { ManagerDashboardResponseDto } from './manager/manager-dashboard.dto';
 import { TeamAnalysisResponseDto } from './manager/dto/team-analysis-response.dto';
 import { TeamHistoricalPerformanceResponseDto } from './manager/dto/team-historical-performance.dto';
+import { ManagerAssessmentResponseDto } from './assessments/dto/manager-assessment-response.dto';
 
 @ApiTags('Avaliações de Gestores')
 @ApiBearerAuth()
@@ -295,7 +296,66 @@ export class ManagerController {
     return this.evaluationsService.getSubordinateReceived360s(user.id, subordinateId, cycle);
   }
 
-  @Get('performance/history')
+  // Visualiza avaliações de um gestor para um colaborador específico
+  @Get('my-assessment/subordinate/:subordinateId')
+  @ApiOperation({
+    summary: 'Visualizar avaliação de um subordinado feita pelo gestor',
+    description: `
+      Permite que um gestor visualize a avaliação que ele fez de um de seus subordinados
+      para o ciclo de avaliação ativo. Inclui as notas por critério e justificativas.
+      
+      **Regras de Negócio:**
+      - Apenas usuários com role de MANAGER podem acessar.
+      - O gestor logado DEVE ser o gestor direto do subordinado.
+      - A avaliação do subordinado deve estar disponível (status SUBMITTED).
+      - Deve haver um ciclo de avaliação ativo e na fase MANAGER_REVIEWS ou EQUALIZATION.
+    `,
+  })
+  @ApiParam({
+    name: 'subordinateId',
+    description: 'ID do subordinado cuja avaliação será visualizada',
+    example: 'cluid123456789',
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação (ex: "2025.1")',
+    required: true,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Avaliação do gestor para o subordinado retornada com sucesso',
+    type: ManagerAssessmentResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'O parâmetro "cycle" é obrigatório.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Acesso negado: Você não tem permissão para visualizar esta avaliação.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Avaliação não encontrada para o subordinado e ciclo especificados.',
+  })
+  async getMyAssessmentForSubordinate(
+    @CurrentUser() user: User,
+    @Param('subordinateId') subordinateId: string,
+    @Query('cycle') cycle: string,
+  ) {
+    if (!cycle) {
+      throw new BadRequestException('O parâmetro "cycle" é obrigatório.');
+    }
+    
+    return this.evaluationsService.getManagerAssessmentForSubordinate(
+      user.id,
+      subordinateId,
+      cycle,
+    );
+  }
+
+
+  @Get('performance/history/:subordinateId') 
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'Buscar histórico de performance do colaborador',

@@ -116,7 +116,7 @@ describe('CommitteeController', () => {
     justification: 'Avaliação baseada no conjunto de avaliações recebidas.',
     observations: 'Colaborador com bom desempenho geral.',
     status: 'DRAFT',
-    createdAt: new Date(),
+    createdAt: '2025-07-10T05:30:52.271Z',
     author: {
       id: 'committee-1',
       name: 'Maria Comitê',

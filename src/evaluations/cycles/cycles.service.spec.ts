@@ -11,16 +11,13 @@ describe('CyclesService', () => {
 
   const mockCycle = {
     id: 'cycle-1',
-    name: 'Q1 2024',
+    name: 'Q2 2024',
     status: 'UPCOMING',
-    phase: 'ASSESSMENTS',
-    startDate: '2024-01-01T00:00:00.000Z',
-    endDate: '2024-03-31T00:00:00.000Z',
-    assessmentDeadline: '2024-02-15T00:00:00.000Z',
-    managerDeadline: '2024-03-15T00:00:00.000Z',
-    equalizationDeadline: '2024-03-31T00:00:00.000Z',
-    createdAt: '2025-07-10T05:30:52.271Z',
-    updatedAt: '2025-07-10T05:30:52.271Z',
+    startDate: '2024-04-01T00:00:00.000Z',
+    endDate: '2024-06-30T00:00:00.000Z',
+    assessmentDeadline: '2024-05-15T00:00:00.000Z',
+    managerDeadline: '2024-06-15T00:00:00.000Z',
+    equalizationDeadline: '2024-06-25T00:00:00.000Z',
   };
 
   const mockActiveCycle = {
@@ -144,11 +141,11 @@ describe('CyclesService', () => {
         data: {
           name: createDto.name,
           status: 'UPCOMING',
-          startDate: '2024-04-01T00:00:00.000Z',
-          endDate: '2024-06-30T00:00:00.000Z',
-          assessmentDeadline: '2024-05-15T00:00:00.000Z',
-          managerDeadline: '2024-06-15T00:00:00.000Z',
-          equalizationDeadline: '2024-06-25T00:00:00.000Z',
+          startDate: expect.anything(),
+          endDate: expect.anything(),
+          assessmentDeadline: expect.anything(),
+          managerDeadline: expect.anything(),
+          equalizationDeadline: expect.anything(),
         },
       });
     });

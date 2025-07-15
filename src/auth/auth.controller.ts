@@ -855,7 +855,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Buscar usuários potenciais para serem mentores',
     description:
-      'Retorna lista de todos os usuários ativos que podem ser designados como mentores (sem limitação de quantos podem mentorar)',
+      'Retorna lista de usuários ativos que não são mentores de ninguém ainda e podem ser designados como mentores',
   })
   @ApiResponse({
     status: 200,

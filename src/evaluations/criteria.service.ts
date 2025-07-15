@@ -8,6 +8,7 @@ import { Criterion, CriterionPillar } from '@prisma/client';
 
 import { PrismaService } from '../database/prisma.service';
 import { CreateCriterionDto, UpdateCriterionDto, CriterionDto } from './dto/criteria.dto';
+import { BusinessUnit } from '../common/enums/business-unit.enum';
 
 @Injectable()
 export class CriteriaService {
@@ -22,6 +23,23 @@ export class CriteriaService {
     });
 
     return criteria.map((criterion) => this.mapToDto(criterion));
+  }
+
+  /**
+   * Lista critérios específicos de uma unidade de negócio ou gerais
+   */
+  async findByBusinessUnit(businessUnit: string): Promise<CriterionDto[]> {
+    const criteria = await this.prisma.criterion.findMany({
+      where: {
+        OR: [
+          { businessUnit: businessUnit },
+          { businessUnit: null }, // Critérios gerais
+        ],
+      },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+
+    return criteria.map(this.mapToDto);
   }
 
   /**
@@ -60,6 +78,42 @@ export class CriteriaService {
     });
 
     return criteria.map((criterion) => this.mapToDto(criterion));
+  }
+
+  /**
+   * Lista critérios obrigatórios por unidade de negócio
+   */
+  async findRequiredByBusinessUnit(businessUnit: string): Promise<CriterionDto[]> {
+    const criteria = await this.prisma.criterion.findMany({
+      where: {
+        isRequired: true,
+        OR: [
+          { businessUnit: businessUnit },
+          { businessUnit: null }, // Critérios gerais
+        ],
+      },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+
+    return criteria.map(this.mapToDto);
+  }
+
+  /**
+   * Lista critérios opcionais por unidade de negócio
+   */
+  async findOptionalByBusinessUnit(businessUnit: string): Promise<CriterionDto[]> {
+    const criteria = await this.prisma.criterion.findMany({
+      where: {
+        isRequired: false,
+        OR: [
+          { businessUnit: businessUnit },
+          { businessUnit: null }, // Critérios gerais
+        ],
+      },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+
+    return criteria.map(this.mapToDto);
   }
 
   /**
@@ -105,6 +159,13 @@ export class CriteriaService {
     // Gerar ID único baseado no nome
     const id = this.generateCriterionId(createCriterionDto.name);
 
+    // Lógica para isBase/businessUnit
+    let isBase = true;
+    let businessUnit = createCriterionDto.businessUnit ?? null;
+    if (businessUnit) {
+      isBase = false;
+    }
+
     const criterion = await this.prisma.criterion.create({
       data: {
         id,
@@ -113,6 +174,8 @@ export class CriteriaService {
         pillar: createCriterionDto.pillar,
         weight: createCriterionDto.weight ?? 1.0,
         isRequired: createCriterionDto.isRequired ?? true,
+        businessUnit,
+        isBase,
       },
     });
 
@@ -226,6 +289,61 @@ export class CriteriaService {
   }
 
   /**
+   * Lista critérios efetivos para uma unidade de negócio:
+   * - Critérios base (isBase: true, businessUnit: null)
+   * - Critérios específicos da unidade (isBase: false, businessUnit: X)
+   * - Remove critérios do base que estejam na tabela RemovedCriterion para a unidade
+   */
+  async findEffectiveByBusinessUnit(businessUnit: string): Promise<CriterionDto[]> {
+    // Busca todos os critérios base (isBase: true, businessUnit null ou undefined)
+    const baseCriteria = await this.prisma.criterion.findMany({
+      where: { isBase: true },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+    // Busca todos os critérios específicos da unidade
+    const specificCriteria = await this.prisma.criterion.findMany({
+      where: { isBase: false, businessUnit },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+    // Busca critérios removidos
+    const removed = await this.prisma.removedCriterion.findMany({
+      where: { businessUnit },
+    });
+    const removedIds = new Set(removed.map((r) => r.criterionId));
+    // Filtra base removidos e só pega os que realmente são base (businessUnit null, undefined ou string vazia)
+    const filteredBase = baseCriteria.filter(
+      (c) =>
+        (!c.businessUnit || c.businessUnit === null || c.businessUnit === '') &&
+        !removedIds.has(c.id),
+    );
+    console.log('BASE CRITÉRIOS FILTRADOS:', filteredBase);
+    console.log('ESPECÍFICOS:', specificCriteria);
+    const result = [...filteredBase, ...specificCriteria].map(this.mapToDto);
+    console.log('RESULTADO FINAL:', result);
+    return result;
+  }
+
+  /**
+   * Remove um critério base de uma unidade de negócio (adiciona em RemovedCriterion)
+   */
+  async removeFromUnit(criterionId: string, businessUnit: string): Promise<void> {
+    await this.prisma.removedCriterion.upsert({
+      where: { criterionId_businessUnit: { criterionId, businessUnit } },
+      update: { removedAt: new Date() },
+      create: { criterionId, businessUnit },
+    });
+  }
+
+  /**
+   * Restaura um critério base em uma unidade de negócio (remove de RemovedCriterion)
+   */
+  async restoreToUnit(criterionId: string, businessUnit: string): Promise<void> {
+    await this.prisma.removedCriterion.deleteMany({
+      where: { criterionId, businessUnit },
+    });
+  }
+
+  /**
    * Gera um ID único baseado no nome do critério
    */
   private generateCriterionId(name: string): string {
@@ -258,7 +376,7 @@ export class CriteriaService {
   /**
    * Mapeia um critério do Prisma para DTO
    */
-  private mapToDto(criterion: Criterion): CriterionDto {
+  private mapToDto(criterion: any): CriterionDto {
     return {
       id: criterion.id,
       name: criterion.name,
@@ -266,6 +384,8 @@ export class CriteriaService {
       pillar: criterion.pillar,
       weight: criterion.weight,
       isRequired: criterion.isRequired,
+      businessUnit: criterion.businessUnit,
+      isBase: criterion.isBase,
       createdAt: criterion.createdAt,
       updatedAt: criterion.updatedAt,
     };

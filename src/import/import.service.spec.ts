@@ -47,11 +47,11 @@ describe('ImportService', () => {
     updatedAt: new Date(),
   };
 
-  const mockImportBatch: ImportBatch = {
+  const mockImportBatch = {
     id: 'batch-1',
     fileName: 'test-file.xlsx',
     uploadedUserId: 'user-1',
-    importedAt: new Date(),
+    importedAt: '2025-07-10T05:30:52.271Z',
     status: ImportStatus.COMPLETED,
     notes: null,
   };

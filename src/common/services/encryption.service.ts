@@ -8,7 +8,7 @@ export class EncryptionService {
 
   constructor() {
     // Em produção, essa chave deve vir de variáveis de ambiente
-    this.secretKey = process.env.ENCRYPTION_KEY || 'your-32-character-secret-key-here!!';
+    this.secretKey = process.env.ENCRYPTION_KEY || 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4'; // Chave de fallback com 32 caracteres
     
     if (this.secretKey.length !== 32) {
       throw new Error('Encryption key must be exactly 32 characters long');
