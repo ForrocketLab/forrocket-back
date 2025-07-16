@@ -7,17 +7,26 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import { User, CriterionPillar } from '@prisma/client';
+import { ProjectsService } from 'src/projects/projects.service';
+
 import { CriteriaService } from './criteria.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { CriterionDto } from './dto/criteria.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessUnit } from '../common/enums/business-unit.enum';
+import { PrismaService } from '../database/prisma.service';
 
 @ApiTags('Critérios de Avaliação')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('api/public/criteria')
 export class CriteriaPublicController {
-  constructor(private readonly criteriaService: CriteriaService) {}
+  constructor(
+    private readonly criteriaService: CriteriaService,
+    private readonly projectsService: ProjectsService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -59,7 +68,7 @@ export class CriteriaPublicController {
     @Query('requiredOnly') requiredOnly?: boolean,
   ): Promise<CriterionDto[]> {
     if (pillar) {
-      return this.criteriaService.findByPillar(pillar);
+      return this.criteriaService.findByPillar(pillar as CriterionPillar);
     }
 
     if (requiredOnly) {
@@ -69,6 +78,43 @@ export class CriteriaPublicController {
     return this.criteriaService.findAll();
   }
 
+  @Get('for-user')
+  @ApiOperation({
+    summary: 'Listar critérios baseados no papel do usuário',
+    description: `
+      Lista critérios de avaliação baseados no papel do usuário logado.
+      
+      **Regras de negócio:**
+      - Gestores: recebem todos os critérios (incluindo MANAGEMENT)
+      - Outros usuários: recebem critérios exceto do pilar MANAGEMENT
+      
+      **Permissões:** Qualquer usuário autenticado pode acessar.
+      
+      **Uso:** Este endpoint é usado para montar formulários de avaliação 
+      onde apenas gestores podem avaliar critérios de gestão.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de critérios baseada no papel do usuário',
+    type: [CriterionDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de acesso inválido ou não fornecido',
+  })
+  async findForUser(@CurrentUser() user: User): Promise<CriterionDto[]> {
+    // Verificar se o usuário é gestor
+    const isManager = await this.projectsService.isManager(user.id);
+
+    // Buscar os dados completos do usuário para obter o businessUnit
+    const userWithBusinessUnit = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { businessUnit: true },
+    });
+
+    return this.criteriaService.findForUserRole(isManager, userWithBusinessUnit?.businessUnit);
+  }
   @Get('effective')
   @ApiOperation({
     summary: 'Listar critérios efetivos para uma unidade de negócio',

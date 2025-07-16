@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, Min, Max, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsString, IsNumber, Min, Max, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
+
+enum WorkAgainMotivation {
+  STRONGLY_DISAGREE = 'STRONGLY_DISAGREE',
+  PARTIALLY_DISAGREE = 'PARTIALLY_DISAGREE',
+  NEUTRAL = 'NEUTRAL',
+  PARTIALLY_AGREE = 'PARTIALLY_AGREE',
+  STRONGLY_AGREE = 'STRONGLY_AGREE',
+}
 
 /**
  * DTO para criação de avaliação 360 graus
@@ -42,4 +50,14 @@ export class Create360AssessmentDto {
   @IsString()
   @IsNotEmpty()
   improvements: string;
+
+  @ApiProperty({
+    description: 'Motivação para trabalhar novamente com o colega',
+    enum: WorkAgainMotivation,
+    example: WorkAgainMotivation.PARTIALLY_AGREE,
+    required: false,
+  })
+  @IsEnum(WorkAgainMotivation)
+  @IsOptional()
+  workAgainMotivation?: WorkAgainMotivation;
 }

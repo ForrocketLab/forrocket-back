@@ -18,22 +18,22 @@ export class CycleAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async checkCycleAutomations() {
     this.logger.debug('🔄 Verificando automações de ciclo...');
-    
-    try {
-      const now = new Date();
-      
-      // 1. Verificar ciclos para ativar
-      await this.checkCyclesToActivate(now);
-      
-      // 2. Verificar mudanças de fase
-      await this.checkPhaseTransitions(now);
-      
-      // 3. Verificar ciclos para fechar
-      await this.checkCyclesToClose(now);
-      
-    } catch (error) {
-      this.logger.error('❌ Erro na automação de ciclos:', error);
-    }
+
+    // try {
+    //   const now = new Date();
+
+    //   // 1. Verificar ciclos para ativar
+    //   await this.checkCyclesToActivate(now);
+
+    //   // 2. Verificar mudanças de fase
+    //   await this.checkPhaseTransitions(now);
+
+    //   // 3. Verificar ciclos para fechar
+    //   await this.checkCyclesToClose(now);
+
+    // } catch (error) {
+    //   this.logger.error('❌ Erro na automação de ciclos:', error);
+    // }
   }
 
   /**
@@ -60,9 +60,9 @@ export class CycleAutomationService {
         // Depois ativar o novo ciclo
         await this.prisma.evaluationCycle.update({
           where: { id: cycle.id },
-          data: { 
+          data: {
             status: 'OPEN',
-            phase: 'ASSESSMENTS' // Sempre inicia na fase de avaliações
+            phase: 'ASSESSMENTS', // Sempre inicia na fase de avaliações
           },
         });
 
@@ -83,7 +83,7 @@ export class CycleAutomationService {
 
     for (const cycle of activeCycles) {
       try {
-                 let newPhase: 'ASSESSMENTS' | 'MANAGER_REVIEWS' | 'EQUALIZATION' | null = null;
+        let newPhase: 'ASSESSMENTS' | 'MANAGER_REVIEWS' | 'EQUALIZATION' | null = null;
         let reason = '';
 
         // Verificar transição para MANAGER_REVIEWS
@@ -95,8 +95,8 @@ export class CycleAutomationService {
           newPhase = 'MANAGER_REVIEWS';
           reason = `deadline de avaliações (${cycle.assessmentDeadline.toLocaleString('pt-BR')}) expirou`;
         }
-        
-        // Verificar transição para EQUALIZATION  
+
+        // Verificar transição para EQUALIZATION
         else if (
           cycle.phase === 'MANAGER_REVIEWS' &&
           cycle.managerDeadline &&
@@ -112,7 +112,9 @@ export class CycleAutomationService {
             data: { phase: newPhase },
           });
 
-          this.logger.log(`✅ Ciclo "${cycle.name}" mudou automaticamente de fase "${cycle.phase}" para "${newPhase}" - ${reason}`);
+          this.logger.log(
+            `✅ Ciclo "${cycle.name}" mudou automaticamente de fase "${cycle.phase}" para "${newPhase}" - ${reason}`,
+          );
         }
       } catch (error) {
         this.logger.error(`❌ Erro ao verificar fases do ciclo "${cycle.name}":`, error);
@@ -140,7 +142,9 @@ export class CycleAutomationService {
           data: { status: 'CLOSED' },
         });
 
-        this.logger.log(`✅ Ciclo "${cycle.name}" foi automaticamente fechado - data fim (${cycle.endDate?.toLocaleString('pt-BR')}) passou`);
+        this.logger.log(
+          `✅ Ciclo "${cycle.name}" foi automaticamente fechado - data fim (${cycle.endDate?.toLocaleString('pt-BR')}) passou`,
+        );
       } catch (error) {
         this.logger.error(`❌ Erro ao fechar ciclo "${cycle.name}":`, error);
       }
@@ -154,4 +158,4 @@ export class CycleAutomationService {
     this.logger.log('🔧 Verificação manual de automações solicitada');
     await this.checkCycleAutomations();
   }
-} 
+}

@@ -4,6 +4,8 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { Criterion, CriterionPillar } from '@prisma/client';
+
 import { PrismaService } from '../database/prisma.service';
 import { CreateCriterionDto, UpdateCriterionDto, CriterionDto } from './dto/criteria.dto';
 import { BusinessUnit } from '../common/enums/business-unit.enum';
@@ -20,7 +22,7 @@ export class CriteriaService {
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -31,8 +33,8 @@ export class CriteriaService {
       where: {
         OR: [
           { businessUnit: businessUnit },
-          { businessUnit: null } // Critérios gerais
-        ]
+          { businessUnit: null }, // Critérios gerais
+        ],
       },
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
@@ -49,7 +51,7 @@ export class CriteriaService {
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -61,7 +63,39 @@ export class CriteriaService {
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
+  }
+
+  /**
+   * Lista critérios baseados no papel do usuário e sua unidade de negócio
+   * - Gestores: todos os critérios (incluindo MANAGEMENT) aplicáveis à sua businessUnit
+   * - Outros: critérios exceto MANAGEMENT aplicáveis à sua businessUnit
+   */
+  async findForUserRole(isManager: boolean, businessUnit?: string): Promise<CriterionDto[]> {
+    // Buscar critérios válidos: base (isBase: true) + específicos da businessUnit
+    const criteria = await this.prisma.criterion.findMany({
+      where: {
+        OR: [
+          // Critérios base (aplicam para todos)
+          { isBase: true },
+          // Critérios específicos da businessUnit do usuário (se fornecida)
+          ...(businessUnit ? [{ businessUnit: businessUnit }] : []),
+        ],
+      },
+      orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
+    });
+
+    // Filtrar critérios baseado no papel do usuário
+    const filteredCriteria = criteria.filter((criterion) => {
+      // Critérios de gestão apenas para gestores
+      if (criterion.pillar === CriterionPillar.MANAGEMENT) {
+        return isManager;
+      }
+      // Todos os outros critérios são aplicáveis
+      return true;
+    });
+
+    return filteredCriteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -73,8 +107,8 @@ export class CriteriaService {
         isRequired: true,
         OR: [
           { businessUnit: businessUnit },
-          { businessUnit: null } // Critérios gerais
-        ]
+          { businessUnit: null }, // Critérios gerais
+        ],
       },
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
@@ -91,8 +125,8 @@ export class CriteriaService {
         isRequired: false,
         OR: [
           { businessUnit: businessUnit },
-          { businessUnit: null } // Critérios gerais
-        ]
+          { businessUnit: null }, // Critérios gerais
+        ],
       },
       orderBy: [{ pillar: 'asc' }, { name: 'asc' }],
     });
@@ -261,15 +295,15 @@ export class CriteriaService {
   /**
    * Lista critérios por pilar
    */
-  async findByPillar(pillar: string): Promise<CriterionDto[]> {
+  async findByPillar(pillar: CriterionPillar): Promise<CriterionDto[]> {
     const criteria = await this.prisma.criterion.findMany({
       where: {
-        pillar: pillar as any,
+        pillar: pillar,
       },
       orderBy: { name: 'asc' },
     });
 
-    return criteria.map(this.mapToDto);
+    return criteria.map((criterion) => this.mapToDto(criterion));
   }
 
   /**
@@ -293,10 +327,12 @@ export class CriteriaService {
     const removed = await this.prisma.removedCriterion.findMany({
       where: { businessUnit },
     });
-    const removedIds = new Set(removed.map(r => r.criterionId));
+    const removedIds = new Set(removed.map((r) => r.criterionId));
     // Filtra base removidos e só pega os que realmente são base (businessUnit null, undefined ou string vazia)
     const filteredBase = baseCriteria.filter(
-      c => (!c.businessUnit || c.businessUnit === null || c.businessUnit === '') && !removedIds.has(c.id)
+      (c) =>
+        (!c.businessUnit || c.businessUnit === null || c.businessUnit === '') &&
+        !removedIds.has(c.id),
     );
     console.log('BASE CRITÉRIOS FILTRADOS:', filteredBase);
     console.log('ESPECÍFICOS:', specificCriteria);

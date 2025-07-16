@@ -1,9 +1,11 @@
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { CriterionPillar } from '@prisma/client';
+
 import { CriteriaService } from './criteria.service';
 import { PrismaService } from '../database/prisma.service';
-import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { CreateCriterionDto, UpdateCriterionDto } from './dto/criteria.dto';
-import { CriterionPillar } from '@prisma/client';
+
 
 describe('CriteriaService', () => {
   let service: CriteriaService;

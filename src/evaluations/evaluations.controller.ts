@@ -31,15 +31,24 @@ import {
   OverallCompletionDto,
   PillarProgressDto,
   Update360AssessmentDto,
+  BatchUpdate360AssessmentDto,
   UpdateMentoringAssessmentDto,
   CreateManagerAssessmentDto,
+  UpdateDesignatedMentorAssessmentDto,
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { MenteeInfoDto } from './dto/mentee-info.dto';
+import {
+  UpdateReferenceFeedbackBatchDto,
+  ReferenceFeedbackItemDto,
+} from './dto/reference-feedback-batch.dto';
 import { User } from '../auth/entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectEvaluationDto } from './dto/project-evaluation.dto';
 import { PerformanceDataDto } from './assessments/dto/performance-data.dto';
+import { MentorAssessmentDto } from './dto/mentor-assessment.dto';
+import { UpdateMentorAssessmentDto } from './dto/update-mentor-assessment.dto';
 import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluation-decryption.interceptor';
 import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
 
@@ -120,7 +129,8 @@ export class EvaluationsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Atualizar autoavaliação incrementalmente',
-    description: 'Permite atualizar campos específicos da autoavaliação de forma incremental. Se não existir autoavaliação, uma nova será criada.',
+    description:
+      'Permite atualizar campos específicos da autoavaliação de forma incremental. Se não existir autoavaliação, uma nova será criada.',
   })
   @ApiResponse({
     status: 200,
@@ -139,6 +149,121 @@ export class EvaluationsController {
     @Body() updateSelfAssessmentDto: UpdateSelfAssessmentDto,
   ) {
     return this.evaluationsService.updateSelfAssessment(user.id, updateSelfAssessmentDto);
+  }
+
+  @Get('self-assessment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar autoavaliação formatada para frontend',
+    description:
+      'Retorna a autoavaliação existente para o ciclo atual ativo formatada para o frontend',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Autoavaliação encontrada',
+    schema: {
+      type: 'object',
+      properties: {
+        'sentimento-de-dono': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: {
+              type: 'string',
+              example: 'Demonstro responsabilidade pelos resultados.',
+            },
+          },
+        },
+        'resiliencia-adversidades': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 3 },
+            justification: { type: 'string', example: 'Mantenho-me calmo em situações difíceis.' },
+          },
+        },
+        'organizacao-trabalho': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 5 },
+            justification: { type: 'string', example: 'Sou muito organizado com minhas tarefas.' },
+          },
+        },
+        'capacidade-aprender': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Sempre busco aprender coisas novas.' },
+          },
+        },
+        'team-player': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Trabalho bem em equipe.' },
+          },
+        },
+        'entregar-qualidade': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 5 },
+            justification: { type: 'string', example: 'Sempre entrego trabalho com qualidade.' },
+          },
+        },
+        'atender-prazos': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Consigo cumprir prazos estabelecidos.' },
+          },
+        },
+        'fazer-mais-menos': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 3 },
+            justification: { type: 'string', example: 'Busco otimizar processos quando possível.' },
+          },
+        },
+        'pensar-fora-caixa': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Gosto de buscar soluções criativas.' },
+          },
+        },
+        'evolucao-rocket-corp': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Contribuo para a evolução da empresa.' },
+          },
+        },
+        'gestao-gente': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Só aparece para gestores.' },
+          },
+        },
+        'gestao-resultados': {
+          type: 'object',
+          properties: {
+            score: { type: 'number', example: 4 },
+            justification: { type: 'string', example: 'Só aparece para gestores.' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Autoavaliação não encontrada',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getSelfAssessmentForFrontend(@CurrentUser() user: User) {
+    return this.evaluationsService.getSelfAssessmentForFrontend(user.id);
   }
 
   @Post('360-assessment')
@@ -230,6 +355,97 @@ export class EvaluationsController {
     return this.evaluationsService.update360Assessment(user.id, update360AssessmentDto);
   }
 
+  @Patch('360-assessment/batch')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar/criar avaliações 360 em lote',
+    description: 'Atualiza ou cria avaliações 360 para todos os colaboradores enviados no array',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliações 360 atualizadas/criadas com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'assessment-id-1' },
+          evaluatedUser: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: 'cmd4ug9gq0005azu80y05vlo2' },
+              name: { type: 'string', example: 'João Silva' },
+              email: { type: 'string', example: 'joao.silva@email.com' },
+              jobTitle: { type: 'string', example: 'Desenvolvedor Frontend' },
+              seniority: { type: 'string', example: 'Pleno' },
+            },
+          },
+          overallScore: { type: 'number', example: 4 },
+          strengths: { type: 'string', example: 'Excelente comunicação e trabalho em equipe' },
+          improvements: { type: 'string', example: 'Poderia ser mais proativo em reuniões' },
+          motivationToWorkAgain: { type: 'string', example: 'PARTIALLY_AGREE', nullable: true },
+          status: { type: 'string', example: 'DRAFT' },
+          cycle: { type: 'string', example: '2025.1' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async update360AssessmentsBatch(
+    @CurrentUser() user: User,
+    @Body() dto: BatchUpdate360AssessmentDto,
+  ) {
+    return this.evaluationsService.update360AssessmentsBatch(user.id, dto.assessments);
+  }
+
+  @Get('project-collaborators-360')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Listar colaboradores do projeto avaliáveis em 360',
+    description:
+      'Retorna todos os colaboradores do projeto que podem ser avaliados em 360, incluindo suas avaliações existentes',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de colaboradores avaliáveis em 360',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'user-123' },
+          name: { type: 'string', example: 'João Silva' },
+          role: { type: 'string', example: 'Desenvolvedor Senior' },
+          initials: { type: 'string', example: 'JS' },
+          rating: { type: 'number', example: 4, nullable: true },
+          strengths: {
+            type: 'string',
+            example: 'Excelente comunicação e trabalho em equipe',
+            nullable: true,
+          },
+          improvements: {
+            type: 'string',
+            example: 'Pode melhorar habilidades de liderança',
+            nullable: true,
+          },
+          workAgainMotivation: { type: 'string', example: 'NEUTRAL', nullable: true },
+        },
+      },
+    },
+  })
+  async getProjectCollaborators360(@CurrentUser() user: User) {
+    return this.evaluationsService.getAvailable360Collaborators(user.id);
+  }
+
   @Post('mentoring-assessment')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -264,29 +480,35 @@ export class EvaluationsController {
     return this.evaluationsService.createMentoringAssessment(user.id, createMentoringAssessmentDto);
   }
 
-  @Patch('mentoring-assessment')
+  @Patch('mentor-assessment')
   @HttpCode(HttpStatus.OK)
+  @UseInterceptors()
   @ApiOperation({
-    summary: 'Atualizar avaliação de mentoring',
-    description: 'Permite atualizar campos específicos da avaliação de mentoring de forma incremental',
+    summary: 'Atualizar avaliação do mentor designado',
+    description:
+      'Atualiza uma avaliação de mentoring existente ou cria uma nova para o mentor designado',
   })
   @ApiResponse({
     status: 200,
-    description: 'Avaliação de mentoring atualizada com sucesso',
+    description: 'Avaliação de mentoring atualizada/criada com sucesso',
   })
   @ApiResponse({
     status: 400,
     description: 'Dados inválidos',
   })
   @ApiResponse({
+    status: 404,
+    description: 'Usuário não possui mentor designado',
+  })
+  @ApiResponse({
     status: 401,
     description: 'Token inválido ou ausente',
   })
-  async updateMentoringAssessment(
+  async updateDesignatedMentorAssessment(
     @CurrentUser() user: User,
-    @Body() updateMentoringAssessmentDto: UpdateMentoringAssessmentDto,
+    @Body() dto: UpdateDesignatedMentorAssessmentDto,
   ) {
-    return this.evaluationsService.updateMentoringAssessment(user.id, updateMentoringAssessmentDto);
+    return this.evaluationsService.updateDesignatedMentorAssessment(user.id, dto);
   }
 
   @Post('reference-feedback')
@@ -316,6 +538,85 @@ export class EvaluationsController {
     @Body() createReferenceFeedbackDto: CreateReferenceFeedbackDto,
   ) {
     return this.evaluationsService.createReferenceFeedback(user.id, createReferenceFeedbackDto);
+  }
+
+  @Get('reference-feedbacks')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar feedbacks de referência',
+    description: 'Retorna todos os feedbacks de referência dados pelo usuário no ciclo ativo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Feedbacks de referência encontrados',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'cmd4gwd3d0003azf6je8fum0a' },
+          referenceName: { type: 'string', example: 'Bruno André Mendes Carvalho' },
+          referenceRole: { type: 'string', example: 'Tech Lead' },
+          referenceInitials: { type: 'string', example: 'BA' },
+          justification: {
+            type: 'string',
+            example:
+              'Bruno demonstra excelente liderança técnica, sempre orientando a equipe com clareza e paciência',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getReferenceFeedbacks(@CurrentUser() user: User) {
+    return this.evaluationsService.getReferenceFeedbacks(user.id);
+  }
+
+  @Patch('reference-feedbacks/batch')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors() // Remover interceptors globais para este endpoint
+  @ApiOperation({
+    summary: 'Atualizar feedbacks de referência em lote',
+    description:
+      'Remove todas as referências existentes e recria conforme o array enviado. Operação atômica.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Feedbacks de referência atualizados com sucesso',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'cmd4gwd3d0003azf6je8fum0a' },
+          referenceName: { type: 'string', example: 'Bruno André Mendes Carvalho' },
+          referenceRole: { type: 'string', example: 'Tech Lead' },
+          referenceInitials: { type: 'string', example: 'BA' },
+          justification: { type: 'string', example: 'Bruno é um bundão do caralho esse merda' },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou tentativa de referenciar a si mesmo',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuários referenciados não encontrados',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async updateReferenceFeedbacksBatch(
+    @CurrentUser() user: User,
+    @Body() dto: UpdateReferenceFeedbackBatchDto,
+  ) {
+    return this.evaluationsService.updateReferenceFeedbacksBatch(user.id, dto.references);
   }
 
   // ==========================================
@@ -420,29 +721,77 @@ export class EvaluationsController {
     return this.evaluationsService.getUserEvaluationsByCycle(user.id, cycleId);
   }
 
-  @Get('mentoring-assessment')
+  @Get('mentor-assessment')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Buscar avaliação de mentoring',
-    description: 'Retorna a avaliação de mentoring existente para o mentor especificado no ciclo ativo',
+    summary: 'Buscar dados do mentor designado e avaliação',
+    description: 'Retorna os dados do mentor designado e sua avaliação de mentoring existente',
   })
   @ApiResponse({
     status: 200,
-    description: 'Avaliação encontrada com sucesso',
+    description: 'Dados do mentor designado encontrados',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', example: 'mentor-3' },
+        mentorName: { type: 'string', example: 'Roberto Almeida' },
+        mentorRole: { type: 'string', example: 'Engineering Manager' },
+        mentorInitials: { type: 'string', example: 'RA' },
+        rating: { type: 'number', example: 4, nullable: true },
+        justification: {
+          type: 'string',
+          example: 'Excelente mentor, sempre disponível para ajudar',
+          nullable: true,
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
-    description: 'Avaliação não encontrada',
+    description: 'Usuário não possui mentor designado',
   })
   @ApiResponse({
     status: 401,
     description: 'Token inválido ou ausente',
   })
-  async getMentoringAssessment(
+  async getDesignatedMentorAssessment(@CurrentUser() user: User) {
+    return this.evaluationsService.getDesignatedMentorAssessment(user.id);
+  }
+
+  @Get('mentee/:menteeId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar informações do mentorado',
+    description:
+      'Retorna informações do mentorado para o mentor autenticado, incluindo nome, cargo e autoavaliação do ciclo atual',
+  })
+  @ApiParam({
+    name: 'menteeId',
+    description: 'ID do mentorado',
+    example: 'cmbyavwvd0000tzsgo55812qo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Informações do mentorado encontradas',
+    type: MenteeInfoDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não é mentor do mentorado especificado',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Mentorado não encontrado',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getMenteeInfo(
     @CurrentUser() user: User,
-    @Query('mentorId') mentorId: string,
-  ) {
-    return this.evaluationsService.getMentoringAssessment(user.id, mentorId);
+    @Param('menteeId') menteeId: string,
+  ): Promise<MenteeInfoDto> {
+    return this.evaluationsService.getMenteeInfo(user.id, menteeId);
   }
 
   @Get('received/cycle/:cycleId')
@@ -651,7 +1000,37 @@ export class EvaluationsController {
   async getPerformanceHistory(@CurrentUser() user: User) {
     return this.evaluationsService.getPerformanceHistory(user.id);
   }
- @Get('projects/:projectId/details')
+
+  @Get('available-collaborators')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar colaboradores disponíveis para referência',
+    description:
+      'Retorna todos os colaboradores disponíveis para seleção como referência (exceto o próprio usuário logado)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de colaboradores disponíveis',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'user-123' },
+          name: { type: 'string', example: 'Bruno André Mendes Carvalho' },
+          email: { type: 'string', example: 'bruno.mendes@email.com' },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getAvailableCollaborators(@CurrentUser() user: User) {
+    return this.evaluationsService.getAvailableCollaborators(user.id);
+  }
+  @Get('projects/:projectId/details')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Buscar avaliações detalhadas de um projeto por ciclo',
@@ -670,10 +1049,9 @@ export class EvaluationsController {
   })
   @ApiResponse({ status: 404, description: 'Projeto não encontrado.' })
   @ApiResponse({ status: 401, description: 'Token inválido ou ausente.' })
-// Mude a assinatura da função para refletir o novo retorno
-  async getProjectEvaluations(
-  @Param('projectId') projectId: string,
-  ): Promise<any> { // Antes era Promise<ProjectEvaluationDto[]>
-  return this.evaluationsService.getProjectEvaluations(projectId);
-}
+  // Mude a assinatura da função para refletir o novo retorno
+  async getProjectEvaluations(@Param('projectId') projectId: string): Promise<any> {
+    // Antes era Promise<ProjectEvaluationDto[]>
+    return this.evaluationsService.getProjectEvaluations(projectId);
+  }
 }

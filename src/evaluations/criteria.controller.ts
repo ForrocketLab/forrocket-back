@@ -21,11 +21,13 @@ import {
   ApiQuery,
   ApiBody,
 } from '@nestjs/swagger';
+import { User, CriterionPillar } from '@prisma/client';
+
 import { CriteriaService } from './criteria.service';
 import { CreateCriterionDto, UpdateCriterionDto, CriterionDto } from './dto/criteria.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { HRRoleGuard } from '../auth/guards/hr-role.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { HRRoleGuard } from '../auth/guards/hr-role.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessUnit } from '../common/enums/business-unit.enum';
 
 /**
@@ -107,7 +109,7 @@ export class CriteriaController {
     @Query('businessUnit') businessUnit?: string,
   ): Promise<CriterionDto[]> {
     if (pillar) {
-      return this.criteriaService.findByPillar(pillar);
+      return this.criteriaService.findByPillar(pillar as CriterionPillar);
     }
 
     if (businessUnit) {
