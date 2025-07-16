@@ -11,12 +11,14 @@ import {
 } from './dto';
 import { EncryptionService } from '../common/services/encryption.service';
 import { PrismaService } from '../database/prisma.service';
+import { CyclesService } from '../evaluations/cycles/cycles.service';
 
 @Injectable()
 export class MentorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryptionService: EncryptionService,
+    private readonly cyclesService: CyclesService,
   ) {}
 
   /**
@@ -358,7 +360,8 @@ export class MentorService {
     );
 
     // 3. Contar total de avaliações completadas no ciclo atual
-    const [selfAssessmentCount, assessments360Count] = await Promise.all([
+    const [selfAssessmentCount, assessments360Count, mentoringAssessmentCount] = await Promise.all([
+      // Autoavaliação FEITA pela pessoa
       this.prisma.selfAssessment.count({
         where: {
           authorId: collaboratorId,
@@ -366,16 +369,26 @@ export class MentorService {
           status: AssessmentStatus.SUBMITTED,
         },
       }),
-      this.prisma.managerAssessment.count({
+      // Avaliações 360 RECEBIDAS pela pessoa (feitas por gestores)
+      this.prisma.assessment360.count({
         where: {
-          evaluatedUserId: collaboratorId,
+          authorId: collaboratorId,
+          cycle,
+          status: AssessmentStatus.SUBMITTED,
+        },
+      }),
+      // Avaliações de mentoring FEITAS pela pessoa (se ela é mentora)
+      this.prisma.mentoringAssessment.count({
+        where: {
+          authorId: collaboratorId,
           cycle,
           status: AssessmentStatus.SUBMITTED,
         },
       }),
     ]);
 
-    const totalAssessmentsCompleted = selfAssessmentCount + assessments360Count;
+    const totalAssessmentsCompleted =
+      selfAssessmentCount + assessments360Count + mentoringAssessmentCount;
 
     return {
       committeeOverallScore,
@@ -384,8 +397,7 @@ export class MentorService {
       assessmentBreakdown: {
         selfAssessment: selfAssessmentCount,
         assessments360: assessments360Count,
-        mentoringAssessments: 0, // Não implementado ainda
-        referenceFeedbacks: 0, // Não implementado ainda
+        mentoringAssessments: mentoringAssessmentCount,
       },
     };
   }
@@ -398,19 +410,36 @@ export class MentorService {
   async getCollaboratorCyclePerformances(
     collaboratorId: string,
   ): Promise<CollaboratorCycleMeanDto[]> {
-    // Buscar todos os ciclos onde o colaborador teve avaliações
-    const cycles = await this.prisma.selfAssessment.findMany({
-      where: {
-        authorId: collaboratorId,
-        status: AssessmentStatus.SUBMITTED,
-      },
-      select: { cycle: true },
-      distinct: ['cycle'],
-    });
+    // Buscar todos os ciclos onde o colaborador teve avaliações (autoavaliação ou recebidas)
+    const [selfAssessmentCycles, managerAssessmentCycles] = await Promise.all([
+      this.prisma.selfAssessment.findMany({
+        where: {
+          authorId: collaboratorId,
+          status: AssessmentStatus.SUBMITTED,
+        },
+        select: { cycle: true },
+        distinct: ['cycle'],
+      }),
+      this.prisma.managerAssessment.findMany({
+        where: {
+          evaluatedUserId: collaboratorId,
+          status: AssessmentStatus.SUBMITTED,
+        },
+        select: { cycle: true },
+        distinct: ['cycle'],
+      }),
+    ]);
+
+    // Combinar e deduplicas ciclos
+    const allCycles = [
+      ...selfAssessmentCycles.map((item) => item.cycle),
+      ...managerAssessmentCycles.map((item) => item.cycle),
+    ];
+    const uniqueCycles = [...new Set(allCycles)];
 
     const cyclePerformances = await Promise.all(
-      cycles.map(async ({ cycle }) => {
-        // Média da autoavaliação
+      uniqueCycles.map(async (cycle) => {
+        // Média da autoavaliação FEITA pela pessoa
         const selfAssessment = await this.prisma.selfAssessment.findFirst({
           where: {
             authorId: collaboratorId,
@@ -424,8 +453,8 @@ export class MentorService {
 
         const selfAssessmentMean = this.calculateSelfAssessmentAverage(selfAssessment);
 
-        // Buscar avaliações 360 (de mentores/gestores)
-        const assessments360 = await this.prisma.managerAssessment.findMany({
+        // Buscar avaliações de gestor RECEBIDAS pela pessoa
+        const managerAssessments = await this.prisma.managerAssessment.findMany({
           where: {
             evaluatedUserId: collaboratorId,
             cycle,
@@ -436,8 +465,17 @@ export class MentorService {
           },
         });
 
+        // Buscar avaliações de gestor RECEBIDAS pela pessoa
+        const asessments360 = await this.prisma.assessment360.findMany({
+          where: {
+            evaluatedUserId: collaboratorId,
+            cycle,
+            status: AssessmentStatus.SUBMITTED,
+          },
+        });
+
         // Buscar critérios para categorizar por pilares
-        const allCriterionIds = assessments360.flatMap((assessment) =>
+        const allCriterionIds = managerAssessments.flatMap((assessment) =>
           assessment.answers.map((answer) => answer.criterionId),
         );
 
@@ -462,7 +500,7 @@ export class MentorService {
         const behaviorScores: number[] = [];
         const allScores: number[] = [];
 
-        assessments360.forEach((assessment) => {
+        managerAssessments.forEach((assessment) => {
           assessment.answers.forEach((answer) => {
             allScores.push(answer.score);
 
@@ -476,7 +514,7 @@ export class MentorService {
         });
 
         // Calcular médias
-        const mentorExecutionMean =
+        const managerExecutionMean =
           executionScores.length > 0
             ? parseFloat(
                 (
@@ -485,7 +523,7 @@ export class MentorService {
               )
             : null;
 
-        const mentorBehaviorMean =
+        const managerBehaviorMean =
           behaviorScores.length > 0
             ? parseFloat(
                 (
@@ -494,19 +532,35 @@ export class MentorService {
               )
             : null;
 
+        // Calcular média das avaliações 360 recebidas pela pessoa
         const assessment360Mean =
-          allScores.length > 0
+          asessments360.length > 0
             ? parseFloat(
-                (allScores.reduce((sum, score) => sum + score, 0) / allScores.length).toFixed(2),
+                (
+                  asessments360.reduce((sum, assessment) => sum + assessment.overallScore, 0) /
+                  asessments360.length
+                ).toFixed(2),
               )
             : null;
+
+        // Buscar nota final do comitê para este ciclo
+        const committeeAssessment = await this.prisma.committeeAssessment.findFirst({
+          where: {
+            evaluatedUserId: collaboratorId,
+            cycle,
+            status: AssessmentStatus.SUBMITTED,
+          },
+        });
+
+        const overallScore = committeeAssessment?.finalScore || null;
 
         return {
           cycle,
           selfAssessmentMean,
-          mentorExecutionMean,
-          mentorBehaviorMean,
+          managerExecutionMean,
+          managerBehaviorMean,
           assessments360Mean: assessment360Mean,
+          overallScore,
         };
       }),
     );
@@ -520,6 +574,12 @@ export class MentorService {
    * @param currentScore Score atual
    * @param previousScore Score anterior
    * @returns Crescimento em pontos percentuais ou null se não há dados suficientes
+   *
+   * **Cálculo do crescimento:**
+   * - Fórmula: ((scoreAtual - scoreAnterior) / scoreAnterior) * 100
+   * - Exemplo: Score atual = 4.5, Score anterior = 4.0
+   * - Crescimento = ((4.5 - 4.0) / 4.0) * 100 = 12.5%
+   * - Valores negativos indicam declínio na performance
    */
   private calculatePerformanceGrowth(
     currentScore: number | null,
@@ -605,25 +665,22 @@ export class MentorService {
    * Método integrado para obter performance completa do colaborador
    * @param collaboratorId ID do colaborador
    * @param cycle Ciclo de avaliação
-   * @returns Performance completa incluindo 360s, métricas e médias por ciclo
+   * @returns Performance completa incluindo métricas e médias por ciclo
    */
   async getCollaboratorCompletePerformance(
     collaboratorId: string,
     cycle: string,
   ): Promise<{
-    assessments360: Collaborator360AssessmentDto[];
     performance: CollaboratorPerformanceDto;
     cycleMeans: CollaboratorCycleMeanDto[];
   }> {
     // Buscar em paralelo para melhor performance
-    const [assessments360, performance, cycleMeans] = await Promise.all([
-      this.getCollaborator360Assessments(collaboratorId, cycle),
+    const [performance, cycleMeans] = await Promise.all([
       this.getCollaboratorPerformanceMetrics(collaboratorId, cycle),
       this.getCollaboratorCyclePerformances(collaboratorId),
     ]);
 
     return {
-      assessments360,
       performance,
       cycleMeans,
     };
