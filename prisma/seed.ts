@@ -527,16 +527,19 @@ async function main() {
   // Definir Lucas como líder do projeto Beta (RH System)
   await prisma.$executeRaw`UPDATE projects SET leaderId = ${lucas.id} WHERE id = 'projeto-beta'`;
   
+  // Definir Lucas como líder do projeto Gamma (BI e Analytics)
+  await prisma.$executeRaw`UPDATE projects SET leaderId = ${lucas.id} WHERE id = 'projeto-gamma'`;
+  
   // Definir Rafael como líder do projeto Delta (Cloud Migration)
   await prisma.$executeRaw`UPDATE projects SET leaderId = ${rafael.id} WHERE id = 'projeto-delta'`;
   
   // Definir gestores dos projetos
   await prisma.$executeRaw`UPDATE projects SET managerId = ${bruno.id} WHERE id = 'projeto-alpha'`; // Bruno gerencia Alpha
   await prisma.$executeRaw`UPDATE projects SET managerId = ${bruno.id} WHERE id = 'projeto-api-core'`; // Bruno gerencia API Core
-  await prisma.$executeRaw`UPDATE projects SET managerId = ${diana.id} WHERE id = 'projeto-beta'`; // Diana (RH) gerencia Beta
-  // Projeto Gamma não tem gestor específico (apenas colaboradores)
+  await prisma.$executeRaw`UPDATE projects SET managerId = ${bruno.id} WHERE id = 'projeto-mobile-app'`; // Bruno gerencia Mobile App
+  // Projeto Beta: Lucas é líder, sem gestor específico
+  // Projeto Gamma: Lucas é líder, sem gestor específico
   await prisma.$executeRaw`UPDATE projects SET managerId = ${rafael.id} WHERE id = 'projeto-delta'`; // Rafael gerencia Delta
-  await prisma.$executeRaw`UPDATE projects SET managerId = ${ana.id} WHERE id = 'projeto-mobile-app'`; // Ana gerencia Mobile App
   
   // ✅ CORRIGIDO: Marina tem Rafael como gestor (projeto Delta) e líder (projeto Delta)
   // Marina não tem líder no projeto Gamma (apenas colaboradora)
@@ -571,13 +574,13 @@ async function main() {
   console.log(`✅ Relacionamentos de liderança e gestão configurados:`);
   console.log(`   🎯 LÍDERES DE PROJETO:`);
   console.log(`      • Lucas é líder do Projeto Beta`);
+  console.log(`      • Lucas é líder do Projeto Gamma`);
   console.log(`      • Rafael é líder do Projeto Delta`);
   console.log(`   👔 GESTORES DE PROJETO:`);
-  console.log(`      • Bruno gerencia: Projeto Alpha e API Core`);
-  console.log(`      • Diana gerencia: Projeto Beta`);
-  console.log(`      • Lucas gerencia: Projeto Gamma`);
+  console.log(`      • Bruno gerencia: Projeto Alpha, API Core e Mobile App`);
   console.log(`      • Rafael gerencia: Projeto Delta`);
-  console.log(`      • Ana gerencia: Projeto Mobile App`);
+  console.log(`      • Projeto Beta: Sem gestor específico (Lucas é líder)`);
+  console.log(`      • Projeto Gamma: Sem gestor específico (Lucas é líder)`);
   console.log(`   👥 LIDERANÇA DE PESSOAS:`);
   console.log(`      • Lucas lidera: Marina`);
   console.log(`      • Rafael gerencia: Marina`);
@@ -643,13 +646,15 @@ async function main() {
   console.log('📋 Configurando atribuições de projeto...');
 
   const projectAssignments = [
-    // Bruno: Projeto Alpha (liderar) e API Core
+    // Bruno: Projeto Alpha (liderar), API Core e Mobile App
     { userId: bruno.id, projectId: 'projeto-alpha' },
     { userId: bruno.id, projectId: 'projeto-api-core' },
+    { userId: bruno.id, projectId: 'projeto-mobile-app' },
 
-    // Ana: Projeto Alpha e Mobile App
+    // Ana: Projeto Alpha, Mobile App e Gamma
     { userId: ana.id, projectId: 'projeto-alpha' },
     { userId: ana.id, projectId: 'projeto-mobile-app' },
+    { userId: ana.id, projectId: 'projeto-gamma' },
 
     // Felipe: API Core e Mobile App
     { userId: felipe.id, projectId: 'projeto-api-core' },
@@ -695,14 +700,16 @@ async function main() {
     { userId: felipe.id, projectId: 'projeto-api-core', role: 'COLLABORATOR' as const }, // Felipe colaborador no API Core
 
     // PROJETO MOBILE APP
+    { userId: bruno.id, projectId: 'projeto-mobile-app', role: 'MANAGER' as const }, // Bruno é gestor no Mobile App
     { userId: ana.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Ana colaboradora no Mobile
     { userId: felipe.id, projectId: 'projeto-mobile-app', role: 'COLLABORATOR' as const }, // Felipe colaborador no Mobile
 
     // PROJETO BETA - Sistema RH
     { userId: lucas.id, projectId: 'projeto-beta', role: 'LEADER' as any }, // Lucas é líder no Beta
-    { userId: lucas.id, projectId: 'projeto-gamma', role: 'COLLABORATOR' as const }, // Lucas colaborador no Gamma
+    { userId: lucas.id, projectId: 'projeto-gamma', role: 'LEADER' as any }, // Lucas é líder no Gamma
 
     // PROJETO GAMMA - BI e Analytics
+    { userId: ana.id, projectId: 'projeto-gamma', role: 'COLLABORATOR' as const }, // Ana colaboradora no Gamma
     { userId: marina.id, projectId: 'projeto-gamma', role: 'COLLABORATOR' as const }, // Marina colaboradora no Gamma
 
     // PROJETO DELTA - Cloud Migration

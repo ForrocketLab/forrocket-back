@@ -340,6 +340,20 @@ export class ProjectWithManagementDto extends ProjectDto {
     example: false,
   })
   isLeaderInProject: boolean;
+
+  @ApiProperty({
+    description: 'Informações do líder do projeto (se houver)',
+    type: MentorInfoDto,
+    nullable: true,
+  })
+  projectLeader: MentorInfoDto | null;
+
+  @ApiProperty({
+    description: 'Informações do gestor do projeto (se houver)',
+    type: MentorInfoDto,
+    nullable: true,
+  })
+  projectManager: MentorInfoDto | null;
 }
 
 /**

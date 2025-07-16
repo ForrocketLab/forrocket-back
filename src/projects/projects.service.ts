@@ -614,6 +614,24 @@ export class ProjectsService {
             isActive: true,
             createdAt: true,
             updatedAt: true,
+            leaderId: true,
+            managerId: true,
+            leader: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                jobTitle: true,
+              },
+            },
+            manager: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                jobTitle: true,
+              },
+            },
           },
         },
       },
@@ -713,6 +731,19 @@ export class ProjectsService {
             ledSubordinates,
             isManagerInProject,
             isLeaderInProject,
+            // Informações do líder e gestor do projeto
+            projectLeader: project.leader ? {
+              id: project.leader.id,
+              name: project.leader.name,
+              email: project.leader.email,
+              jobTitle: project.leader.jobTitle,
+            } : null,
+            projectManager: project.manager ? {
+              id: project.manager.id,
+              name: project.manager.name,
+              email: project.manager.email,
+              jobTitle: project.manager.jobTitle,
+            } : null,
           };
         })
     );
