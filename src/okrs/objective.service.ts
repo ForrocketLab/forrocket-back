@@ -3,14 +3,15 @@ import { PrismaService } from '../database/prisma.service';
 import { ObjectiveStatus } from '@prisma/client';
 import { CreateObjectiveDto, UpdateObjectiveDto, ObjectiveResponseDto, KeyResultResponseDto } from './dto';
 import { KeyResultService } from './key-result.service';
-import { OkrService } from './okr.service'; 
+import { OkrService } from './okr.service';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 @Injectable()
 export class ObjectiveService {
   constructor(
     private prisma: PrismaService,
     private keyResultService: KeyResultService,
-    @Inject(forwardRef(() => OkrService)) 
+    @Inject(forwardRef(() => OkrService))
     private okrService: OkrService,
   ) {}
 
@@ -34,7 +35,7 @@ export class ObjectiveService {
       }
     }
 
-    await this.updateObjectiveProgress(objective.id); 
+    await this.updateObjectiveProgress(objective.id);
     return this.getObjectiveById(objective.id);
   }
 
@@ -66,29 +67,29 @@ export class ObjectiveService {
   async deleteObjective(objectiveId: string): Promise<void> {
     const existingObjective = await this.prisma.objective.findUnique({ where: { id: objectiveId } });
     if (!existingObjective) throw new NotFoundException('Objetivo não encontrado');
-    const okrId = existingObjective.okrId; 
+    const okrId = existingObjective.okrId;
 
     await this.prisma.objective.delete({ where: { id: objectiveId } });
 
-    await this.updateObjectiveProgress(okrId); 
+    await this.updateObjectiveProgress(okrId);
   }
 
   /**
    * Atualiza automaticamente o progresso de um objetivo baseado nos key results
    */
-  public async updateObjectiveProgress(objectiveId: string): Promise<void> { 
+  public async updateObjectiveProgress(objectiveId: string): Promise<void> {
     const objective = await this.prisma.objective.findUnique({
       where: { id: objectiveId },
       include: { keyResults: true },
     });
 
     if (!objective || !objective.keyResults.length) {
-      if (objective) { 
+      if (objective) {
         await this.prisma.objective.update({
           where: { id: objectiveId },
           data: { progress: 0, status: ObjectiveStatus.NOT_STARTED },
         });
-        await this.okrService.updateOKRProgress(objective.okrId); 
+        await this.okrService.updateOKRProgress(objective.okrId);
       }
       return;
     }
@@ -98,7 +99,7 @@ export class ObjectiveService {
       totalProgress += this.keyResultService.calculateKeyResultProgress(kr);
     });
     const averageProgress = Math.round(totalProgress / objective.keyResults.length);
-    
+
     let status: ObjectiveStatus = ObjectiveStatus.NOT_STARTED;
     if (averageProgress >= 100) status = ObjectiveStatus.COMPLETED;
     else if (averageProgress > 0) status = ObjectiveStatus.IN_PROGRESS;
@@ -112,7 +113,7 @@ export class ObjectiveService {
    * Mapeia dados do Prisma para ObjectiveResponseDto
    */
   public mapToObjectiveResponse(objective: any): ObjectiveResponseDto {
-    return {
+    const response = {
       id: objective.id,
       okrId: objective.okrId,
       title: objective.title,
@@ -123,5 +124,8 @@ export class ObjectiveService {
       updatedAt: objective.updatedAt,
       keyResults: objective.keyResults?.map(kr => this.keyResultService.mapToKeyResultResponse(kr)),
     };
+
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeObject(response, ['createdAt', 'updatedAt']);
   }
 }

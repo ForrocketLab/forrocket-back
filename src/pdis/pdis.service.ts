@@ -3,13 +3,14 @@ import { PrismaService } from '../database/prisma.service';
 import { CreatePDIDto } from './dto/create-pdi.dto';
 import { UpdatePDIDto } from './dto/update-pdi.dto';
 import { UpdatePDIActionDto } from './dto/update-pdi-action.dto';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 @Injectable()
 export class PDIsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(collaboratorId: string, createPdiDto: CreatePDIDto) {
-    return this.prisma.pDI.create({
+    const pdi = await this.prisma.pDI.create({
       data: {
         collaboratorId,
         title: createPdiDto.title,
@@ -29,6 +30,12 @@ export class PDIsService {
         actions: true,
       },
     });
+
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeObject(pdi, [
+      'startDate', 'endDate', 'createdAt', 'updatedAt', 'completedAt',
+      'actions.deadline', 'actions.createdAt', 'actions.updatedAt', 'actions.completedAt'
+    ]);
   }
 
   async findAll(collaboratorId: string) {
@@ -43,7 +50,7 @@ export class PDIsService {
     });
 
     // Aplicar lógica de status dinâmico para cada PDI (exceto arquivados)
-    return pdis.map(pdi => {
+    const processedPdis = pdis.map(pdi => {
       // Só aplica status dinâmico se não estiver arquivado
       if (pdi.status === 'ARCHIVED') {
         return pdi;
@@ -55,6 +62,12 @@ export class PDIsService {
         status: dynamicStatus
       };
     });
+
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeArray(processedPdis, [
+      'startDate', 'endDate', 'createdAt', 'updatedAt', 'completedAt',
+      'actions.deadline', 'actions.createdAt', 'actions.updatedAt', 'actions.completedAt'
+    ]);
   }
 
   async findOne(id: string, collaboratorId: string) {
@@ -73,15 +86,22 @@ export class PDIsService {
     }
 
     // Aplicar lógica de status dinâmico (exceto se arquivado)
+    let processedPdi = pdi;
     if (pdi.status === 'ARCHIVED') {
-      return pdi;
+      processedPdi = pdi;
+    } else {
+      const dynamicStatus = this.calculateDynamicStatus(pdi);
+      processedPdi = {
+        ...pdi,
+        status: dynamicStatus as any
+      };
     }
     
-    const dynamicStatus = this.calculateDynamicStatus(pdi);
-    return {
-      ...pdi,
-      status: dynamicStatus
-    };
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeObject(processedPdi, [
+      'startDate', 'endDate', 'createdAt', 'updatedAt', 'completedAt',
+      'actions.deadline', 'actions.createdAt', 'actions.updatedAt', 'actions.completedAt'
+    ]);
   }
 
   async update(id: string, collaboratorId: string, updatePdiDto: UpdatePDIDto) {
@@ -215,13 +235,23 @@ export class PDIsService {
         });
 
         // Retornar o PDI atualizado com as ações atualizadas
-        return prisma.pDI.findUnique({
+        const updatedPDIWithActions = await prisma.pDI.findUnique({
           where: { id },
           include: { actions: true },
         });
+
+        // Serializar datas antes de retornar
+        return DateSerializer.serializeObject(updatedPDIWithActions, [
+          'startDate', 'endDate', 'createdAt', 'updatedAt', 'completedAt',
+          'actions.deadline', 'actions.createdAt', 'actions.updatedAt', 'actions.completedAt'
+        ]);
       }
 
-      return updatedPDI;
+      // Serializar datas antes de retornar
+      return DateSerializer.serializeObject(updatedPDI, [
+        'startDate', 'endDate', 'createdAt', 'updatedAt', 'completedAt',
+        'actions.deadline', 'actions.createdAt', 'actions.updatedAt', 'actions.completedAt'
+      ]);
     });
   }
 
@@ -309,6 +339,13 @@ export class PDIsService {
           }
         }
       }
+    }).then(result => {
+      // Serializar datas antes de retornar
+      return DateSerializer.serializeObject(result, [
+        'deadline', 'createdAt', 'updatedAt', 'completedAt',
+        'pdi.startDate', 'pdi.endDate', 'pdi.createdAt', 'pdi.updatedAt', 'pdi.completedAt',
+        'pdi.actions.deadline', 'pdi.actions.createdAt', 'pdi.actions.updatedAt', 'pdi.actions.completedAt'
+      ]);
     });
   }
 

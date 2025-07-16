@@ -7,7 +7,8 @@ import {
   OKRSummaryDto,
 } from './dto';
 import { OKRStatus, ObjectiveStatus, KeyResultType } from '@prisma/client';
-import { ObjectiveService } from './objective.service'; 
+import { ObjectiveService } from './objective.service';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 /**
  * Service responsável pela lógica de negócio dos OKRs (Nível OKR)
@@ -214,7 +215,7 @@ export class OkrService {
       overallProgress = Math.round(totalProgress / okr.objectives.length);
     }
 
-    return {
+    const summary = {
       id: okr.id,
       title: okr.title,
       quarter: okr.quarter,
@@ -225,6 +226,9 @@ export class OkrService {
       completedObjectives,
       updatedAt: okr.updatedAt,
     };
+
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeObject(summary, ['updatedAt']);
   }
 
   /**
@@ -237,7 +241,7 @@ export class OkrService {
       overallProgress = Math.round(totalProgress / okr.objectives.length);
     }
 
-    return {
+    const response = {
       id: okr.id,
       userId: okr.userId,
       title: okr.title,
@@ -250,6 +254,9 @@ export class OkrService {
       updatedAt: okr.updatedAt,
       objectives: okr.objectives.map(obj => this.objectiveService.mapToObjectiveResponse(obj)),
     };
+
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeObject(response, ['createdAt', 'updatedAt']);
   }
 
   /**
