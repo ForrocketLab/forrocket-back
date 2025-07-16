@@ -12,20 +12,14 @@ export class DatabaseService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
-    // Não inicializar automaticamente em ambiente de teste
-    // Os testes devem usar dados controlados via seed ou setup específico
     if (process.env.NODE_ENV !== 'test') {
       await this.initializeDatabase();
     }
   }
 
-  /**
-   * Inicializa o banco de dados com usuários padrão
-   */
   private async initializeDatabase() {
     console.log('🔧 Inicializando banco de dados SQLite com Prisma...');
 
-    // Verifica se já existem usuários
     const userCount = await this.prisma.user.count();
 
     if (userCount === 0) {
@@ -38,120 +32,98 @@ export class DatabaseService implements OnModuleInit {
     console.log('✅ Banco de dados inicializado com sucesso!');
   }
 
-  /**
-   * Cria os usuários padrão no banco
-   */
   private async createDefaultUsers() {
     const password = 'password123';
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const users = [
       {
-        // Ana - Colaboradora Simples (Desenvolvedora Frontend)
         name: 'Ana Oliveira',
         email: 'ana.oliveira@rocketcorp.com',
         passwordHash: hashedPassword,
         roles: JSON.stringify(['colaborador']),
-        // Dados organizacionais
         jobTitle: 'Desenvolvedora Frontend',
         seniority: 'Pleno',
         careerTrack: 'Tech',
         businessUnit: 'Digital Products',
         businessHub: 'Technology Hub',
-        // Relacionamentos
         projects: JSON.stringify(['projeto-app-mobile', 'projeto-dashboard']),
         managerId: null,
-        directReports: null, 
+        directReports: null,
         mentorId: null,
         leaderId: null,
-        directLeadership: null, 
-        mentoringIds: null, 
-        // Metadados
+        directLeadership: null,
+        mentoringIds: null,
         isActive: true,
-        // Novos campos de segurança
         failedLoginAttempts: 0,
         isLocked: false,
         lockUntil: null,
         passwordResetCode: null,
-        passwordResetCodeExpiresAt: null,
+        passwordResetCodeExpiresAt: null
       },
       {
-        // Bruno - Colaborador Gestor (Tech Lead)
         name: 'Bruno Mendes',
         email: 'bruno.mendes@rocketcorp.com',
         passwordHash: hashedPassword,
         roles: JSON.stringify(['colaborador', 'gestor']),
-        // Dados organizacionais
         jobTitle: 'Tech Lead',
         seniority: 'Sênior',
         careerTrack: 'Tech',
         businessUnit: 'Digital Products',
         businessHub: 'Technology Hub',
-        // Relacionamentos
         projects: JSON.stringify(['projeto-app-mobile', 'projeto-api-core']),
         managerId: null,
-        directReports: JSON.stringify([]), 
+        directReports: JSON.stringify([]),
         mentorId: null,
         leaderId: null,
-        directLeadership: JSON.stringify([]), 
-        mentoringIds: JSON.stringify([]), 
-        // Metadados
+        directLeadership: JSON.stringify([]),
+        mentoringIds: JSON.stringify([]),
         isActive: true,
-        // Novos campos de segurança
         failedLoginAttempts: 0,
         isLocked: false,
         lockUntil: null,
         passwordResetCode: null,
-        passwordResetCodeExpiresAt: null,
+        passwordResetCodeExpiresAt: null
       },
       {
-        // Carla - Sócia/Comitê (Head of Engineering)
         name: 'Carla Dias',
         email: 'carla.dias@rocketcorp.com',
         passwordHash: hashedPassword,
         roles: JSON.stringify(['colaborador', 'comite']),
-        // Dados organizacionais
         jobTitle: 'Head of Engineering',
         seniority: 'Principal',
         careerTrack: 'Tech',
         businessUnit: 'Digital Products',
         businessHub: 'Technology Hub',
-        // Relacionamentos
         projects: JSON.stringify(['projeto-estrategia-tech', 'projeto-arquitetura']),
         managerId: null,
         directReports: JSON.stringify([]),
         mentorId: null,
         leaderId: null,
         directLeadership: JSON.stringify([]),
-        mentoringIds: JSON.stringify(['cmd5qlffh0003hws4zc1wq0u6', 'cmd5qlfgl0006hws4rb1ued41']), 
-        // Metadados
+        mentoringIds: JSON.stringify(['cmd5qlffh0003hws4zc1wq0u6', 'cmd5qlfgl0006hws4rb1ued41']),
         isActive: true,
-        // Novos campos de segurança
         failedLoginAttempts: 0,
         isLocked: false,
         lockUntil: null,
         passwordResetCode: null,
-        passwordResetCodeExpiresAt: null,
-      },
-      // Adicione outros usuários padrão se necessário, garantindo todos os novos campos
+        passwordResetCodeExpiresAt: null
+      }
     ];
 
     for (const userData of users) {
       const user = await this.prisma.user.create({
-        data: userData,
+        data: userData
       });
       console.log(`✅ Usuário criado: ${user.name} (${user.email}) - ${JSON.parse(user.roles).join(', ')}`);
     }
   }
 
-  /**
-   * Busca usuário por email
-   */
   async findUserByEmail(email: string): Promise<User | null> {
     console.log(`🔍 Buscando usuário por email: ${email}`);
 
     const prismaUser = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email }
     });
 
     if (!prismaUser) {
@@ -159,114 +131,105 @@ export class DatabaseService implements OnModuleInit {
       return null;
     }
 
-    // Converte do formato Prisma para o formato User entity
     const user = this.prismaToUser(prismaUser);
     console.log(`✅ Usuário encontrado: ${user.name} (${user.email})`);
 
     return user;
   }
 
-  /**
-   * Busca usuário por ID
-   */
   async findUserById(id: string): Promise<User | null> {
     const prismaUser = await this.prisma.user.findUnique({
-      where: { id },
+      where: { id }
     });
 
     return prismaUser ? this.prismaToUser(prismaUser) : null;
   }
 
-  /**
-   * Retorna todos os usuários (para debug)
-   */
   async getAllUsers(): Promise<User[]> {
     const prismaUsers = await this.prisma.user.findMany();
-    return prismaUsers.map((user) => this.prismaToUser(user));
+    return prismaUsers.map(user => this.prismaToUser(user));
   }
 
-  /**
-   * Verifica se o email existe
-   */
   async emailExists(email: string): Promise<boolean> {
     const count = await this.prisma.user.count({
-      where: { email },
+      where: { email }
     });
     return count > 0;
   }
 
-  /**
-   * Salva ou atualiza um usuário
-   */
   async saveUser(user: User): Promise<User> {
-
-    const dataToSave: any = {
+    const userData = {
       name: user.name,
       email: user.email,
       passwordHash: user.passwordHash,
-      roles: typeof user.roles === 'string' ? user.roles : JSON.stringify(user.roles),
-
+      roles: JSON.stringify(user.roles),
       jobTitle: user.jobTitle,
       seniority: user.seniority,
       careerTrack: user.careerTrack,
       businessUnit: user.businessUnit,
-      businessHub: user.businessHub, 
-
-      projects: user.projects ? (typeof user.projects === 'string' ? user.projects : JSON.stringify(user.projects)) : null,
-      managerId: user.managerId, 
-      directReports: user.directReports ? (typeof user.directReports === 'string' ? user.directReports : JSON.stringify(user.directReports)) : null,
-      mentorId: user.mentorId, 
-      leaderId: user.leaderId, 
-      directLeadership: user.directLeadership ? (typeof user.directLeadership === 'string' ? user.directLeadership : JSON.stringify(user.directLeadership)) : null,
-      mentoringIds: user.mentoringIds ? (typeof user.mentoringIds === 'string' ? user.mentoringIds : JSON.stringify(user.mentoringIds)) : null,
-
+      businessHub: user.businessHub,
+      projects: JSON.stringify(user.projects || []),
+      managerId: user.managerId,
+      directReports: JSON.stringify(user.directReports || []),
+      mentorId: user.mentorId,
+      leaderId: user.leaderId,
+      directLeadership: JSON.stringify(user.directLeadership || []),
+      mentoringIds: JSON.stringify(user.mentoringIds || []),
       isActive: user.isActive,
-      lastActivityAt: user.lastActivityAt, 
-      importBatchId: user.importBatchId, 
-
-      // Novos campos de segurança
+      lastActivityAt: user.lastActivityAt,
+      importBatchId: user.importBatchId,
       failedLoginAttempts: user.failedLoginAttempts,
       isLocked: user.isLocked,
-      lockUntil: user.lockUntil, 
-      passwordResetCode: user.passwordResetCode, 
-      passwordResetCodeExpiresAt: user.passwordResetCodeExpiresAt, 
+      lockUntil: user.lockUntil,
+      passwordResetCode: user.passwordResetCode,
+      passwordResetCodeExpiresAt: user.passwordResetCodeExpiresAt
     };
 
     const prismaUser = await this.prisma.user.upsert({
       where: { email: user.email },
-      update: dataToSave,
-      create: dataToSave,
+      update: userData,
+      create: userData
     });
 
     return this.prismaToUser(prismaUser);
   }
 
-  /**
-   * Remove um usuário
-   */
   async deleteUser(id: string): Promise<void> {
     await this.prisma.user.delete({
-      where: { id },
+      where: { id }
     });
   }
 
-  /**
-   * Converte dados do Prisma para User entity
-   */
   private prismaToUser(prismaUser: any): User {
-    // Instancia User passando o objeto prismaUser para o construtor
-    // Isso mapeia automaticamente todas as propriedades que têm o mesmo nome e tipo
     const user = new User(prismaUser);
 
-    user.businessHub = prismaUser.businessHub || null;
-    user.managerId = prismaUser.managerId || null;
-    user.mentorId = prismaUser.mentorId || null;
-    user.leaderId = prismaUser.leaderId || null;
-    user.importBatchId = prismaUser.importBatchId || null;
-    user.lastActivityAt = prismaUser.lastActivityAt || null;
-    user.lockUntil = prismaUser.lockUntil || null;
-    user.passwordResetCode = prismaUser.passwordResetCode || null;
-    user.passwordResetCodeExpiresAt = prismaUser.passwordResetCodeExpiresAt || null;
+    user.id = prismaUser.id;
+    user.name = prismaUser.name;
+    user.email = prismaUser.email;
+    user.passwordHash = prismaUser.passwordHash;
+    user.roles = JSON.parse(prismaUser.roles);
+    user.jobTitle = prismaUser.jobTitle;
+    user.seniority = prismaUser.seniority;
+    user.careerTrack = prismaUser.careerTrack;
+    user.businessUnit = prismaUser.businessUnit;
+    user.businessHub = prismaUser.businessHub;
+    user.projects = prismaUser.projects ? JSON.parse(prismaUser.projects) : [];
+    user.managerId = prismaUser.managerId;
+    user.directReports = prismaUser.directReports ? JSON.parse(prismaUser.directReports) : [];
+    user.mentorId = prismaUser.mentorId;
+    user.leaderId = prismaUser.leaderId;
+    user.directLeadership = prismaUser.directLeadership ? JSON.parse(prismaUser.directLeadership) : [];
+    user.mentoringIds = prismaUser.mentoringIds ? JSON.parse(prismaUser.mentoringIds) : [];
+    user.importBatchId = prismaUser.importBatchId;
+    user.lastActivityAt = prismaUser.lastActivityAt;
+    user.isActive = prismaUser.isActive;
+    user.failedLoginAttempts = prismaUser.failedLoginAttempts;
+    user.isLocked = prismaUser.isLocked;
+    user.lockUntil = prismaUser.lockUntil;
+    user.passwordResetCode = prismaUser.passwordResetCode;
+    user.passwordResetCodeExpiresAt = prismaUser.passwordResetCodeExpiresAt;
+    user.createdAt = prismaUser.createdAt;
+    user.updatedAt = prismaUser.updatedAt;
 
     return user;
   }

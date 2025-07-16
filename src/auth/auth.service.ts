@@ -129,7 +129,7 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
-      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : [], 
+      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles,
     };
 
     console.log('✅ Login realizado com sucesso para:', email);
@@ -298,7 +298,7 @@ export class AuthService {
       userId: user.id,
       name: user.name,
       email: user.email,
-      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : [],
+      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles,
     };
 
     console.log('🔐 Gerando token JWT para payload:', payload);
