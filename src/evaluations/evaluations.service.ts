@@ -37,6 +37,7 @@ import { PerformanceHistoryDto } from './assessments/dto/performance-history-dto
 import { PillarScores } from './assessments/dto/pillar-scores.dto';
 import { CyclesService } from './cycles/cycles.service';
 import { BrutalFactsMetricsDto } from './manager/dto/brutal-facts-metrics.dto';
+import { MenteeInfoDto } from './dto/mentee-info.dto';
 import { Received360AssessmentDto } from './manager/dto/received-assessment360.dto';
 import {
   TeamHistoricalPerformanceResponseDto,
@@ -321,7 +322,7 @@ export class EvaluationsService {
 
       const emptyCriteriaData = applicableCriteria.map((criterion) => ({
         criterionId: criterion.id,
-        score: 1,
+        score: 0,
         justification: '',
       }));
 
@@ -2479,7 +2480,7 @@ export class EvaluationsService {
       } else {
         // Se não há resposta para o critério, retornar valores padrão
         formattedResponse[criterionId] = {
-          score: 1,
+          score: 0,
           justification: '',
         };
       }
@@ -2522,7 +2523,7 @@ export class EvaluationsService {
           evaluatedUserId,
           cycle: cycleId,
           status: EvaluationStatus.DRAFT,
-          overallScore: 1,
+          overallScore: 0,
           strengths: '',
           improvements: '',
         },
@@ -3086,5 +3087,117 @@ export class EvaluationsService {
       },
     });
     return users;
+  }
+
+  /**
+   * Retorna informações do mentorado para o mentor autenticado
+   */
+  async getMenteeInfo(mentorId: string, menteeId: string): Promise<MenteeInfoDto> {
+    // Validar se existe um ciclo ativo
+    const activeCycle = await this.cyclesService.validateActiveCyclePhase([
+      'ASSESSMENTS',
+      'MANAGER_REVIEWS',
+      'EQUALIZATION',
+    ]);
+
+    // Verificar se o mentorado existe e está ativo
+    const mentee = await this.prisma.user.findUnique({
+      where: { id: menteeId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+        seniority: true,
+        mentorId: true,
+      },
+    });
+
+    if (!mentee) {
+      throw new NotFoundException('Mentorado não encontrado');
+    }
+
+    // Verificar se o usuário autenticado é realmente o mentor do mentorado
+    if (mentee.mentorId !== mentorId) {
+      throw new ForbiddenException('Você não é o mentor deste usuário');
+    }
+
+    // Buscar a autoavaliação do mentorado no ciclo atual
+    const [selfAssessment, received360Assessments] = await Promise.all([
+      this.prisma.selfAssessment.findFirst({
+        where: {
+          authorId: menteeId,
+          cycle: activeCycle.name,
+        },
+        include: {
+          answers: true,
+        },
+      }),
+      // Buscar avaliações 360 recebidas pelo mentorado
+      this.prisma.assessment360.findMany({
+        where: {
+          evaluatedUserId: menteeId,
+          cycle: activeCycle.name,
+          status: EvaluationStatus.SUBMITTED,
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              jobTitle: true,
+              seniority: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    let formattedSelfAssessment: Record<string, { score: number; justification: string }> | null =
+      null;
+    let selfAssessmentStatus: 'DRAFT' | 'SUBMITTED' | 'NOT_STARTED' = 'NOT_STARTED';
+
+    if (selfAssessment) {
+      // Formatar autoavaliação no padrão do frontend
+      formattedSelfAssessment = {};
+
+      for (const answer of selfAssessment.answers) {
+        formattedSelfAssessment[answer.criterionId] = {
+          score: answer.score,
+          justification: answer.justification,
+        };
+      }
+
+      selfAssessmentStatus = selfAssessment.status as 'DRAFT' | 'SUBMITTED';
+    }
+
+    // Mapear as avaliações 360 recebidas para o formato do DTO
+    const mappedReceived360Assessments = received360Assessments.map((assessment) => ({
+      id: assessment.id,
+      overallScore: assessment.overallScore,
+      strengths: assessment.strengths,
+      improvements: assessment.improvements,
+      motivationToWorkAgain: assessment.motivationToWorkAgain,
+      status: assessment.status,
+      author: {
+        id: assessment.author.id,
+        name: assessment.author.name,
+        jobTitle: assessment.author.jobTitle,
+        seniority: assessment.author.seniority,
+      },
+      createdAt: assessment.createdAt,
+      submittedAt: assessment.submittedAt,
+    }));
+
+    return {
+      id: mentee.id,
+      name: mentee.name,
+      jobTitle: mentee.jobTitle,
+      seniority: mentee.seniority,
+      selfAssessment: formattedSelfAssessment,
+      selfAssessmentStatus,
+      cycle: activeCycle.name,
+      received360Assessments: mappedReceived360Assessments,
+    };
   }
 }

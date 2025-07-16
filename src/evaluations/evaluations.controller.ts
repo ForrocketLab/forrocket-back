@@ -38,6 +38,7 @@ import {
 } from './assessments/dto';
 import { EvaluationsService } from './evaluations.service';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { MenteeInfoDto } from './dto/mentee-info.dto';
 import {
   UpdateReferenceFeedbackBatchDto,
   ReferenceFeedbackItemDto,
@@ -755,6 +756,42 @@ export class EvaluationsController {
   })
   async getDesignatedMentorAssessment(@CurrentUser() user: User) {
     return this.evaluationsService.getDesignatedMentorAssessment(user.id);
+  }
+
+  @Get('mentee/:menteeId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Buscar informações do mentorado',
+    description:
+      'Retorna informações do mentorado para o mentor autenticado, incluindo nome, cargo e autoavaliação do ciclo atual',
+  })
+  @ApiParam({
+    name: 'menteeId',
+    description: 'ID do mentorado',
+    example: 'cmbyavwvd0000tzsgo55812qo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Informações do mentorado encontradas',
+    type: MenteeInfoDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não é mentor do mentorado especificado',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Mentorado não encontrado',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido ou ausente',
+  })
+  async getMenteeInfo(
+    @CurrentUser() user: User,
+    @Param('menteeId') menteeId: string,
+  ): Promise<MenteeInfoDto> {
+    return this.evaluationsService.getMenteeInfo(user.id, menteeId);
   }
 
   @Get('received/cycle/:cycleId')
