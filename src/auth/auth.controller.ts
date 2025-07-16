@@ -12,6 +12,7 @@ import {
   Param,
   Query,
   InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,6 +35,7 @@ import { Public } from './public.decorator';
 import { RoleCheckerService } from './role-checker.service';
 import { UserService, UserSummary } from './user.service';
 import { DateSerializer } from '../common/utils/date-serializer.util';
+import { ForgotPasswordDto, VerifyResetCodeDto, ResetPasswordDto } from './dto';
 
 /**
  * Controlador responsável pelos endpoints de autenticação
@@ -47,6 +49,9 @@ import { DateSerializer } from '../common/utils/date-serializer.util';
   UserProfileDto,
   CreateUserDto,
   ErrorResponseDto,
+  ForgotPasswordDto,
+  VerifyResetCodeDto,
+  ResetPasswordDto,
 )
 @Controller('api')
 export class AuthController {
@@ -363,13 +368,51 @@ export class AuthController {
     return newUser;
   }
 
-  /**
-   * Endpoint para obter informações do perfil do usuário autenticado
-   * @param user - Usuário atual (extraído do JWT)
-   * @returns Informações do perfil do usuário
-   */
-  @Get('auth/profile')
-  @UseGuards(JwtAuthGuard)
+  // ==========================================
+  // NOVOS ENDPOINTS PARA REDEFINIÇÃO DE SENHA
+  // ==========================================
+
+  @Public() 
+  @Post('auth/forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Solicita um código de redefinição de senha para o email do usuário' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Se o email existir, um código será enviado.' })
+  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Erro ao enviar o e-mail.' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(forgotPasswordDto);
+    return { message: 'Se o email estiver registrado, um código de redefinição de senha foi enviado.' };
+  }
+
+  @Public() 
+  @Post('auth/verify-reset-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verifica a validade do código de redefinição de senha' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Código válido.' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Código inválido ou expirado.' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Usuário não encontrado.' })
+  async verifyResetCode(@Body() verifyResetCodeDto: VerifyResetCodeDto) {
+    const isValid = await this.authService.verifyResetCode(verifyResetCodeDto);
+    if (isValid) {
+      return { message: 'Código verificado com sucesso.' };
+    }
+
+    throw new BadRequestException('Código inválido.');
+  }
+
+  @Public()
+  @Post('auth/reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Redefine a senha do usuário após a verificação do código' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Senha redefinida com sucesso.' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Código inválido ou expirado, ou nova senha inválida.' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Usuário não encontrado.' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    await this.authService.resetPassword(resetPasswordDto);
+    return { message: 'Senha redefinida com sucesso.' };
+  }
+
+  @Get('auth/profile') 
+  @UseGuards(JwtAuthGuard) 
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: 'Obter perfil completo do usuário autenticado',
@@ -379,7 +422,7 @@ export class AuthController {
     `,
   })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Perfil do usuário retornado com sucesso',
     type: UserProfileDto,
     examples: {
@@ -416,7 +459,7 @@ export class AuthController {
         },
       },
       gestor: {
-        summary: 'Perfil - Gestor',
+        summary: 'Resposta - Gestor',
         value: {
           id: 'cmbyavwvh0001tzsg5owfxwbq',
           name: 'Bruno Mendes',
@@ -448,7 +491,7 @@ export class AuthController {
         },
       },
       admin: {
-        summary: 'Perfil - Admin',
+        summary: 'Resposta - Admin',
         value: {
           id: 'cmbyavwvn0005tzsgxyz123abc',
           name: 'Eduardo Tech',
@@ -487,6 +530,7 @@ export class AuthController {
       error: 'Unauthorized',
     },
   })
+  
   async getProfile(@CurrentUser() user: User): Promise<UserProfileDto> {
     // Buscar roles específicas do usuário por projeto
     const projectRoles = await this.authService.getUserProjectRoles(user.id);
@@ -632,8 +676,8 @@ export class AuthController {
       items: {
         type: 'object',
         properties: {
-          projectId: { type: 'string', example: 'projeto-alpha' },
-          projectName: { type: 'string', example: 'Projeto Alpha' },
+          projectId: { type: 'string' },
+          projectName: { type: 'string' },
           roles: { type: 'array', items: { type: 'string' }, example: ['COLLABORATOR'] },
         },
       },
@@ -700,35 +744,7 @@ export class AuthController {
           isActive: { type: 'boolean', example: true },
           createdAt: { type: 'string', format: 'date-time' },
           managerName: { type: 'string', example: 'Bruno Mendes', nullable: true },
-          evaluationProgress: {
-            type: 'object',
-            properties: {
-              selfAssessment: {
-                type: 'object',
-                properties: {
-                  status: { type: 'string', example: 'SUBMITTED' },
-                  submittedAt: { type: 'string', format: 'date-time', nullable: true },
-                },
-              },
-              assessments360Received: { type: 'number', example: 3 },
-              managerAssessment: {
-                type: 'object',
-                properties: {
-                  status: { type: 'string', example: 'SUBMITTED' },
-                  submittedAt: { type: 'string', format: 'date-time', nullable: true },
-                },
-              },
-              mentoringAssessmentsReceived: { type: 'number', example: 1 },
-              referenceFeedbacksReceived: { type: 'number', example: 2 },
-              committeeAssessment: {
-                type: 'object',
-                properties: {
-                  status: { type: 'string', example: 'PENDING' },
-                  submittedAt: { type: 'string', format: 'date-time', nullable: true },
-                },
-              },
-            },
-          },
+          directReportsCount: { type: 'number', example: 2 },
         },
       },
     },

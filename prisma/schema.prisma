@@ -23,6 +23,15 @@ model User {
   auditLogs  AuditLog[]
 
   // ==========================================
+  // DADOS DE SEGURANÇA E RECUPERAÇÃO DE SENHA (NOVOS CAMPOS)
+  // ==========================================
+  failedLoginAttempts  Int       @default(0)
+  isLocked             Boolean   @default(false)
+  lockUntil            DateTime? // Para bloqueios temporários, indica até quando a conta está bloqueada
+  passwordResetCode    String?   // Código único para redefinição de senha
+  passwordResetCodeExpiresAt DateTime? // Data e hora de expiração do código
+
+  // ==========================================
   // DADOS DE ESTRUTURA ORGANIZACIONAL
   // ==========================================
   jobTitle     String   // Cargo/Posição do colaborador
