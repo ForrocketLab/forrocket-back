@@ -2605,7 +2605,7 @@ export class EvaluationsService {
           mentorId,
           cycle: cycleId,
           status: EvaluationStatus.DRAFT,
-          score: 1,
+          score: 0,
           justification: '',
         },
         include: {
