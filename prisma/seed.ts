@@ -432,7 +432,7 @@ async function main() {
       name: 'Lucas Henrique Fernandes Souza',
       email: 'lucas.fernandes@rocketcorp.com',
       passwordHash: hashedPassword,
-      roles: JSON.stringify(['colaborador', 'líder']),
+      roles: JSON.stringify(['colaborador', 'lider']),
 
       // Dados organizacionais completos
       jobTitle: 'Product Manager',
@@ -488,7 +488,7 @@ async function main() {
       name: 'Rafael Augusto Costa Silva',
       email: 'rafael.costa@rocketcorp.com',
       passwordHash: hashedPassword,
-      roles: JSON.stringify(['colaborador', 'gestor', 'líder']),
+      roles: JSON.stringify(['colaborador', 'gestor', 'lider']),
 
       // Dados organizacionais completos
       jobTitle: 'System Administrator',

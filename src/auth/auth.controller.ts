@@ -36,6 +36,7 @@ import { RoleCheckerService } from './role-checker.service';
 import { UserService, UserSummary } from './user.service';
 import { DateSerializer } from '../common/utils/date-serializer.util';
 import { ForgotPasswordDto, VerifyResetCodeDto, ResetPasswordDto } from './dto';
+import { PrismaService } from '../database/prisma.service';
 
 /**
  * Controlador responsável pelos endpoints de autenticação
@@ -59,6 +60,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly roleChecker: RoleCheckerService,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -535,8 +537,38 @@ export class AuthController {
     // Buscar roles específicas do usuário por projeto
     const projectRoles = await this.authService.getUserProjectRoles(user.id);
 
-    // Deserializar roles e directReports de JSON strings para arrays
-    const roles = typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles;
+    // Buscar roles globais do usuário usando a nova estrutura UserRoleAssignment
+    const userRoles = await this.roleChecker.getUserRoles(user.id);
+    
+    // Converter roles de enum para string para compatibilidade com o frontend
+    const roles = userRoles.map(role => {
+      // Mapear enums para strings legadas para manter compatibilidade
+      const roleMapping: Record<string, string> = {
+        'COLLABORATOR': 'colaborador',
+        'MANAGER': 'gestor',
+        'COMMITTEE': 'comite',
+        'RH': 'rh',
+        'ADMIN': 'admin',
+        'MENTOR': 'mentor',
+        'LEADER': 'lider'
+      };
+      return roleMapping[role.toString()] || role.toString();
+    });
+
+    // Verificar se o usuário é mentor baseado no relacionamento de mentoria
+    const mentoredCount = await this.prisma.user.count({
+      where: {
+        mentorId: user.id,
+        isActive: true,
+      },
+    });
+
+    // Se o usuário tem mentorados, adicionar a role de mentor
+    if (mentoredCount > 0 && !roles.includes('mentor')) {
+      roles.push('mentor');
+    }
+
+    // Deserializar directReports de JSON string para array
     const directReports = typeof user.directReports === 'string' ? JSON.parse(user.directReports) : user.directReports;
 
     // Retorna o perfil completo do usuário com datas serializadas
