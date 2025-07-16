@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-
+import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { ErpSimulationModule } from './erp-simulation/erp-simulation.module';
@@ -59,6 +59,9 @@ import { LeaderModule } from './evaluations/leader.module';
     MentorModule,
     // Módulo do fluxo de líder
     LeaderModule,
+
+    // Módulo de e-mail
+    EmailModule,
   ],
 })
 export class AppModule {}
