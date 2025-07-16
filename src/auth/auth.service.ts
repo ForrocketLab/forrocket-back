@@ -5,29 +5,28 @@ import { UserInfoDto, UserProjectRoleDto } from './dto/user.dto';
 import { User } from './entities/user.entity';
 import { JwtPayload } from './jwt-payload.interface';
 import { DatabaseService } from '../database/database.service';
-import { PrismaService } from '../database/prisma.service'; 
+import { PrismaService } from '../database/prisma.service';
 import * as bcrypt from 'bcryptjs';
-import { EmailService } from '../email/email.service'; 
-import { ForgotPasswordDto, VerifyResetCodeDto, ResetPasswordDto } from './dto'; 
+import { EmailService } from '../email/email.service';
+import { ForgotPasswordDto, VerifyResetCodeDto, ResetPasswordDto } from './dto';
 
 // Constantes para o bloqueio de conta
 const MAX_LOGIN_ATTEMPTS = 3; // Número máximo de tentativas de login falhas
 const LOCKOUT_TIME_MINUTES = 15; // Tempo de bloqueio da conta em minutos
-const PASSWORD_RESET_CODE_LENGTH = 6; // Comprimento do código de redefinição (não usado diretamente, mas bom ter)
 const PASSWORD_RESET_CODE_EXPIRATION_MINUTES = 5; // Tempo de expiração do código em minutos
 
 /**
  * Serviço responsável pela autenticação de usuários
  * Gerencia o processo de login, validação e geração de tokens JWT,
- * e agora também o fluxo de redefinição de senha.
+ * e agora também o fluxo de redefinição de senha e notificação de bloqueio.
  */
 @Injectable()
 export class AuthService {
   constructor(
     private jwtService: JwtService,
     private databaseService: DatabaseService,
-    private prisma: PrismaService, 
-    private emailService: EmailService, 
+    private prisma: PrismaService,
+    private emailService: EmailService,
   ) {}
 
   /**
@@ -96,6 +95,26 @@ export class AuthService {
           },
         });
         console.log(`❌ Conta do usuário ${email} bloqueada.`);
+
+        // ==========================================
+        // Envio de e-mail de notificação de bloqueio
+        // ==========================================
+        const subject = 'Sua conta foi bloqueada devido a tentativas de login falhas';
+        const text = `Prezado(a) ${user.name},\n\nDetectamos múltiplas tentativas de login falhas em sua conta (${user.email}). Por segurança, sua conta foi bloqueada por ${LOCKOUT_TIME_MINUTES} minutos.\n\nSe você não tentou fazer login, por favor, considere redefinir sua senha imediatamente usando a função "Esqueci a Senha" em nosso site.\n\nAtenciosamente,\nEquipe ForRocketLab`;
+        const html = `<p>Prezado(a) ${user.name},</p>
+                      <p>Detectamos múltiplas tentativas de login falhas em sua conta (<strong>${user.email}</strong>). Por segurança, sua conta foi bloqueada por ${LOCKOUT_TIME_MINUTES} minutos.</p>
+                      <p>Você pode tentar novamente após este período ou usar a função "Esqueci a Senha" para redefinir sua senha imediatamente.</p>
+                      <p>Se você não tentou fazer login, por favor, ignore este e-mail ou entre em contato com o suporte se tiver preocupações.</p>
+                      <p>Atenciosamente,<br>Equipe ForRocketLab</p>`;
+
+        try {
+          await this.emailService.sendMail(email, subject, text, html);
+          console.log(`✉️ E-mail de notificação de bloqueio enviado para: ${email}`);
+        } catch (mailError) {
+          console.error(`❌ Erro ao enviar e-mail de bloqueio para ${email}:`, mailError);
+
+        }
+
         throw new UnauthorizedException(
           `Muitas tentativas de login falhas. Sua conta foi bloqueada por ${LOCKOUT_TIME_MINUTES} minutos.`,
         );
@@ -129,7 +148,7 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
-      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles,
+      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : [],
     };
 
     console.log('✅ Login realizado com sucesso para:', email);
@@ -153,17 +172,13 @@ export class AuthService {
     const user = await this.databaseService.findUserByEmail(email);
     if (!user) {
       console.log(`❌ Usuário não encontrado para redefinição de senha: ${email}`);
-      // Para segurança, não informamos se o email existe ou não.
-      // Apenas retornamos sucesso para evitar enumeração de usuários.
       return;
     }
 
-    // Gera um código de redefinição de senha (ex: 6 dígitos numéricos)
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const resetCodeExpiresAt = new Date();
     resetCodeExpiresAt.setMinutes(resetCodeExpiresAt.getMinutes() + PASSWORD_RESET_CODE_EXPIRATION_MINUTES);
 
-    // Salva o código e a expiração no usuário
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -172,7 +187,6 @@ export class AuthService {
       },
     });
 
-    // Envia o e-mail com o código
     const subject = 'Código de Redefinição de Senha - ForRocketLab';
     const text = `Seu código de redefinição de senha é: ${resetCode}. Este código é válido por ${PASSWORD_RESET_CODE_EXPIRATION_MINUTES} minutos.`;
     const html = `<p>Seu código de redefinição de senha é: <strong>${resetCode}</strong></p>
@@ -235,22 +249,19 @@ export class AuthService {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    // Primeiro, verifica se o código é válido (reutiliza a lógica de verifyResetCode)
     await this.verifyResetCode({ email, code });
 
-    // Hash da nova senha
-    const hashedPassword = await bcrypt.hash(newPassword, 10); 
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Atualiza a senha e limpa os campos de redefinição
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash: hashedPassword,
         passwordResetCode: null,
         passwordResetCodeExpiresAt: null,
-        failedLoginAttempts: 0, 
-        isLocked: false, 
-        lockUntil: null, 
+        failedLoginAttempts: 0,
+        isLocked: false,
+        lockUntil: null,
       },
     });
 
@@ -298,7 +309,7 @@ export class AuthService {
       userId: user.id,
       name: user.name,
       email: user.email,
-      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles,
+      roles: typeof user.roles === 'string' ? JSON.parse(user.roles) : [],
     };
 
     console.log('🔐 Gerando token JWT para payload:', payload);
@@ -332,7 +343,7 @@ export class AuthService {
    * @returns True se o usuário tem a função
    */
   hasRole(user: User, role: string): boolean {
-    const userRoles = typeof user.roles === 'string' ? JSON.parse(user.roles) : []; 
+    const userRoles = typeof user.roles === 'string' ? JSON.parse(user.roles) : [];
     return userRoles.includes(role);
   }
 
@@ -353,7 +364,6 @@ export class AuthService {
    * @returns Lista de projetos com suas roles específicas
    */
   async getUserProjectRoles(userId: string): Promise<UserProjectRoleDto[]> {
-    // Buscar atribuições de projeto do usuário
     const userProjectAssignments = await this.prisma.userProjectAssignment.findMany({
       where: { userId },
       include: {
@@ -367,13 +377,11 @@ export class AuthService {
       },
     });
 
-    // Para cada projeto ativo, buscar as roles específicas
     const projectRoles: UserProjectRoleDto[] = [];
 
     for (const assignment of userProjectAssignments) {
       if (!assignment.project.isActive) continue;
 
-      // Buscar roles específicas do usuário neste projeto
       const userRoles = await this.prisma.userProjectRole.findMany({
         where: {
           userId,
