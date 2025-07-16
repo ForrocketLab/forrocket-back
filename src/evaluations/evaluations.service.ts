@@ -2401,7 +2401,7 @@ export class EvaluationsService {
    */
   async getSelfAssessmentForFrontend(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Verificar se o usuário tem papel de gestor para determinar critérios obrigatórios
     const userWithRoles = await this.prisma.user.findUnique({
@@ -2453,7 +2453,7 @@ export class EvaluationsService {
     const selfAssessment = await this.prisma.selfAssessment.findFirst({
       where: {
         authorId: userId,
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
       include: {
         answers: true,
@@ -2716,7 +2716,7 @@ export class EvaluationsService {
    */
   async getAvailable360Collaborators(userId: string) {
     // Buscar ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Buscar todos os projetos do usuário
     const userProjects = await this.prisma.userProjectAssignment.findMany({
@@ -2749,7 +2749,7 @@ export class EvaluationsService {
       where: {
         authorId: userId,
         evaluatedUserId: { in: uniqueCollaborators.map((c) => c.id) },
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
     });
     const assessmentsMap = new Map();
@@ -2833,7 +2833,7 @@ export class EvaluationsService {
    */
   async getDesignatedMentorAssessment(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Buscar o usuário para obter o mentorId
     const user = await this.prisma.user.findUnique({
@@ -2864,7 +2864,7 @@ export class EvaluationsService {
       where: {
         authorId: userId,
         mentorId: user.mentorId,
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
     });
 
@@ -2953,13 +2953,13 @@ export class EvaluationsService {
    */
   async getReferenceFeedbacks(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Buscar todos os feedbacks de referência do usuário no ciclo ativo
     const referenceFeedbacks = await this.prisma.referenceFeedback.findMany({
       where: {
         authorId: userId,
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
       include: {
         referencedUser: {
