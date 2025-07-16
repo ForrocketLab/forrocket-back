@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
+import { MentorModule } from 'src/mentor/mentor.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { ClimateModule } from './climate/climate.module';
 import { CommitteeModule } from './committee/committee.module';
@@ -30,7 +31,8 @@ import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluati
     HRModule,
     AssessmentsModule,
     ClimateModule,
-    CommonModule
+    CommonModule,
+    MentorModule,
   ],
   controllers: [
     EvaluationsController,
@@ -40,8 +42,8 @@ import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluati
     CriteriaSimpleController,
   ],
   providers: [
-    EvaluationsService, 
-    CyclesService, 
+    EvaluationsService,
+    CyclesService,
     CriteriaService,
     {
       provide: APP_INTERCEPTOR,
