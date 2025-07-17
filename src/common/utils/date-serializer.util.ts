@@ -32,7 +32,7 @@ export class DateSerializer {
   /**
    * Serializa um objeto convertendo todas as propriedades que são datas
    * @param obj - Objeto a ser serializado
-   * @param dateFields - Lista de campos que são datas
+   * @param dateFields - Lista de campos que são datas (suporta notação de ponto para campos aninhados)
    * @returns Objeto com datas serializadas
    */
   static serializeObject<T>(obj: T, dateFields: string[]): T {
@@ -43,8 +43,37 @@ export class DateSerializer {
     const serialized = { ...obj };
     
     for (const field of dateFields) {
-      if (field in serialized) {
-        (serialized as any)[field] = this.toISOString((serialized as any)[field]);
+      if (field.includes('.')) {
+        // Campo aninhado (ex: actions.deadline)
+        const parts = field.split('.');
+        const parentField = parts[0];
+        const childField = parts[1];
+        
+        if (parentField in serialized && Array.isArray((serialized as any)[parentField])) {
+          // Se é um array, serializar cada item
+          (serialized as any)[parentField] = (serialized as any)[parentField].map((item: any) => {
+            if (item && typeof item === 'object' && childField in item) {
+              return {
+                ...item,
+                [childField]: this.toISOString(item[childField])
+              };
+            }
+            return item;
+          });
+        } else if (parentField in serialized && (serialized as any)[parentField] && typeof (serialized as any)[parentField] === 'object') {
+          // Se é um objeto único
+          if (childField in (serialized as any)[parentField]) {
+            (serialized as any)[parentField] = {
+              ...(serialized as any)[parentField],
+              [childField]: this.toISOString((serialized as any)[parentField][childField])
+            };
+          }
+        }
+      } else {
+        // Campo simples
+        if (field in serialized) {
+          (serialized as any)[field] = this.toISOString((serialized as any)[field]);
+        }
       }
     }
 

@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { KeyResultStatus, KeyResultType, ObjectiveStatus } from '@prisma/client';
 import { CreateKeyResultDto, UpdateKeyResultDto, KeyResultResponseDto } from './dto';
 import { ObjectiveService } from './objective.service';
+import { DateSerializer } from '../common/utils/date-serializer.util';
 
 @Injectable()
 export class KeyResultService {
@@ -151,7 +152,7 @@ export class KeyResultService {
   public mapToKeyResultResponse(keyResult: any): KeyResultResponseDto {
     const progress = this.calculateKeyResultProgress(keyResult);
     
-    return {
+    const response = {
       id: keyResult.id,
       objectiveId: keyResult.objectiveId,
       title: keyResult.title,
@@ -167,6 +168,9 @@ export class KeyResultService {
       createdAt: keyResult.createdAt,
       updatedAt: keyResult.updatedAt,
     };
+
+    // Serializar datas antes de retornar
+    return DateSerializer.serializeObject(response, ['createdAt', 'updatedAt']);
   }
 
   /**

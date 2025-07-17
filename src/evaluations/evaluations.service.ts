@@ -1154,36 +1154,124 @@ export class EvaluationsService {
     // 2. Verificar se o subordinateId existe e está ativo
     const subordinate = await this.prisma.user.findUnique({
       where: { id: subordinateId, isActive: true },
-      select: { id: true, name: true, email: true, managerId: true }, // Incluir managerId do subordinado
     });
 
     if (!subordinate) {
       throw new NotFoundException('Subordinado não encontrado.');
     }
 
-    // 3. Validar se o gestor logado é realmente o gestor direto do subordinado
-    if (subordinate.managerId !== managerId) {
+    // 3. Validar se o gestor logado tem permissão para visualizar o subordinado
+    // Verificar se é gestor direto OU gestor de projeto
+    const isDirectManager = subordinate.managerId === managerId;
+    
+    // Verificar se é gestor de projeto
+    const isProjectManager = await this.projectsService.canManagerEvaluateUser(managerId, subordinateId);
+    
+    if (!isDirectManager && !isProjectManager) {
       throw new ForbiddenException(
-        'Você não tem permissão para visualizar a autoavaliação deste usuário. Ele não é seu subordinado direto.',
+        'Você não tem permissão para visualizar a autoavaliação deste usuário. Ele não é seu subordinado direto nem está em projetos onde você é gestor.',
       );
     }
 
-    // 4. Buscar a autoavaliação do subordinado para o ciclo ativo
+    // 4. Buscar a autoavaliação do subordinado para o ciclo ativo (mesmo se não submetida)
     const selfAssessmentFromDb = await this.prisma.selfAssessment.findFirst({
       where: {
         authorId: subordinateId,
         cycle: activeCycle.name,
-        status: EvaluationStatus.SUBMITTED, // Apenas autoavaliações submetidas devem ser visíveis para o gestor
       },
       include: {
         answers: true, // Inclui as respostas detalhadas
       },
     });
 
+    // Se não existe autoavaliação, criar uma estrutura vazia para mostrar o formato
     if (!selfAssessmentFromDb) {
-      throw new NotFoundException(
-        `Autoavaliação do subordinado ${subordinate.name} para o ciclo ${activeCycle.name} não encontrada ou não submetida.`,
+      // Buscar critérios dinamicamente do banco de dados
+      const criteriaQuery = await this.prisma.criterion.findMany({
+        where: {
+          OR: [
+            // Critérios base (aplicam para todos)
+            { isBase: true },
+            // Critérios específicos da businessUnit do subordinado
+            { businessUnit: subordinate.businessUnit },
+          ],
+        },
+        select: {
+          id: true,
+          pillar: true,
+        },
+      });
+
+      // Verificar se o subordinado tem papel de gestor para incluir critérios de gestão
+      const subordinateWithRoles = await this.prisma.user.findUnique({
+        where: { id: subordinateId },
+        include: {
+          roleAssignments: true,
+        },
+      });
+
+      const isSubordinateManager = subordinateWithRoles?.roleAssignments.some(
+        (assignment) => assignment.role === 'MANAGER',
       );
+
+      // Filtrar critérios baseado no papel do subordinado
+      const applicableCriteria = criteriaQuery.filter((criterion) => {
+        // Critérios de gestão apenas para gestores
+        if (criterion.pillar === 'MANAGEMENT') {
+          return isSubordinateManager;
+        }
+        // Todos os outros critérios são aplicáveis
+        return true;
+      });
+
+      // Criar respostas vazias para todos os critérios aplicáveis
+      const emptyAnswers = applicableCriteria.map((criterion) => ({
+        id: `empty-${criterion.id}`,
+        selfAssessmentId: 'empty',
+        criterionId: criterion.id,
+        score: 0,
+        justification: '',
+      }));
+
+      // Criar estrutura de autoavaliação vazia
+      const emptySelfAssessment = {
+        id: 'empty',
+        authorId: subordinateId,
+        cycle: activeCycle.name,
+        status: EvaluationStatus.DRAFT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        submittedAt: null,
+        answers: emptyAnswers,
+      };
+
+      // Mapear e retornar a autoavaliação vazia
+      const selfAssessment: ISelfAssessment = {
+        ...emptySelfAssessment,
+        status: emptySelfAssessment.status as EvaluationStatus,
+        createdAt: new Date(emptySelfAssessment.createdAt),
+        updatedAt: new Date(emptySelfAssessment.updatedAt),
+        submittedAt: emptySelfAssessment.submittedAt
+          ? new Date(emptySelfAssessment.submittedAt)
+          : undefined,
+      } as ISelfAssessment;
+
+      // Adicionar o progresso de preenchimento
+      const completionStatus = this.calculateSelfAssessmentCompletionByPillar(selfAssessment);
+      const totalCompleted = Object.values(completionStatus).reduce(
+        (acc, p: PillarProgressDto) => acc + p.completed,
+        0,
+      );
+      const totalOverall = ALL_CRITERIA.length;
+
+      return {
+        ...selfAssessment,
+        completionStatus,
+        overallCompletion: {
+          completed: totalCompleted,
+          total: totalOverall,
+        },
+      };
     }
 
     // 5. Mapear e retornar a autoavaliação para o tipo ISelfAssessment
@@ -1227,9 +1315,14 @@ export class EvaluationsService {
     if (!subordinate) {
       throw new NotFoundException('Subordinado não encontrado.');
     }
-    if (subordinate.managerId !== managerId) {
+    
+    // Verificar se é gestor direto OU gestor de projeto
+    const isDirectManager = subordinate.managerId === managerId;
+    const isProjectManager = await this.projectsService.canManagerEvaluateUser(managerId, subordinateId);
+    
+    if (!isDirectManager && !isProjectManager) {
       throw new ForbiddenException(
-        'Você não tem permissão para visualizar os dados deste usuário.',
+        'Você não tem permissão para visualizar os dados deste usuário. Ele não é seu subordinado direto nem está em projetos onde você é gestor.',
       );
     }
 

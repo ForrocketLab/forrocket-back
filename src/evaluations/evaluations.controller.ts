@@ -18,6 +18,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiExtraModels,
+  ApiQuery,
 } from '@nestjs/swagger';
 
 import {
@@ -51,6 +52,7 @@ import { MentorAssessmentDto } from './dto/mentor-assessment.dto';
 import { UpdateMentorAssessmentDto } from './dto/update-mentor-assessment.dto';
 import { EvaluationDecryptionInterceptor } from '../common/interceptors/evaluation-decryption.interceptor';
 import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-input.interceptor';
+import { MentorService } from 'src/mentor/mentor.service';
 
 @ApiTags('Avaliações')
 @ApiBearerAuth()
@@ -59,7 +61,10 @@ import { EvaluationInputInterceptor } from '../common/interceptors/evaluation-in
 @ApiExtraModels(SelfAssessmentCompletionByPillarDto, OverallCompletionDto, PillarProgressDto)
 @Controller('api/evaluations/collaborator')
 export class EvaluationsController {
-  constructor(private readonly evaluationsService: EvaluationsService) {}
+  constructor(
+    private readonly evaluationsService: EvaluationsService,
+    private readonly mentorService: MentorService,
+  ) {}
 
   // ==========================================
   // ENDPOINTS DE CRIAÇÃO (WRITE)
@@ -1030,6 +1035,7 @@ export class EvaluationsController {
   async getAvailableCollaborators(@CurrentUser() user: User) {
     return this.evaluationsService.getAvailableCollaborators(user.id);
   }
+
   @Get('projects/:projectId/details')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -1053,5 +1059,75 @@ export class EvaluationsController {
   async getProjectEvaluations(@Param('projectId') projectId: string): Promise<any> {
     // Antes era Promise<ProjectEvaluationDto[]>
     return this.evaluationsService.getProjectEvaluations(projectId);
+  }
+
+  @Get('complete-performance')
+  @ApiOperation({
+    summary: 'Obter performance completa do um colaborador',
+    description: `
+        Retorna dados completos de performance para o colaborador em um ciclo específico.
+        
+        **Funcionalidades:**
+        - Métricas de performance para o ciclo especificado (score comitê, crescimento, total avaliações)
+        - Histórico de médias por ciclo (independente do ciclo do parâmetro)
+        - Dados consolidados em uma única consulta
+        
+        **Dados retornados:**
+        - Performance do ciclo especificado: nota final do comitê, crescimento vs ciclo anterior, total de avaliações
+        - Médias por ciclo: autoavaliação, critérios de execução/comportamento do gestor, avaliações 360
+      `,
+  })
+  @ApiQuery({
+    name: 'cycle',
+    description: 'Ciclo de avaliação para métricas de performance',
+    example: '2025.1',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Performance completa obtida com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        performance: {
+          type: 'object',
+          description: 'Métricas de performance para o ciclo especificado',
+          properties: {
+            committeeOverallScore: { type: 'number', nullable: true },
+            performanceGrowth: { type: 'number', nullable: true },
+            totalAssessmentsCompleted: { type: 'number' },
+            assessmentBreakdown: {
+              type: 'object',
+              properties: {
+                selfAssessment: { type: 'number' },
+                assessments360: { type: 'number' },
+                mentoringAssessments: { type: 'number' },
+              },
+            },
+          },
+        },
+        cycleMeans: {
+          type: 'array',
+          description: 'Médias por ciclo (todos os ciclos)',
+          items: {
+            type: 'object',
+            properties: {
+              cycle: { type: 'string' },
+              selfAssessmentMean: { type: 'number', nullable: true },
+              managerExecutionMean: { type: 'number', nullable: true },
+              managerBehaviorMean: { type: 'number', nullable: true },
+              assessments360Mean: { type: 'number', nullable: true },
+              overallScore: { type: 'number', nullable: true },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Colaborador não encontrado',
+  })
+  async getCompletePerformance(@CurrentUser() user: User, @Query('cycle') cycle: string) {
+    return this.mentorService.getCollaboratorCompletePerformance(user.id, cycle);
   }
 }

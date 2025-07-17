@@ -118,14 +118,12 @@ export class CollaboratorPerformanceDto {
       selfAssessment: { type: 'number', description: 'Autoavaliação (0 ou 1)' },
       assessments360: { type: 'number', description: 'Avaliações 360 recebidas' },
       mentoringAssessments: { type: 'number', description: 'Avaliações de mentoring feitas' },
-      referenceFeedbacks: { type: 'number', description: 'Feedbacks de referência dados' },
     },
   })
   assessmentBreakdown: {
     selfAssessment: number;
     assessments360: number;
     mentoringAssessments: number;
-    referenceFeedbacks: number;
   };
 }
 
@@ -144,18 +142,18 @@ export class CollaboratorCycleMeanDto {
   selfAssessmentMean: number | null;
 
   @ApiProperty({
-    description: 'Média dos critérios de EXECUTION dados pelo mentor',
+    description: 'Média dos critérios de EXECUTION dados pelo gestor',
     example: 3.8,
     nullable: true,
   })
-  mentorExecutionMean: number | null;
+  managerExecutionMean: number | null;
 
   @ApiProperty({
-    description: 'Média dos critérios de BEHAVIOR dados pelo mentor',
+    description: 'Média dos critérios de BEHAVIOR dados pelo gestor',
     example: 4.2,
     nullable: true,
   })
-  mentorBehaviorMean: number | null;
+  managerBehaviorMean: number | null;
 
   @ApiProperty({
     description: 'Média geral das avaliações 360 recebidas',
@@ -163,6 +161,13 @@ export class CollaboratorCycleMeanDto {
     nullable: true,
   })
   assessments360Mean: number | null;
+
+  @ApiProperty({
+    description: 'Nota final do comitê para este ciclo',
+    example: 4.5,
+    nullable: true,
+  })
+  overallScore: number | null;
 }
 
 export class CollaboratorDetailedPerformanceDto {
