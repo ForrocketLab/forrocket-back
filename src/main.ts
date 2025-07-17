@@ -6,13 +6,15 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { PrismaService } from './database/prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Configuração de CORS
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'], // URLs permitidas
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200', 'http://localhost:5173'], // URLs permitidas
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -23,6 +25,10 @@ async function bootstrap() {
     transform: true,
     validateCustomDecorators: true,
   }));
+
+  // Configurar o interceptor global
+  const prismaService = app.get(PrismaService); 
+  app.useGlobalInterceptors(new AuditInterceptor(prismaService));
 
   // Configuração do Swagger/OpenAPI
   const config = new DocumentBuilder()
@@ -97,5 +103,40 @@ async function bootstrap() {
   console.log('  • Comitê: Equalização final + é avaliado');
   console.log('  • RH: Configuração e acompanhamento');
   console.log('  • Admin: Gerenciamento total do sistema');
+  console.log('');
+  console.log('🔄 Estado dos Ciclos de Avaliação:');
+  console.log('  🔴 2024.2 | CLOSED | ⚖️ EQUALIZATION (Finalizado)');
+  console.log('    📅 2024-07-01 a 2024-12-31 | ⏰ Equalização até 2024-11-15');
+  console.log('  🟢 2025.1 | OPEN | ⚖️ EQUALIZATION (Ativo - Pronto para Comitê)');
+  console.log('    📅 2025-01-01 a 2025-06-30 | ⏰ Equalização até 2025-05-31');
+  console.log('  🟡 2025.2 | UPCOMING | 📝 ASSESSMENTS (Futuro)');
+  console.log('    📅 2025-07-01 a 2025-12-31 | ⏰ Prazos sequenciais configurados');
+  console.log('');
+  console.log('📋 Cronograma de Fases 2025.1:');
+  console.log('  📝 Fase 1 - Avaliações: até 15/03/2025');
+  console.log('  👔 Fase 2 - Gestores: até 15/04/2025');
+  console.log('  ⚖️ Fase 3 - Equalização: até 31/05/2025');
+  console.log('');
+  console.log('✅ Ciclo 2025.1 - Avaliações Completas:');
+  console.log('  📝 Autoavaliações: Ana, Bruno, Felipe (3/3)');
+  console.log('  🔄 Avaliações 360°: Todas as combinações (6/6)');
+  console.log('  🎓 Mentoring: Felipe → Ana (1/1)');
+  console.log('  💭 Reference Feedbacks: Todos os pares (6/6)');
+  console.log('  👔 Avaliações de Gestor: Bruno → Ana, Felipe (2/2)');
+  console.log('  ⚖️ Equalização: Aguardando Carla (Comitê)');
+  console.log('');
+  console.log('🆕 Funcionalidades Recentes:');
+  console.log('  🎯 Ativação de ciclos com deadlines automatizadas');
+  console.log('  📊 Monitoramento de prazos e status de deadlines');
+  console.log('  ⚡ Validação inteligente de datas e consistência');
+  console.log('  🔧 Sistema de limpeza automática pós-testes');
+  console.log('');
+  console.log('🔗 Endpoints Principais:');
+  console.log('  🔐 POST /api/auth/login - Autenticação');
+  console.log('  📊 GET /api/evaluation-cycles - Listar ciclos');
+  console.log('  ⚡ PATCH /api/evaluation-cycles/{id}/activate - Ativar ciclo');
+  console.log('  📅 GET /api/evaluation-cycles/{id}/deadlines - Info de prazos');
+  console.log('  📝 GET /api/evaluations - Minhas avaliações');
+  console.log('  👥 GET /api/users/profile - Meu perfil');
 }
 bootstrap();

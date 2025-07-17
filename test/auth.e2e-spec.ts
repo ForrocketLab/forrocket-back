@@ -59,7 +59,7 @@ describe('Sistema de Autenticação (e2e)', () => {
       expect(response.body).toHaveProperty('user');
       expect(response.body.user).toEqual({
         id: expect.any(String),
-        name: 'Ana Oliveira',
+        name: 'Ana Beatriz Oliveira Santos',
         email: 'ana.oliveira@rocketcorp.com',
         roles: ['colaborador'],
       });
@@ -81,7 +81,7 @@ describe('Sistema de Autenticação (e2e)', () => {
 
       expect(response.body.user).toEqual({
         id: expect.any(String),
-        name: 'Bruno Mendes',
+        name: 'Bruno André Mendes Carvalho',
         email: 'bruno.mendes@rocketcorp.com',
         roles: ['colaborador', 'gestor'],
       });
@@ -100,9 +100,9 @@ describe('Sistema de Autenticação (e2e)', () => {
 
       expect(response.body.user).toEqual({
         id: expect.any(String),
-        name: 'Carla Dias',
+        name: 'Carla Regina Dias Fernandes',
         email: 'carla.dias@rocketcorp.com',
-        roles: ['colaborador', 'comite'],
+        roles: ['comite'],
       });
     });
 
@@ -179,16 +179,22 @@ describe('Sistema de Autenticação (e2e)', () => {
 
       expect(response.body).toEqual({
         id: expect.any(String),
-        name: 'Ana Oliveira',
+        name: 'Ana Beatriz Oliveira Santos',
         email: 'ana.oliveira@rocketcorp.com',
         roles: ['colaborador'],
         jobTitle: 'Desenvolvedora Frontend',
         seniority: 'Pleno',
         careerTrack: 'Tech',
         businessUnit: 'Digital Products',
-        projects: ['projeto-app-mobile', 'projeto-dashboard'],
+        projectRoles: expect.arrayContaining([
+          expect.objectContaining({
+            projectId: expect.any(String),
+            projectName: expect.any(String),
+            roles: expect.arrayContaining(['COLLABORATOR'])
+          })
+        ]),
         managerId: expect.any(String),
-        mentorId: expect.any(String),
+        mentorId: expect.any(String), // Ana agora tem Lucas como mentor
         directReports: [],
         isActive: true,
         createdAt: expect.any(String),
@@ -239,7 +245,7 @@ describe('Sistema de Autenticação (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(profileResponse.body.name).toBe('Bruno Mendes');
+      expect(profileResponse.body.name).toBe('Bruno André Mendes Carvalho');
       expect(profileResponse.body.roles).toContain('gestor');
 
       // 3. Verificar status

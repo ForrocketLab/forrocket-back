@@ -1,9 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { User } from './entities/user.entity';
+import { UserService } from './user.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -14,19 +16,25 @@ describe('AuthController', () => {
     name: 'Ana Oliveira',
     email: 'ana.oliveira@rocketcorp.com',
     passwordHash: '$2a$10$mockHashedPassword',
-    roles: ['colaborador'],
+    roles: '["colaborador"]',
 
     // Dados organizacionais
     jobTitle: 'Desenvolvedora Frontend',
     seniority: 'Pleno',
     careerTrack: 'Tech',
     businessUnit: 'Digital Products',
+    businessHub: 'Digital Hub',
 
     // Relacionamentos
-    projects: ['projeto-app-mobile', 'projeto-dashboard'],
+    projects: '["projeto-app-mobile", "projeto-dashboard"]',
     managerId: 'gestor-id-123',
-    directReports: [],
+    directReports: '[]',
     mentorId: 'mentor-id-123',
+    leaderId: null,
+    directLeadership: '[]',
+    mentoringIds: '[]',
+    importBatchId: null,
+    lastActivityAt: new Date(),
 
     // Metadados
     isActive: true,
@@ -40,6 +48,22 @@ describe('AuthController', () => {
 
   const mockAuthService = {
     login: jest.fn(),
+    getUserProjectRoles: jest.fn(),
+  };
+
+  const mockUserService = {
+    getUserProfile: jest.fn(),
+    createUser: jest.fn(),
+    findUserById: jest.fn(),
+  };
+
+  const mockRoleCheckerService = {
+    isAdmin: jest.fn(),
+    isHR: jest.fn(),
+    isManager: jest.fn(),
+    isCommittee: jest.fn(),
+    userHasRole: jest.fn(),
+    userHasAnyRole: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -49,6 +73,14 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: UserService,
+          useValue: mockUserService,
+        },
+        {
+          provide: require('./role-checker.service').RoleCheckerService,
+          useValue: mockRoleCheckerService,
         },
       ],
     }).compile();
@@ -75,7 +107,7 @@ describe('AuthController', () => {
           id: mockUser.id,
           name: mockUser.name,
           email: mockUser.email,
-          roles: mockUser.roles,
+          roles: ["colaborador"],
         },
       };
       mockAuthService.login.mockResolvedValue(expectedResponse);
@@ -110,29 +142,40 @@ describe('AuthController', () => {
   describe('getProfile', () => {
     it('deve retornar perfil do usuário', async () => {
       // Arrange
+      const mockProjectRoles = [
+        {
+          projectId: 'projeto-app-mobile',
+          projectName: 'App Mobile',
+          roles: ['COLLABORATOR'],
+        },
+      ];
+
       const expectedProfile = {
         id: mockUser.id,
         name: mockUser.name,
         email: mockUser.email,
-        roles: mockUser.roles,
+        roles: ["colaborador"],
         jobTitle: mockUser.jobTitle,
         seniority: mockUser.seniority,
         careerTrack: mockUser.careerTrack,
         businessUnit: mockUser.businessUnit,
-        projects: mockUser.projects,
+        projectRoles: mockProjectRoles,
         managerId: mockUser.managerId,
-        directReports: mockUser.directReports,
+        directReports: [],
         mentorId: mockUser.mentorId,
         isActive: mockUser.isActive,
-        createdAt: mockUser.createdAt,
-        updatedAt: mockUser.updatedAt,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
       };
+
+      mockAuthService.getUserProjectRoles.mockResolvedValue(mockProjectRoles);
 
       // Act
       const result = await controller.getProfile(mockUser);
 
       // Assert
       expect(result).toEqual(expectedProfile);
+      expect(mockAuthService.getUserProjectRoles).toHaveBeenCalledWith(mockUser.id);
     });
   });
 

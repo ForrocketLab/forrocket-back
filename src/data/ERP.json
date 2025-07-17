@@ -1,0 +1,50 @@
+{
+  "colaboradores": [
+    {
+      "id": "1",
+      "Name": "Ana Beatriz Oliveira Santos",
+      "E-mail": "ana.oliveira@rocketcorp.com",
+      "Roles": "colaborador",
+      "JobTitle": "Desenvolvedora FrontEnd",
+      "Seniority": "Pleno",
+      "BusinessUnit": "Digital Products",
+      "CareerTrack": "Tech",
+      "Manager": "bruno.id",
+      "Direct Reports": "null",
+      "Mentor": "null",
+      "Active": "true",
+      "Projects": "['projeto-alpha', 'projeto-mobile-app']"
+    },
+    {
+      "id": "2",
+      "Name": "Bruno André Mendes Carvalho",
+      "E-mail": "bruno.mendes@rocketcorp.com",
+      "Roles": ["colaborador", "gestor"],
+      "JobTitle": "Tech Lead",
+      "Seniority": "Sênior",
+      "BusinessUnit": "Digital Products",
+      "CareerTrack": "Tech",
+      "Manager": "null",
+      "DirectReports": "",
+      "Mentor": "null",
+      "Active": "true",
+      "Projects": "['projeto-alpha', 'projeto-api-core']"
+      
+    },
+    {
+      "id": "3",
+      "Name": "Felipe Augusto Silva Rodrigues",
+      "E-mail": "felipe.silva@rocketcorp.com",
+      "Roles": "colaborador",
+      "JobTitle": "Desenvolvedor BackEnd",
+      "Seniority": "Júnior",
+      "BusinessUnit": "Digital Products",
+      "CareerTrack": "Tech",
+      "Manager": "bruno.id",
+      "DirectReports": "null",
+      "Mentor": "ana.id",
+      "Active": "true",
+      "Projects": "['projeto-alpha', 'projeto-mobile-app']"
+    }
+  ]
+}

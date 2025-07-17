@@ -7,14 +7,14 @@ export class UserProjectRoleDto {
   @ApiProperty({
     description: 'ID do projeto',
     example: 'projeto-alpha',
-    type: String
+    type: String,
   })
   projectId: string;
 
   @ApiProperty({
     description: 'Nome do projeto',
     example: 'Projeto Alpha',
-    type: String
+    type: String,
   })
   projectName: string;
 
@@ -34,21 +34,21 @@ export class UserInfoDto {
   @ApiProperty({
     description: 'ID único do usuário',
     example: '12345678-90ab-cdef-1234-567890abcdef',
-    type: String
+    type: String,
   })
   id: string;
 
   @ApiProperty({
     description: 'Nome completo do usuário',
     example: 'Ana Oliveira',
-    type: String
+    type: String,
   })
   name: string;
 
   @ApiProperty({
     description: 'Email do usuário',
     example: 'ana.oliveira@rocketcorp.com',
-    type: String
+    type: String,
   })
   email: string;
 
@@ -57,7 +57,7 @@ export class UserInfoDto {
     example: ['colaborador'],
     type: [String]
   })
-  roles: string[];
+  roles: string[]; 
 }
 
 /**
@@ -67,21 +67,21 @@ export class UserProfileDto {
   @ApiProperty({
     description: 'ID único do usuário',
     example: 'cmbyavwvd0000tzsgo55812qo',
-    type: String
+    type: String,
   })
   id: string;
 
   @ApiProperty({
     description: 'Nome completo do usuário',
     example: 'Ana Oliveira',
-    type: String
+    type: String,
   })
   name: string;
 
   @ApiProperty({
     description: 'Email do usuário',
     example: 'ana.oliveira@rocketcorp.com',
-    type: String
+    type: String,
   })
   email: string;
 
@@ -91,7 +91,7 @@ export class UserProfileDto {
     type: [String],
     enum: ['colaborador', 'gestor', 'comite', 'rh', 'admin']
   })
-  roles: string[];
+  roles: string[]; 
 
   // ==========================================
   // DADOS ORGANIZACIONAIS
@@ -100,7 +100,7 @@ export class UserProfileDto {
   @ApiProperty({
     description: 'Cargo/Posição do colaborador',
     example: 'Desenvolvedora Frontend',
-    type: String
+    type: String,
   })
   jobTitle: string;
 
@@ -128,6 +128,15 @@ export class UserProfileDto {
   })
   businessUnit: string;
 
+  @ApiProperty({
+    description: 'Hub de negócio',
+    example: 'Technology Hub',
+    type: String,
+    required: false,
+    nullable: true
+  })
+  businessHub?: string | null;
+
   // ==========================================
   // DADOS DE ALOCAÇÃO E RELACIONAMENTO
   // ==========================================
@@ -154,49 +163,131 @@ export class UserProfileDto {
     description: 'ID do gestor direto',
     example: 'cmbyavwvh0001tzsg5owfxwbq',
     type: String,
-    required: false
+    required: false,
+    nullable: true
   })
-  managerId?: string;
+  managerId?: string | null;
 
   @ApiProperty({
     description: 'Nome do gestor direto',
     example: 'Bruno Mendes',
     type: String,
-    required: false
+    required: false,
+    nullable: true
   })
-  managerName?: string;
+  managerName?: string | null;
 
   @ApiProperty({
     description: 'IDs dos liderados diretos (apenas para gestores)',
     example: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
     type: [String],
-    required: false
+    required: false,
+    nullable: true
   })
-  directReports?: string[];
+  directReports?: string[] | null; 
 
   @ApiProperty({
     description: 'Nomes dos liderados diretos (apenas para gestores)',
     example: ['Ana Oliveira', 'Felipe Silva'],
     type: [String],
-    required: false
+    required: false,
+    nullable: true
   })
-  directReportsNames?: string[];
+  directReportsNames?: string[] | null;
 
   @ApiProperty({
     description: 'ID do mentor designado',
     example: 'cmbyavwvk0002tzsgi5r3edy5',
     type: String,
-    required: false
+    required: false,
+    nullable: true
   })
-  mentorId?: string;
+  mentorId?: string | null;
 
   @ApiProperty({
     description: 'Nome do mentor designado',
     example: 'Carla Dias',
     type: String,
-    required: false
+    required: false,
+    nullable: true
   })
-  mentorName?: string;
+  mentorName?: string | null;
+
+  // ==========================================
+  // NOVOS CAMPOS DE LIDERANÇA
+  // ==========================================
+
+  @ApiProperty({
+    description: 'ID do líder direto',
+    example: 'cmbyavwvh0001tzsg5owfxwbq',
+    type: String,
+    required: false,
+    nullable: true
+  })
+  leaderId?: string | null;
+
+  @ApiProperty({
+    description: 'Nome do líder direto',
+    example: 'Lucas Fernandes',
+    type: String,
+    required: false,
+    nullable: true
+  })
+  leaderName?: string | null;
+
+  @ApiProperty({
+    description: 'IDs das pessoas que esta pessoa lidera diretamente (apenas para líderes)',
+    example: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
+    type: [String],
+    required: false,
+    nullable: true
+  })
+  directLeadership?: string[] | null;
+
+  @ApiProperty({
+    description: 'Nomes das pessoas que esta pessoa lidera diretamente (apenas para líderes)',
+    example: ['Ana Oliveira', 'Felipe Silva'],
+    type: [String],
+    required: false,
+    nullable: true
+  })
+  directLeadershipNames?: string[] | null;
+
+  @ApiProperty({
+    description: 'IDs das pessoas que esta pessoa mentora (apenas para mentores)',
+    example: ['cmbyavwvd0000tzsgo55812qo', 'cmbyavwvo0004tzsgxyz123abc'],
+    type: [String],
+    required: false,
+    nullable: true
+  })
+  mentoringIds?: string[] | null; 
+
+  @ApiProperty({
+    description: 'Nomes das pessoas que esta pessoa mentora (apenas para mentores)',
+    example: ['Ana Oliveira', 'Felipe Silva'],
+    type: [String],
+    required: false,
+    nullable: true
+  })
+  mentoringNames?: string[] | null;
+
+  @ApiProperty({
+    description: 'Projetos em que o usuário está alocado (array de strings)',
+    example: ['projeto-app-mobile', 'projeto-dashboard'],
+    type: [String],
+    required: false,
+    nullable: true,
+  })
+  projects?: string[] | null;
+
+  @ApiProperty({
+    description: 'ID do lote de importação',
+    example: 'batch-id-123',
+    type: String,
+    required: false,
+    nullable: true
+  })
+  importBatchId?: string | null;
 
   // ==========================================
   // METADADOS
@@ -224,4 +315,14 @@ export class UserProfileDto {
     format: 'date-time'
   })
   updatedAt: Date;
-} 
+
+  @ApiProperty({
+    description: 'Data da última atividade do usuário',
+    example: '2024-01-15T10:30:00Z',
+    type: String,
+    format: 'date-time',
+    required: false,
+    nullable: true
+  })
+  lastActivityAt?: Date | null;
+}

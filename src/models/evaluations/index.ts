@@ -5,7 +5,13 @@
 
 // Exporta todas as interfaces e tipos do colaborador
 export * from './collaborator';
+export * from './manager';
 
 // Comentários para futuras implementações
-// export * from './manager';     // Será implementado futuramente
-// export * from './committee';   // Será implementado futuramente 
+// ==========================================
+
+// FUTURAS IMPLEMENTAÇÕES:
+// - Avaliações de Comitê (committee)
+// - Avaliações de RH (hr)
+// - Avaliações de Pares (peer)
+// - Avaliações de Stakeholders (stakeholder) 

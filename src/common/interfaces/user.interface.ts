@@ -180,11 +180,11 @@ export interface IUser {
  *    - É avaliado E avalia seus liderados
  * 
  * 3. SÓCIO (COMITÊ):
- *    - roles: [UserRole.COLABORADOR, UserRole.COMITE]
+ *    - roles: [UserRole.COLABORADOR, UserRole.COMMITTEE]
  *    - Participa da avaliação E do comitê de equalização
  * 
  * 4. GESTOR SÓCIO:
- *    - roles: [UserRole.COLABORADOR, UserRole.GESTOR, UserRole.COMITE]
+ *    - roles: [UserRole.COLABORADOR, UserRole.GESTOR, UserRole.COMMITTEE]
  *    - Combina todas as responsabilidades
  * 
  * 5. RH:

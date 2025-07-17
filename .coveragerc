@@ -1,0 +1,17 @@
+# Coverage ignore patterns
+[run]
+omit = 
+    */node_modules/*
+    */dist/*
+    */coverage/*
+    */test/*
+    */migrations/*
+    *.spec.ts
+    *.test.ts
+    *.e2e-spec.ts
+    */main.ts
+    */*.module.ts
+    */index.ts
+    */*.interface.ts
+    */*.types.ts
+    */*.enum.ts 

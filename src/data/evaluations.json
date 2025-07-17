@@ -1,0 +1,255 @@
+{
+  "avaliacoes": [
+    {
+      "id_avaliacao": "auto_aval_ana_01",
+      "id_avaliado": "1",
+      "id_avaliador": "1",
+      "tipo_avaliacao": "Autoavaliação",
+      "data_avaliacao": "2025-06-25T11:00:00Z",
+      "answers": [
+        {
+          "criterionId": "sentimento-de-dono",
+          "score": 4,
+          "justification": "Assumi a liderança da iniciativa X."
+        },
+        {
+          "criterionId": "resiliencia-nas-adversidades",
+          "score": 5,
+          "justification": "Mantive a calma durante a crise do projeto Y."
+        },
+        {
+          "criterionId": "organizacao-no-trabalho",
+          "score": 4,
+          "justification": "As minhas tarefas estão sempre organizadas."
+        },
+        {
+          "criterionId": "capacidade-de-aprender",
+          "score": 5,
+          "justification": "Concluí 3 cursos de especialização."
+        },
+        {
+          "criterionId": "ser-team-player",
+          "score": 5,
+          "justification": "Ajudei colegas de outras equipas."
+        },
+        {
+          "criterionId": "entregar-com-qualidade",
+          "score": 4,
+          "justification": "O meu código passou em todos os testes."
+        },
+        {
+          "criterionId": "atender-aos-prazos",
+          "score": 5,
+          "justification": "Entreguei 90% das tarefas no prazo."
+        },
+        {
+          "criterionId": "fazer-mais-com-menos",
+          "score": 3,
+          "justification": "Busquei automatizar tarefas."
+        },
+        {
+          "criterionId": "pensar-fora-da-caixa",
+          "score": 4,
+          "justification": "Propus uma nova abordagem para o problema Z."
+        }
+      ]
+    },
+    {
+      "id_avaliacao": "auto_aval_felipe_01",
+      "id_avaliado": "3",
+      "id_avaliador": "3",
+      "tipo_avaliacao": "Autoavaliação",
+      "data_avaliacao": "2025-06-26T09:30:00Z",
+      "answers": [
+        {
+          "criterionId": "sentimento-de-dono",
+          "score": 3,
+          "justification": "Procuro sempre alinhar com a equipa."
+        },
+        {
+          "criterionId": "resiliencia-nas-adversidades",
+          "score": 4,
+          "justification": "Adaptei-me bem às mudanças."
+        },
+        {
+          "criterionId": "organizacao-no-trabalho",
+          "score": 4,
+          "justification": "Utilizo ferramentas de gestão."
+        },
+        {
+          "criterionId": "capacidade-de-aprender",
+          "score": 4,
+          "justification": "Estou a aprender uma nova framework."
+        },
+        {
+          "criterionId": "ser-team-player",
+          "score": 5,
+          "justification": "Estou sempre disponível para ajudar."
+        },
+        {
+          "criterionId": "entregar-com-qualidade",
+          "score": 5,
+          "justification": "As minhas entregas são sempre revistas."
+        },
+        {
+          "criterionId": "atender-aos-prazos",
+          "score": 5,
+          "justification": "Nunca falhei um prazo de entrega."
+        },
+        {
+          "criterionId": "fazer-mais-com-menos",
+          "score": 4,
+          "justification": "Reutilizei componentes existentes."
+        },
+        {
+          "criterionId": "pensar-fora-da-caixa",
+          "score": 5,
+          "justification": "A minha sugestão para a nova cache melhorou a performance."
+        }
+      ]
+    },
+    {
+      "id_avaliacao": "eval_mgr_1751464740197",
+      "id_avaliado": "1",
+      "id_avaliador": "2",
+      "tipo_avaliacao": "Gestor",
+      "notas": {
+        "sentimentodedono": 5,
+        "resiliencianasadversidades": 5,
+        "organizacaonotrabalho": 5,
+        "capacidadedeaprender": 5,
+        "serteamplayer": 5,
+        "entregarcomqualidade": 5,
+        "atenderaosprazos": 5,
+        "fazermaiscommenos": 5,
+        "pensarforadacaixa": 5
+      },
+      "justificativas": {
+        "sentimentodedono": "1",
+        "resiliencianasadversidades": "1",
+        "organizacaonotrabalho": "1",
+        "capacidadedeaprender": "1",
+        "serteamplayer": "1",
+        "entregarcomqualidade": "1",
+        "atenderaosprazos": "1",
+        "fazermaiscommenos": "1",
+        "pensarforadacaixa": "1"
+      },
+      "data_avaliacao": "2025-07-02T13:59:00.200Z"
+    }
+
+  
+  ],
+  "observacoes_equalizacao": [],
+  "projetos": [
+    {
+      "projeto-alpha": {
+        "scores": [
+          {
+            "cycle": "2024.2",
+            "score": 4.5,
+            "reason": "Iniciei esse projeto com certo receio, mas as minhas expectativas foram superadas."
+          },
+          {
+            "cycle": "2025.1",
+            "score": 4.75,
+            "reason": "Foi a melhor experiência como cliente que já tive em 15 anos como empresário!"
+          }
+        ],
+        "percentage": 65,
+        "EndDate": "2025-12-31",
+        "CollaboratorsNumber": 3
+      },
+      "projeto-api-core": {
+        "scores": [
+          {
+            "cycle": "2024.1",
+            "score": 4.5,
+            "reason": "O projeto foi desenvolvido da melhor maneira possível."
+          },
+          {
+            "cycle": "2024.2",
+            "score": 4.8,
+            "reason": "Já havia sido uma grande experiência no ciclo passado, mas nesse todas as minhas expectativas foram superadas."
+          },
+          {
+            "cycle": "2025.1",
+            "score": 4.6,
+            "reason": "Mantiveram o nível e a qualidade nos entregáveis em relação ao ciclo passado."
+          }
+        ],
+        "percentage": 95,
+        "EndDate": "2025-08-30",
+        "CollaboratorsNumber": 4
+      },
+      "projeto-beta": {
+        "scores": [
+          {
+            "cycle": "2025.1",
+            "score": 4.2,
+            "reason": "O projeto está progredindo bem, com boa colaboração da equipe."
+          }
+        ],
+        "percentage": 40,
+        "EndDate": "2026-03-30",
+        "CollaboratorsNumber": 4
+      },
+      "projeto-delta": {
+        "scores": [
+          {
+            "cycle": "2024.2",
+            "score": 4.5,
+            "reason": "Iniciei esse projeto com certo receio, mas as minhas expectativas foram superadas."
+          },    
+          {
+            "cycle": "2025.1",
+            "score": 4.1,
+            "reason": "Início promissor, com a equipe bem alinhada aos objetivos da migração."
+          }
+        ],
+        "percentage": 25,
+        "EndDate": "2026-06-30",
+        "CollaboratorsNumber": 5
+      },
+      "projeto-gamma": {
+        "scores": [
+          {
+            "cycle": "2024.2",
+            "score": 4.5,
+            "reason": "Iniciei esse projeto com certo receio, mas as minhas expectativas foram superadas."
+          },
+          {
+            "cycle": "2025.1",
+            "score": 4.8,
+            "reason": "Resultados excelentes, as análises de BI já estão gerando valor."
+          }
+        ],
+        "percentage": 80,
+        "EndDate": "2025-10-15",
+        "CollaboratorsNumber": 3
+      },
+      "projeto-mobile-app": {
+        "scores": [
+          {
+            "cycle": "2024.1",
+            "score": 4,
+            "reason": "Gostei bastante do resultado."
+          },
+          {
+            "cycle": "2024.2",
+            "score": 3.8,
+            "reason": "Senti Falta de maior comunicação, mas obtivemos um bom produto."
+          },
+          {
+            "cycle": "2025.1",
+            "score": 4.2,
+            "reason": "Os problemas de comunicação em relação ao ciclo passado foram sanados. Ótimo trabalho!."
+          }
+        ],
+        "percentage": 90,
+        "EndDate": "2025-09-20",
+        "CollaboratorsNumber": 3
+      }
+    }
+  ]
+}

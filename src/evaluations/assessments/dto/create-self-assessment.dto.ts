@@ -1,257 +1,157 @@
-import { IsString, IsNumber, Min, Max, IsNotEmpty, ValidateNested, IsInt } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsString, Min, Max, IsNotEmpty, ValidateNested, IsInt, IsOptional } from 'class-validator';
 
 /**
- * DTO para criação de autoavaliação completa
- * Inclui todos os 12 critérios obrigatoriamente
+ * DTO para uma resposta de critério (score + justificativa)
  */
-export class CreateSelfAssessmentDto {
+export class CriterionAnswerDto {
   @ApiProperty({
-    description: 'Ciclo de avaliação',
-    example: '2025.1'
+    description: 'Nota para o critério (1 a 5)',
+    example: 4,
+    minimum: 1,
+    maximum: 5,
+  })
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  score: number;
+
+  @ApiProperty({
+    description: 'Justificativa para o critério',
+    example: 'Demonstro responsabilidade pelos resultados da equipe.',
   })
   @IsString()
   @IsNotEmpty()
-  cycle: string;
+  justification: string;
+}
+
+/**
+ * DTO para criação de autoavaliação completa
+ * Aceita critérios por ID com score e justificativa
+ */
+export class CreateSelfAssessmentDto {
+  @ApiProperty({
+    description: 'ID do ciclo de avaliação',
+    example: '2025.1',
+  })
+  @IsString()
+  @IsNotEmpty()
+  cycleId: string;
 
   // ==========================================
   // PILAR: COMPORTAMENTO (5 critérios)
   // ==========================================
 
   @ApiProperty({
-    description: 'Nota para Sentimento de Dono (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Sentimento de Dono',
+    type: CriterionAnswerDto,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  sentimentoDeDonoScore: number;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'sentimento-de-dono': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Justificativa para Sentimento de Dono',
-    example: 'Demonstro responsabilidade pelos resultados da equipe e tomo iniciativa em projetos importantes.'
+    description: 'Resposta para Resiliência nas Adversidades',
+    type: CriterionAnswerDto,
   })
-  @IsString()
-  @IsNotEmpty()
-  sentimentoDeDonoJustification: string;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'resiliencia-adversidades': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Nota para Resiliência nas Adversidades (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Organização no Trabalho',
+    type: CriterionAnswerDto,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  resilienciaAdversidadesScore: number;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'organizacao-trabalho': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Justificativa para Resiliência nas Adversidades',
-    example: 'Mantenho-me firme e positivo diante de desafios, adaptando-me bem a mudanças.'
+    description: 'Resposta para Capacidade de Aprender',
+    type: CriterionAnswerDto,
   })
-  @IsString()
-  @IsNotEmpty()
-  resilienciaAdversidadesJustification: string;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'capacidade-aprender': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Nota para Organização no Trabalho (1 a 5)',
-    example: 5,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Ser "Team Player"',
+    type: CriterionAnswerDto,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  organizacaoTrabalhoScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Organização no Trabalho',
-    example: 'Mantenho organização pessoal, planejo bem as atividades e gerencio eficientemente o tempo.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  organizacaoTrabalhoJustification: string;
-
-  @ApiProperty({
-    description: 'Nota para Capacidade de Aprender (1 a 5)',
-    example: 5,
-    minimum: 1,
-    maximum: 5
-  })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  capacidadeAprenderScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Capacidade de Aprender',
-    example: 'Demonstro curiosidade, busco constantemente novos conhecimentos e aplico o que aprendo.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  capacidadeAprenderJustification: string;
-
-  @ApiProperty({
-    description: 'Nota para Ser "Team Player" (1 a 5)',
-    example: 5,
-    minimum: 1,
-    maximum: 5
-  })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  teamPlayerScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Ser "Team Player"',
-    example: 'Trabalho bem em equipe, colaboro ativamente, compartilho conhecimento e ajudo colegas.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  teamPlayerJustification: string;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'team-player': CriterionAnswerDto;
 
   // ==========================================
   // PILAR: EXECUÇÃO (4 critérios)
   // ==========================================
 
   @ApiProperty({
-    description: 'Nota para Entregar com Qualidade (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Entregar com Qualidade',
+    type: CriterionAnswerDto,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  entregarQualidadeScore: number;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'entregar-qualidade': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Justificativa para Entregar com Qualidade',
-    example: 'Entrego trabalhos com alta qualidade, atenção aos detalhes e seguindo padrões estabelecidos.'
+    description: 'Resposta para Atender Prazos',
+    type: CriterionAnswerDto,
   })
-  @IsString()
-  @IsNotEmpty()
-  entregarQualidadeJustification: string;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'atender-prazos': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Nota para Atender aos Prazos (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Fazer Mais com Menos',
+    type: CriterionAnswerDto,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  atenderPrazosScore: number;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'fazer-mais-menos': CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Justificativa para Atender aos Prazos',
-    example: 'Cumpro prazos estabelecidos, gerencio bem o tempo e comunico antecipadamente possíveis atrasos.'
+    description: 'Resposta para Pensar Fora da Caixa',
+    type: CriterionAnswerDto,
   })
-  @IsString()
-  @IsNotEmpty()
-  atenderPrazosJustification: string;
-
-  @ApiProperty({
-    description: 'Nota para Fazer Mais com Menos (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
-  })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  fazerMaisMenosScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Fazer Mais com Menos',
-    example: 'Otimizo recursos, encontro soluções eficientes e maximizo resultados com recursos limitados.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  fazerMaisMenosJustification: string;
-
-  @ApiProperty({
-    description: 'Nota para Pensar Fora da Caixa (1 a 5)',
-    example: 3,
-    minimum: 1,
-    maximum: 5
-  })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  pensarForaCaixaScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Pensar Fora da Caixa',
-    example: 'Demonstro criatividade, proponho soluções inovadoras e abordo problemas de forma não convencional.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  pensarForaCaixaJustification: string;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'pensar-fora-caixa': CriterionAnswerDto;
 
   // ==========================================
-  // PILAR: GESTÃO E LIDERANÇA (3 critérios)
+  // PILAR: EVOLUÇÃO (1 critério)
   // ==========================================
 
   @ApiProperty({
-    description: 'Nota para Gente (1 a 5)',
-    example: 3,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Evolução Rocket Corp',
+    type: CriterionAnswerDto,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  gestaoGenteScore: number;
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'evolucao-rocket-corp': CriterionAnswerDto;
+
+  // ==========================================
+  // PILAR: GESTÃO E LIDERANÇA (2 critérios - OPCIONAL para não-gestores)
+  // ==========================================
 
   @ApiProperty({
-    description: 'Justificativa para Gente',
-    example: 'Desenvolvo pessoas, inspiro e motivo a equipe, promovo um ambiente colaborativo e de crescimento.'
+    description: 'Resposta para Gestão de Gente (opcional - apenas para gestores)',
+    type: CriterionAnswerDto,
+    required: false,
   })
-  @IsString()
-  @IsNotEmpty()
-  gestaoGenteJustification: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'gestao-gente'?: CriterionAnswerDto;
 
   @ApiProperty({
-    description: 'Nota para Resultados (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
+    description: 'Resposta para Gestão de Resultados (opcional - apenas para gestores)',
+    type: CriterionAnswerDto,
+    required: false,
   })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  gestaoResultadosScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Resultados',
-    example: 'Foco na entrega de resultados, defino metas claras e acompanho o desempenho da equipe.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  gestaoResultadosJustification: string;
-
-  @ApiProperty({
-    description: 'Nota para Evolução da Rocket Corp (1 a 5)',
-    example: 4,
-    minimum: 1,
-    maximum: 5
-  })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  evolucaoRocketScore: number;
-
-  @ApiProperty({
-    description: 'Justificativa para Evolução da Rocket Corp',
-    example: 'Contribuo ativamente para o crescimento e evolução da empresa, proponho melhorias e inovações.'
-  })
-  @IsString()
-  @IsNotEmpty()
-  evolucaoRocketJustification: string;
-} 
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CriterionAnswerDto)
+  'gestao-resultados'?: CriterionAnswerDto;
+}

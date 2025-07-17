@@ -222,7 +222,7 @@ export const isManager = (user: Pick<IUser, 'roles' | 'directReports'>): boolean
  * Type guard para verificar se um usuário é membro do comitê
  */
 export const isCommitteeMember = (user: Pick<IUser, 'roles'>): boolean => {
-  return hasRole(user, UserRole.COMITE);
+  return hasRole(user, UserRole.COMMITTEE);
 };
 
 /**

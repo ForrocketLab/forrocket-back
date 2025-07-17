@@ -89,7 +89,7 @@ export const exemploSocioComite: IUser = {
   name: 'Carla Oliveira',
   email: 'carla.oliveira@rocketcorp.com',
   passwordHash: '$2b$10$...',
-  roles: [UserRole.COLABORADOR, UserRole.COMITE],
+  roles: [UserRole.COLABORADOR, UserRole.COMMITTEE],
   
   // Dados organizacionais
   jobTitle: 'Head of Engineering',
@@ -211,7 +211,7 @@ export function exemploVerificacaoPermissoes() {
   // Verificações básicas usando type guards
   console.log('É colaborador?', hasRole(usuario, UserRole.COLABORADOR)); // true
   console.log('É gestor?', hasRole(usuario, UserRole.GESTOR)); // true
-  console.log('É do comitê?', hasRole(usuario, UserRole.COMITE)); // false
+  console.log('É do comitê?', hasRole(usuario, UserRole.COMMITTEE)); // false
   console.log('É manager?', isManager(usuario)); // true (tem role GESTOR e directReports)
   
   // Criando contexto de permissões
@@ -245,7 +245,7 @@ export function exemploQuemPodeAvaliar(avaliador: IUser, avaliado: IUser): boole
   }
   
   // Membros do comitê podem avaliar qualquer colaborador
-  if (hasRole(avaliador, UserRole.COMITE)) {
+  if (hasRole(avaliador, UserRole.COMMITTEE)) {
     return hasRole(avaliado, UserRole.COLABORADOR);
   }
   
@@ -274,7 +274,7 @@ export function exemploNivelAcessoRelatorios(usuario: IUser): 'nenhum' | 'propri
     return 'empresa'; // Acesso a relatórios da empresa
   }
   
-  if (hasRole(usuario, UserRole.COMITE)) {
+  if (hasRole(usuario, UserRole.COMMITTEE)) {
     return 'empresa'; // Sócios veem dados da empresa
   }
   
