@@ -57,7 +57,6 @@ import { MentorService } from 'src/mentor/mentor.service';
 @ApiTags('Avaliações')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@UseInterceptors(EvaluationInputInterceptor, EvaluationDecryptionInterceptor)
 @ApiExtraModels(SelfAssessmentCompletionByPillarDto, OverallCompletionDto, PillarProgressDto)
 @Controller('api/evaluations/collaborator')
 export class EvaluationsController {
