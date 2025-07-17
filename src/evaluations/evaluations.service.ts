@@ -221,7 +221,7 @@ export class EvaluationsService {
       return {
         criterionId,
         score: criterionData.score,
-        justification: this.encryptionService.encrypt(criterionData.justification),
+        justification: criterionData.justification,
       };
     });
 
@@ -230,7 +230,7 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: dto.cycleId,
-        status: EvaluationStatus.DRAFT,
+        status: EvaluationStatus.SUBMITTED,
         answers: {
           create: answers,
         },
@@ -247,15 +247,9 @@ export class EvaluationsService {
    * Atualiza incrementalmente uma autoavaliação existente ou cria uma nova se não existir
    */
   async updateSelfAssessment(userId: string, dto: UpdateSelfAssessmentDto) {
-    console.log('🔍 DEBUG - updateSelfAssessment iniciado');
-    console.log('🔍 DEBUG - DTO recebido:', JSON.stringify(dto, null, 2));
-    console.log('🔍 DEBUG - userId:', userId);
-
     // Determinar o ciclo a ser usado
     const cycleToUse =
       dto.cycleId || (await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS'])).name;
-
-    console.log('🔍 DEBUG - cycleToUse:', cycleToUse);
 
     // Verificar se o usuário tem papel de gestor para validar critérios
     const userWithRoles = await this.prisma.user.findUnique({
@@ -330,7 +324,7 @@ export class EvaluationsService {
         data: {
           authorId: userId,
           cycle: cycleToUse,
-          status: EvaluationStatus.DRAFT,
+          status: EvaluationStatus.SUBMITTED,
           answers: {
             create: emptyCriteriaData,
           },
@@ -423,7 +417,7 @@ export class EvaluationsService {
             where: { id: existingAnswer.id },
             data: {
               score: data.score,
-              justification: this.encryptionService.encrypt(data.justification),
+              justification: data.justification,
             },
           }),
         );
@@ -435,7 +429,7 @@ export class EvaluationsService {
             data: {
               criterionId,
               score: data.score,
-              justification: this.encryptionService.encrypt(data.justification),
+              justification: data.justification,
               selfAssessmentId: existingAssessment.id,
             },
           }),
@@ -517,10 +511,10 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: activeCycle.name,
-        status: EvaluationStatus.DRAFT, // Usando o enum aqui
+        status: EvaluationStatus.SUBMITTED, // Usando o enum aqui
         mentorId: dto.mentorId,
         score: dto.score,
-        justification: this.encryptionService.encrypt(dto.justification),
+        justification: dto.justification,
       },
     });
 
@@ -568,10 +562,10 @@ export class EvaluationsService {
       data: {
         authorId: userId,
         cycle: activeCycle.name,
-        status: EvaluationStatus.DRAFT, // Usando o enum aqui
+        status: EvaluationStatus.SUBMITTED, // Usando o enum aqui
         referencedUserId: dto.referencedUserId,
-        topic: this.encryptionService.encrypt(dto.topic || ''), // Campo opcional
-        justification: this.encryptionService.encrypt(dto.justification),
+        topic: dto.topic || '', // Campo opcional
+        justification: dto.justification,
       },
     });
 
@@ -675,7 +669,7 @@ export class EvaluationsService {
         authorId: managerId,
         evaluatedUserId: dto.evaluatedUserId,
         cycle: activeCycle.name,
-        status: EvaluationStatus.DRAFT, // Usando o enum aqui
+        status: EvaluationStatus.SUBMITTED, // Usando o enum aqui
         answers: {
           create: answers,
         },
@@ -1163,10 +1157,13 @@ export class EvaluationsService {
     // 3. Validar se o gestor logado tem permissão para visualizar o subordinado
     // Verificar se é gestor direto OU gestor de projeto
     const isDirectManager = subordinate.managerId === managerId;
-    
+
     // Verificar se é gestor de projeto
-    const isProjectManager = await this.projectsService.canManagerEvaluateUser(managerId, subordinateId);
-    
+    const isProjectManager = await this.projectsService.canManagerEvaluateUser(
+      managerId,
+      subordinateId,
+    );
+
     if (!isDirectManager && !isProjectManager) {
       throw new ForbiddenException(
         'Você não tem permissão para visualizar a autoavaliação deste usuário. Ele não é seu subordinado direto nem está em projetos onde você é gestor.',
@@ -1315,11 +1312,14 @@ export class EvaluationsService {
     if (!subordinate) {
       throw new NotFoundException('Subordinado não encontrado.');
     }
-    
+
     // Verificar se é gestor direto OU gestor de projeto
     const isDirectManager = subordinate.managerId === managerId;
-    const isProjectManager = await this.projectsService.canManagerEvaluateUser(managerId, subordinateId);
-    
+    const isProjectManager = await this.projectsService.canManagerEvaluateUser(
+      managerId,
+      subordinateId,
+    );
+
     if (!isDirectManager && !isProjectManager) {
       throw new ForbiddenException(
         'Você não tem permissão para visualizar os dados deste usuário. Ele não é seu subordinado direto nem está em projetos onde você é gestor.',
@@ -2415,7 +2415,7 @@ export class EvaluationsService {
         strengths: dto.strengths,
         improvements: dto.improvements,
         motivationToWorkAgain: dto.workAgainMotivation,
-        status: EvaluationStatus.DRAFT,
+        status: EvaluationStatus.SUBMITTED,
       },
       include: {
         evaluatedUser: {
@@ -2494,7 +2494,10 @@ export class EvaluationsService {
    */
   async getSelfAssessmentForFrontend(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
+    if (!activeCycle) {
+      throw new NotFoundException('Nenhum ciclo ativo encontrado');
+    }
 
     // Verificar se o usuário tem papel de gestor para determinar critérios obrigatórios
     const userWithRoles = await this.prisma.user.findUnique({
@@ -2546,29 +2549,24 @@ export class EvaluationsService {
     const selfAssessment = await this.prisma.selfAssessment.findFirst({
       where: {
         authorId: userId,
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
       include: {
         answers: true,
       },
     });
 
-    // Se não existir autoavaliação, retornar null
-    if (!selfAssessment) {
-      return null;
-    }
-
     // Criar objeto de resposta formatado
     const formattedResponse: Record<string, { score: number; justification: string }> = {};
 
     // Para cada critério aplicável, buscar a resposta correspondente
     for (const criterionId of applicableCriteriaIds) {
-      const answer = selfAssessment.answers.find((a) => a.criterionId === criterionId);
+      const answer = selfAssessment?.answers.find((a) => a.criterionId === criterionId);
 
       if (answer) {
         formattedResponse[criterionId] = {
           score: answer.score,
-          justification: this.encryptionService.decrypt(answer.justification),
+          justification: answer.justification,
         };
       } else {
         // Se não há resposta para o critério, retornar valores padrão
@@ -2615,7 +2613,7 @@ export class EvaluationsService {
           authorId,
           evaluatedUserId,
           cycle: cycleId,
-          status: EvaluationStatus.DRAFT,
+          status: EvaluationStatus.SUBMITTED,
           overallScore: 0,
           strengths: '',
           improvements: '',
@@ -2698,7 +2696,7 @@ export class EvaluationsService {
           authorId,
           mentorId,
           cycle: cycleId,
-          status: EvaluationStatus.DRAFT,
+          status: EvaluationStatus.SUBMITTED,
           score: 0,
           justification: '',
         },
@@ -2809,7 +2807,7 @@ export class EvaluationsService {
    */
   async getAvailable360Collaborators(userId: string) {
     // Buscar ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Buscar todos os projetos do usuário
     const userProjects = await this.prisma.userProjectAssignment.findMany({
@@ -2826,12 +2824,18 @@ export class EvaluationsService {
         userId: { not: userId },
       },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            jobTitle: true,
+          },
+        },
       },
     });
 
     // Remover duplicados (um colaborador pode estar em mais de um projeto)
-    const uniqueCollaboratorsMap = new Map();
+    const uniqueCollaboratorsMap = new Map<string, (typeof collaborators)[0]['user']>();
     for (const c of collaborators) {
       uniqueCollaboratorsMap.set(c.userId, c.user);
     }
@@ -2842,10 +2846,10 @@ export class EvaluationsService {
       where: {
         authorId: userId,
         evaluatedUserId: { in: uniqueCollaborators.map((c) => c.id) },
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
     });
-    const assessmentsMap = new Map();
+    const assessmentsMap = new Map<string, (typeof assessments)[0]>();
     for (const a of assessments) {
       assessmentsMap.set(a.evaluatedUserId, a);
     }
@@ -2902,7 +2906,7 @@ export class EvaluationsService {
             strengths: dto.strengths,
             improvements: dto.improvements,
             motivationToWorkAgain: motivation,
-            status: EvaluationStatus.DRAFT,
+            status: EvaluationStatus.SUBMITTED,
           },
         });
       } else {
@@ -2926,7 +2930,7 @@ export class EvaluationsService {
    */
   async getDesignatedMentorAssessment(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Buscar o usuário para obter o mentorId
     const user = await this.prisma.user.findUnique({
@@ -2957,7 +2961,7 @@ export class EvaluationsService {
       where: {
         authorId: userId,
         mentorId: user.mentorId,
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
     });
 
@@ -2975,11 +2979,6 @@ export class EvaluationsService {
    * Atualiza ou cria uma avaliação de mentoring para o mentor designado
    */
   async updateDesignatedMentorAssessment(userId: string, dto: UpdateDesignatedMentorAssessmentDto) {
-    console.log('DTO recebido:', dto);
-    console.log('Tipo do DTO:', typeof dto);
-    console.log('Rating:', dto?.rating);
-    console.log('Justification:', dto?.justification);
-
     // Validar se o dto existe e tem os campos necessários
     if (!dto) {
       throw new BadRequestException('Dados da avaliação são obrigatórios');
@@ -3024,7 +3023,7 @@ export class EvaluationsService {
           cycle: activeCycle.name,
           score: dto.rating,
           justification: dto.justification,
-          status: EvaluationStatus.DRAFT,
+          status: EvaluationStatus.SUBMITTED,
         },
       });
     } else {
@@ -3046,13 +3045,13 @@ export class EvaluationsService {
    */
   async getReferenceFeedbacks(userId: string) {
     // Validar se existe um ciclo ativo
-    const activeCycle = await this.cyclesService.validateActiveCyclePhase(['ASSESSMENTS']);
+    const activeCycle = await this.cyclesService.getActiveCycle();
 
     // Buscar todos os feedbacks de referência do usuário no ciclo ativo
     const referenceFeedbacks = await this.prisma.referenceFeedback.findMany({
       where: {
         authorId: userId,
-        cycle: activeCycle.name,
+        cycle: activeCycle?.name,
       },
       include: {
         referencedUser: {
@@ -3071,7 +3070,7 @@ export class EvaluationsService {
       referenceName: feedback.referencedUser.name,
       referenceRole: feedback.referencedUser.jobTitle,
       referenceInitials: this.generateInitials(feedback.referencedUser.name),
-      justification: this.encryptionService.decrypt(feedback.justification),
+      justification: feedback.justification,
     }));
   }
 
@@ -3133,9 +3132,9 @@ export class EvaluationsService {
               authorId: userId,
               referencedUserId: ref.id, // ID do usuário referenciado
               cycle: activeCycle.name,
-              topic: this.encryptionService.encrypt(''), // Campo opcional vazio
-              justification: this.encryptionService.encrypt(ref.justification),
-              status: EvaluationStatus.DRAFT,
+              topic: '', // Campo opcional vazio
+              justification: ref.justification,
+              status: EvaluationStatus.SUBMITTED,
             },
             include: {
               referencedUser: {
@@ -3156,7 +3155,7 @@ export class EvaluationsService {
         referenceName: feedback.referencedUser.name,
         referenceRole: feedback.referencedUser.jobTitle,
         referenceInitials: this.generateInitials(feedback.referencedUser.name),
-        justification: this.encryptionService.decrypt(feedback.justification),
+        justification: feedback.justification,
       }));
     });
   }
