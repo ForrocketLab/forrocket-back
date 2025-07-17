@@ -110,6 +110,22 @@ Como ainda não há FK para a tabela `Criterion`, utilizamos mapeamento estátic
 
 ## 🔒 **Segurança e Permissões**
 
+### **Funcionalidades de Segurança**
+- ✅ **Bloqueio de Conta**: Após 3 tentativas falhas de login, a conta do usuário é automaticamente bloqueada por 15 minutos. Um e-mail de aviso é enviado ao usuário notificando sobre o bloqueio.
+- ✅ **Recuperação de Senha**: Funcionalidade de "Esqueci minha senha" implementada: Envia um código de verificação por e-mail para permitir a redefinição segura da senha.
+
+### **Variáveis de Ambiente**
+```bash
+# .env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=465
+EMAIL_SECURE=true
+EMAIL_USER=your-email-here
+EMAIL_PASSWORD=-your-app-password-here
+EMAIL_FROM="ForRocketLab Support <suporte@forrocketlab.com>"
+```
+- **Obs**.: O EMAIL_PASSWORD não é a sua senha do email, e sim uma senha de app criada na sua conta Google.
+
 ### **Guards Aplicados**
 - ✅ **JwtAuthGuard**: Verificação de token válido
 - ✅ **CommitteeRoleGuard**: Apenas membros do comitê
