@@ -2808,7 +2808,7 @@ export class EvaluationsService {
   async getAvailable360Collaborators(userId: string) {
     // Buscar ciclo ativo
     const activeCycle = await this.cyclesService.getActiveCycle();
-    
+
     // Buscar todos os projetos do usuário
     const userProjects = await this.prisma.userProjectAssignment.findMany({
       where: { userId },
@@ -2835,7 +2835,7 @@ export class EvaluationsService {
     });
 
     // Remover duplicados (um colaborador pode estar em mais de um projeto)
-    const uniqueCollaboratorsMap = new Map<string, typeof collaborators[0]['user']>();
+    const uniqueCollaboratorsMap = new Map<string, (typeof collaborators)[0]['user']>();
     for (const c of collaborators) {
       uniqueCollaboratorsMap.set(c.userId, c.user);
     }
@@ -2849,7 +2849,7 @@ export class EvaluationsService {
         cycle: activeCycle?.name,
       },
     });
-    const assessmentsMap = new Map<string, typeof assessments[0]>();
+    const assessmentsMap = new Map<string, (typeof assessments)[0]>();
     for (const a of assessments) {
       assessmentsMap.set(a.evaluatedUserId, a);
     }
